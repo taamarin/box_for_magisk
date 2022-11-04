@@ -1,0 +1,148 @@
+# port: 9494
+# socks-port: 9595
+# mixed-port: 9696
+redir-port: 9797
+tproxy-port: 9898
+mode: rule
+allow-lan: true
+unified-delay: true
+bind-address: '*'
+# info / warning / error / debug / silent
+log-level: warning
+ipv6: false
+geodata-mode: true
+geodata-loader: memconservative
+external-controller: 0.0.0.0:9090 
+external-controller-tls: 0.0.0.0:9091 # RESTful API HTTPS device
+# secret: "123456"
+external-ui: ../dashboard/dist
+tcp-concurrent: false
+inbound-tfo: true
+# global-client-fingerprint: chrome
+# interface-name: ""
+# routing-mark: 233
+geox-url:
+  mmdb: "https://raw.githubusercontent.com/Loyalsoldier/geoip/release/Country.mmdb"
+  geoip: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat"
+  geosite: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
+#  - always, Diaktifkan untuk memaksa semua proses agar cocok
+#  - strict, Secara default, ini dinilai dari √clash apakah diaktifkan atau tidak
+#  - off, tidak cocok dengan prosesnya, disarankan untuk menggunakan mode ini di router
+find-process-mode: off # always, strict, off
+
+profile:
+  store-selected: true
+  store-fake-ip: false
+
+experimental:
+  sniff-tls-sni: false
+  udp-fallback-match: false
+  fingerprint: ""
+
+sniffer:
+  enable: false
+  ## 对 redir-host 类型识别的流量进行强制嗅探
+  ## 如：Tun、Redir 和 TProxy 并 DNS 为 redir-host 皆属于
+  force-dns-mapping: true
+  parse-pure-ip: true
+  override-destination: true
+  sniff:
+    TLS:
+    #  ports:[443, 8443]
+    HTTP:
+      ports: [80, 8080-8880]
+      override-destination: true
+  force-domain:
+    - +.v2ex.com
+  # skip-domain:
+    # - +.google.com
+  sniffing:
+    - tls
+    - http
+  port-whitelist:
+    - "80"
+    - "443"
+
+tun:
+  enable: false
+  # biarkan default utun
+  device: utun
+  mtu: 9000
+  # gvisor / lwip / system
+  stack: system
+  dns-hijack:
+    - any:53
+  auto-route: false
+  auto-detect-interface: false
+  inet4-address: 172.19.0.1/30
+  inet6-address: [fdfe:dcba:9876::1/126]
+  strict_route: false
+  # inet4_route_address:
+    # - 0.0.0.0/1
+    # - 128.0.0.0/1
+  # inet6_route_address:
+    # - "::/1"
+    # - "8000::/1"
+  # include_android_user:
+  # - 0
+  # - 10
+  # include_package:
+  # - com.android.chrome
+  # exclude_package:
+  # - com.android.captiveportallogin
+
+dns:
+  enable: true
+  ipv6: false
+  prefer-h3: true
+  default-nameserver:
+    - '1.1.1.1'
+    - '8.8.8.8'
+  listen: 0.0.0.0:1053
+  use-hosts: true
+  # redir-host / fake-ip
+  enhanced-mode: fake-ip
+  fake-ip-range: 43.0.0.1/8
+  fake-ip-filter:
+    - '+.lan'
+    - '+.stun.*.*'
+    - '+.stun.*.*.*'
+    - '+.stun.*.*.*.*'
+    - '+.stun.*.*.*.*.*'
+  nameserver:
+    - '1.1.1.1'
+    - 'tls://1.0.0.1:853'
+    - '8.8.8.8'
+    - 'tls://8.8.4.4:853'
+    # - '127.0.0.1'
+    # - 'tls://1.1.1.1:853' # DNS over TLS
+    # - 'tls://1dot1dot1dot1.cloudflare-dns.com:853'
+    # - dhcp://rmnet_data+ # dns from dhcp
+    # - https://doh.pub/dns-query # DNS over HTTPS
+    # - https://dns.alidns.com/dns-query#h3=true
+    # - https://mozilla.cloudflare-dns.com/dns-query#clash&h3=true
+  # proxy-server-nameserver:
+    # - '1.1.1.1'
+  # # nameserver-policy:
+    # # '+.googlesyndication.com': 1.1.1.1
+    # # 'geosite:category-ads-all': 127.0.0.1
+  # fallback:
+    # - 'https://8.8.8.8/dns-query'
+    # - 'tcp://8.8.4.4'
+    # # - 'quic://dns.adguard.com:784' # DNS over QUIC
+  # fallback-filter:
+    # geoip: false
+    # geoip-code: 'ID'
+    # geosite:
+      # # - gfw
+    # ipcidr:
+      # # - 240.0.0.0/4
+    # domain:
+      # - '+.google.com'
+      # - '+.facebook.com'
+      # - '+.youtube.com'
+      # - '+.github.com'
+hosts:
+  'ota.googlezip.net': 127.0.0.1
+  'ota-cache1.googlezip.net': 127.0.0.1
+  'ota-cache2.googlezip.net': 127.0.0.1

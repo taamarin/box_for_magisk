@@ -1,0 +1,342 @@
+#!/system/bin/sh
+
+scripts=$(realpath $0)
+scripts_dir=$(dirname ${scripts})
+source /data/adb/box/settings.ini
+
+delete_logs() {
+  for list in ${bin_list[*]} ; do
+    rm -rf "${run_path}/${list}.log"
+  done
+  find ${run_path} -type f -name "root" | xargs rm -f
+  find ${run_path} -type f -name "*.yaml" | xargs rm -f
+  find ${run_path} -type f -name "*.list" | xargs rm -f
+  find ${run_path} -type f -name "*.inotify.log" | xargs rm -f
+
+  # Delete the log three days ago
+  # find ${run_path} -mtime +3 -type f -name "*.log" | xargs rm -f
+}
+
+crontab_geo() {
+  if [ "${auto_updategeox}" != "false" ] || [ "${auto_updatesubcript}" != "false" ] ; then
+    echo "${update_interval} ${scripts_dir}/box.tool subgeo" >> ${run_path}/root
+    log debug "interval crontab geo and subscription (${update_interval})."
+    log debug "${bin_name} geox (${auto_updategeox})."
+    [ "${bin_name}" = "clash" ] && log debug "${bin_name} subscription (${auto_updatesubcript})."
+  else
+    log info "crontab geox & subscription is disable."
+  fi
+}
+
+detected_port() {
+  sleep 1
+  [ "${port_detect}" = "true" ] && (${scripts_dir}/box.tool port) || (log warn "${bin_name} skip port detected." && return 1)
+}
+
+temporary_config_file() {
+  if [ -f "${data_dir}/template.yml" ] ; then
+    if [ -f "${clash_config}" ] ; then
+      cp -f ${data_dir}/template.yml ${data_dir}/run/config.yaml.temp \
+      && echo "\n" >> ${data_dir}/run/config.yaml.temp
+      sed -n -E '/^proxies:$/,$p' ${clash_config} >> ${data_dir}/run/config.yaml.temp
+      sed -i '/^[  ]*$/d' ${data_dir}/run/config.yaml.temp
+    else
+      log error "${clash_config} file is missing."
+      exit 1
+    fi
+  else
+    log error "${data_dir}/template.yml file is missing."
+    exit 1
+  fi
+
+  if ! (mv ${data_dir}/run/config.yaml.temp ${data_dir}/run/config.yaml) ; then
+    log error "merge config failed!!!."
+    exit 1
+  fi
+}
+
+still_alive() {
+  if ! (pidof ${bin_name} > /dev/null 2>&1) ; then
+    log error "${bin_name} service is not running." 
+    log error "please, check ${bin_name}.log"
+    kill -9 $(pidof ${bin_name}) || killall -9 ${bin_name}
+    rm -rf ${pid_file}
+    exit 1
+  fi
+}
+
+sinkron_port() {
+  if [ "${bin_name}" = "clash" ] ; then
+    if [ "${ceks_dns_port}" != "${clash_dns_port}" ] ; then
+      log info "sinkron dns listen"
+      sed -i "s/clash_dns_port=.*/clash_dns_port=\""${ceks_dns_port}"\"/" ${settings}
+    fi
+    if [ "${ceks_fake_ip_range}" != "${clash_fake_ip_range}" ] ; then
+      log error "fake-ip-range is out of sync, fix: open template.yml, match IP fake-ip-range: ${ceks_fake_ip_range} with clash_fake_ip_range: in settings.ini"
+      exit 1
+    fi
+  fi
+}
+
+check_permission() {
+  if [ "${box_user_group}" != "root:net_admin" ] ; then
+    if which ${bin_name} | grep -q "/system/bin/" ; then
+      box_user=$(echo ${box_user_group} | awk -F ':' '{print $1}')
+      box_group=$(echo ${box_user_group} | awk -F ':' '{print $2}')
+      box_user_id=$(id -u ${box_user})
+      box_group_id=$(id -g ${box_group})
+      [ ${box_user_id} ] && [ ${box_group_id} ] || \
+      (box_user_group="root:net_admin" && log warn "${box_user_group} error, use root:net_admin instead.")
+      bin_path=$(which ${bin_name})
+      chown ${box_user_group} ${bin_path}
+      chmod 6755 ${bin_path}
+      if [ "${box_user_id}" != "0" ] || [ "${box_group_id}" != "3005" ] ; then
+        # setcap has been deprecated as it does not support binary outside of the /system/bin directory
+        setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' ${bin_path} || \
+        (box_user_group="root:net_admin" && log error "setcap authorization failed, you may need libcap package.")
+      fi
+      log info "using kernel directory ${bin_name} in ${bin_path}"
+      chown -R ${box_user_group} ${data_dir}
+    else
+      log error "kernel ${bin_name} is missing"
+      log error "please download kernel"
+      log error "replace it in the /data/adb/modules/box_for_magisk/system/bin/${bin_name} directory. and reboot "
+      exit 1
+    fi
+  else
+    if [ ! -f ${bin_path} ] ; then
+      log error "kernel ${bin_name} is missing"
+      log error "please download and place it in the ${bin_path} directory."
+      exit 1
+    fi
+    box_user_group="root:net_admin"
+    chown ${box_user_group} ${bin_path}
+    chmod 6755 ${bin_path}
+    chown -R ${box_user_group} ${data_dir}
+    log info "using kernel directory ${bin_name} in ${bin_path}"
+  fi
+}
+
+check_in_bin() {
+  case "${bin_name}" in
+    clash)(log info "$(${bin_path} -v)") || return 1;;
+    *)(log info "$(${bin_path} version)") || return 1;;
+  esac
+}
+
+create_tun() {
+  mkdir -p /dev/net
+  [ ! -L /dev/net/tun ] && ln -sf /dev/tun /dev/net/tun
+}
+
+run_box() {
+  log info "client list: ${bin_list[*]}"
+  log info "select: ${bin_name}"
+  log info "starting ${bin_name} service."
+  sinkron_port
+  ulimit -SHn 1000000
+  case "${bin_name}" in
+    sing-box)
+      [ "${proxy_mode}" = "core" ] && log info "don't forget to set 'auto detect interface': true"
+      # && (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": true/' ${data_dir}/sing-box/config.json) || (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": false/' ${data_dir}/sing-box/config.json)
+      sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
+      if (${bin_path} check -D ${data_dir}/${bin_name} > "${run_path}/${bin_name}-report.log" 2>&1) ; then
+        nohup setuidgid 0:3005 ${bin_path} run -D ${data_dir}/${bin_name} > /dev/null 2> "${run_path}/${bin_name}.log" &
+        echo -n $! > ${pid_file}
+      else
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        exit 1
+      fi
+      ;;
+    clash)
+      if [ "${clash_tun_status}" = "true" ] ; then
+        sed -i 's/tproxy-port:.*/tproxy-port: 0/' ${data_dir}/template.yml
+        sed -i 's/network_mode=.*/network_mode="mixed"/' ${settings}
+        sed -i 's/auto-route:.*/auto-route: true/' ${data_dir}/template.yml
+        sed -i 's/auto-detect-interface:.*/auto-detect-interface: true/' ${data_dir}/template.yml
+      else
+        sed -i "s/tproxy-port:.*/tproxy-port: ${tproxy_port}/" ${data_dir}/template.yml
+        # jika ingin mengunakan redirect, hapus line di bawah
+        sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
+        # end
+        sed -i 's/auto-route:.*/auto-route: false/' ${data_dir}/template.yml
+        sed -i 's/auto-detect-interface:.*/auto-detect-interface: false/' ${data_dir}/template.yml
+      fi
+      temporary_config_file
+      if (${bin_path} -t -d ${data_dir}/${bin_name} -f ${data_dir}/run/config.yaml > "${run_path}/${bin_name}-report.log") ; then
+        nohup setuidgid 0:3005 ${bin_path} -d ${data_dir}/${bin_name} -f ${data_dir}/run/config.yaml > "${run_path}/${bin_name}.log" 2>&1 &
+        echo -n $! > ${pid_file}
+      else
+        mv ${data_dir}/run/config.yaml ${clash_config}
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        exit 1
+      fi
+      ;;
+    xray)
+      sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
+      if [ ! -f ${data_dir}/${bin_name}/*.json ] ; then
+        log error "file ${data_dir}/xray/*.json no found"
+        exit 1
+      fi
+      export XRAY_LOCATION_ASSET=${data_dir}/${bin_name}
+      export XRAY_LOCATION_CONFDIR=${data_dir}/${bin_name}
+      if (${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
+        nohup setuidgid 0:3005 ${bin_path} > /dev/null 2> "${run_path}/${bin_name}.log" &
+        echo -n $! > ${pid_file}
+      else
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
+        exit 1
+      fi
+    ;;
+    v2fly)
+      sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
+      if [ ! -f ${data_dir}/${bin_name}/*.json ] ; then
+        log error "file ${data_dir}/v2fly/*.json no found"
+        exit 1
+      fi
+      export V2RAY_LOCATION_ASSET=${data_dir}/${bin_name}
+      export V2RAY_LOCATION_CONFDIR=${data_dir}/${bin_name}
+      if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
+        nohup setuidgid 0:3005 ${bin_path} run > /dev/null 2> "${run_path}/${bin_name}.log" &
+        echo -n $! > ${pid_file}
+      else
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
+        exit 1
+      fi
+      ;;
+    *)
+      log error "kernel error, ${bin_name} write is wrong."
+      exit 1
+      ;;
+  esac
+  rm -rf ${run_path}/${bin_name}-report.log
+}
+
+cgroup_limit() {
+  [ "${cgroup_memory}" = "true" ] && (${scripts_dir}/box.tool cgroup && log info "cgroup limit: ${cgroup_memory_limit}.") || log info "${bin_name} cgroup: disable"
+}
+
+bin_usage() {
+  rss=$(grep VmRSS /proc/$(pidof ${bin_name})/status | awk -F':' '{print $2}' | awk '{print $1}')
+  [ ${rss} -ge 1024 ] && bin_rss="$(expr ${rss} / 1024)Mb" || bin_rss="${rss}Kb"
+  swap=$(grep VmSwap /proc/$(pidof ${bin_name})/status | awk -F':' '{print $2}' | awk '{print $1}')
+  [ ${swap} -ge 1024 ] && bin_swap="$(expr ${swap} / 1024)Mb" || bin_swap="${swap}Kb"
+  state=$(grep State /proc/$(pidof ${bin_name})/status | awk -F':' '{print $2}' | awk '{print $2}')
+
+  if bin_pid=$(pidof ${bin_name}) ; then
+    log info "${bin_name} has started with the $(stat -c %U:%G /proc/${bin_pid}) user group."
+    log info "${bin_name} status: ${state},PID: (${bin_pid})"
+    # log info "${bin_name} service is running. PID: (${bin_pid})"
+    log info "${bin_name} memory usage: ${bin_rss},swap: ${bin_swap}"
+    log info "${bin_name} cpu usage: $((/system/bin/ps -p $(pidof ${bin_name}) -o pcpu | grep -v %CPU | awk '{print $1}') 2> /dev/null)%"
+    log info "${bin_name} running time: $(/system/bin/ps -p $(pidof ${bin_name}) -o comm,etime | grep ${bin_name} | awk '{print $2}')"
+    echo -n ${bin_pid} > ${pid_file}
+  fi
+}
+
+display_bin_pid() {
+  if bin_pid=$(pidof ${bin_name}) ; then
+    bin_usage
+    log info "${bin_name} service is running. (PID: $(pidof ${bin_name}))."
+  else
+    log warn "${bin_name} service is stopped." && return 1
+  fi
+}
+
+crontab_alive() {
+  nohup crond -c ${run_path} > /dev/null 2>&1 &
+  crontab -c ${run_path} -r
+  touch ${run_path}/root
+  chmod 0600 ${run_path}/root
+  [ "${static_dns1}" != "" ] && echo "*/1 * * * * ${scripts_dir}/box.tool keepdns" >> ${run_path}/root && log info "dns remains open."
+  [ "${bin_name}" = "clash" ] && log info "configuration ${clash_config}."
+  crontab_geo
+}
+
+network_port () {
+  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "core" ] ; then
+    $(/system/bin/ifconfig | grep -q ${tun_device}) || log error "tun_device: ${tun_device} not found"
+  fi
+  if [ "${clash_tun_status}" = "false" ] ; then
+    $(/system/bin/netstat -tnulp | grep -q "${tproxy_port}") || log debug "tproxy_port out of sync with config"
+  fi
+}
+
+start_box() {  
+  echo -n "" > ${logs_file}
+  echo $(date) >> ${logs_file}
+  echo "--------------------------------------------" >> ${logs_file}
+  if bin_pid=$(pidof ${bin_name}) ; then
+    log info "${bin_name} service is still running, refresh iptables"
+    ${scripts_dir}/box.iptables renew
+    exit 1
+  fi
+  check_permission
+  check_in_bin || log error "kernel ${bin_name} corrupted."
+  delete_logs
+  create_tun
+  run_box
+  sleep 1
+  if [ "${crontab_sec}" != "false" ] || log info "crontab: disable." ; then
+    crontab_alive
+  fi
+  cgroup_limit
+  detected_port || sleep 1
+  network_port
+  still_alive
+  display_bin_pid
+}
+
+stop_box() {
+  cronkill=$(/system/bin/ps -ef | grep root | grep "crond -c /data/adb/box/" | awk '{ print $2 }' | sort -u)
+  for cron in ${cronkill[*]} ; do
+     kill -9 ${cron}
+  done
+  for list in ${bin_list[*]} ; do
+    kill -9 $(pidof ${list}) || killall -9 ${list}
+  done
+  sleep 0.5
+  if ! [ $(pidof ${bin_name}) ] ; then
+    find ${run_path} -type f -name "box.pid" | xargs rm -f
+    sleep 0.5
+    display_bin_pid || log warn "${bin_name} disconnected."
+  else
+    log error "failed to stop ${bin_name}"
+  fi
+}
+
+case "$1" in
+  start)
+    stop_box >> /dev/null 2>&1
+    start_box
+    ;;
+  stop)
+    stop_box
+    ;;
+  restart)
+    stop_box && sleep 1
+    start_box && (${scripts_dir}/box.iptables renew)
+    ;;
+  usage)
+    case "${bin_name}" in
+      clash)echo -e "$(${bin_path} -v)";;
+      *)echo -e "$(${bin_path} version)";;
+    esac
+    [ $(pidof ${bin_name}) ] \
+    && bin_usage || log warn "${bin_name} service is stopped"
+    ;;
+  reload)
+    if [ "${bin_name}" = "clash" ] ; then
+      temporary_config_file
+      log info "Open yacd-meta/configs"
+      log info "klik reload configs"
+    else
+     log info "only for Clash" 
+    fi
+    (${bin_path} -t -d ${data_dir}/clash -f ${data_dir}/run/config.yaml > "${run_path}/${bin_name}-report.log") \
+    && log info "config.yaml passed" || log info "config.yaml ceks failed"
+    ;;
+  *)
+    echo "$0:  usage: $0 {start|stop|restart|usage|reload}"
+    ;;
+esac

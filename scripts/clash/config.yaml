@@ -1,0 +1,17 @@
+proxies:
+proxy-groups:
+  - name: "llycoris"
+    type: select
+    use: [
+        🌸
+    ]
+proxy-providers:
+  🌸:
+    type: file
+    path: ./assets/llycoris.txt
+    health-check:
+      enable: true
+      url: http://cp.cloudflare.com/generate_204
+      interval: 1200
+rules:
+  - MATCH,llycoris
