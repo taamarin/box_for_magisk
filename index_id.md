@@ -1,9 +1,9 @@
-## Warning
-Proyek ini tidak bertanggung jawab atas: perangkat rusak, kartu SD rusak, atau SoC terbakar.
+## WARNING
+Proyek ini tidak bertanggung jawab atas: perangkat rusak, SDcard rusak, atau SoC terbakar.
 
 **Pastikan file konfigurasi Anda tidak menyebabkan traffic loopback, jika tidak maka dapat menyebabkan ponsel Anda restart tanpa batas.**
 
-Jika Anda benar-benar tidak tahu cara mengonfigurasi modul ini, Anda mungkin memerlukan aplikasi seperti ClashForAndroid, v2rayNG, papan selancar, SagerNet, AnXray, dll.
+Jika Anda benar-benar tidak tahu cara mengonfigurasi modul ini, Anda mungkin memerlukan aplikasi seperti `ClashForAndroid`, `v2rayNG`, `Surfboard`, `SagerNet`, `AnXray`, dll.
 
 ## install
 - Download paket zip modul dari [RELEASE](https://github.com/taamarin/Box4Magisk/releases), dan install melalui [MAGISK](https://github.com/topjohnwu/Magisk), reboot
@@ -137,5 +137,5 @@ Jika Anda ingin mengontrol `BFM` sepenuhnya dengan menjalankan perintah, buat sa
   su -c rm -rf /data/adb/service.d/box_service.sh
 ```
 
-## memperbarui log
+## CHANGELOG
 [CHANGELOG](CHANGELOG.md)
