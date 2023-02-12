@@ -141,7 +141,7 @@ run_box() {
       # && (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": true/' ${data_dir}/sing-box/config.json) || (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": false/' ${data_dir}/sing-box/config.json)
       sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
       if (${bin_path} check -D ${data_dir}/${bin_name} > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup setuidgid 0:3005 ${bin_path} run -D ${data_dir}/${bin_name} > /dev/null 2> "${run_path}/${bin_name}.log" &
+        nohup setuidgid 0:3005 ${bin_path} run -D ${data_dir}/${bin_name} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -181,7 +181,7 @@ run_box() {
       export XRAY_LOCATION_ASSET=${data_dir}/${bin_name}
       export XRAY_LOCATION_CONFDIR=${data_dir}/${bin_name}
       if (${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup setuidgid 0:3005 ${bin_path} > /dev/null 2> "${run_path}/${bin_name}.log" &
+        nohup setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
@@ -197,7 +197,7 @@ run_box() {
       export V2RAY_LOCATION_ASSET=${data_dir}/${bin_name}
       export V2RAY_LOCATION_CONFDIR=${data_dir}/${bin_name}
       if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup setuidgid 0:3005 ${bin_path} run > /dev/null 2> "${run_path}/${bin_name}.log" &
+        nohup setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
@@ -225,9 +225,8 @@ bin_usage() {
 
   if bin_pid=$(pidof ${bin_name}) ; then
     log info "${bin_name} has started with the $(stat -c %U:%G /proc/${bin_pid}) user group."
-    log info "${bin_name} status: ${state},PID: (${bin_pid})"
-    # log info "${bin_name} service is running. PID: (${bin_pid})"
-    log info "${bin_name} memory usage: ${bin_rss},swap: ${bin_swap}"
+    log info "${bin_name} status: ${state}, PID: (${bin_pid})"
+    log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
     log info "${bin_name} cpu usage: $((/system/bin/ps -p $(pidof ${bin_name}) -o pcpu | grep -v %CPU | awk '{print $1}') 2> /dev/null)%"
     log info "${bin_name} running time: $(/system/bin/ps -p $(pidof ${bin_name}) -o comm,etime | grep ${bin_name} | awk '{print $2}')"
     echo -n ${bin_pid} > ${pid_file}
@@ -264,8 +263,11 @@ network_port () {
 
 start_box() {  
   echo -n "" > ${logs_file}
-  echo $(date) >> ${logs_file}
-  echo "--------------------------------------------" >> ${logs_file}
+
+  [ -t 1 ] && echo "\033[1;31m$(date)\033[0m" || echo "$(date)" | tee -a ${logs_file} >> /dev/null 2>&1
+  line="--------------------------------------------" 
+  [ -t 1 ] && echo "\033[1;32m$line\033[0m" || echo "$line" | tee -a ${logs_file} >> /dev/null 2>&1
+
   if bin_pid=$(pidof ${bin_name}) ; then
     log info "${bin_name} service is still running, refresh iptables"
     ${scripts_dir}/box.iptables renew
@@ -277,9 +279,7 @@ start_box() {
   create_tun
   run_box
   sleep 1
-  if [ "${crontab_sec}" != "false" ] || log info "crontab: disable." ; then
-    crontab_alive
-  fi
+  [ "${crontab_sec}" != "false" ] && crontab_alive || log info "crontab: disable." 
   cgroup_limit
   detected_port || sleep 1
   network_port

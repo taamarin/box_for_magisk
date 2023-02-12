@@ -74,8 +74,11 @@ update_file() {
   echo ${request}
   ${request} 2>&1
   sleep 0.5
-  [ -f "${file}" ] \
-  && return 0 || [ -f "${file_bak}" ] && mv ${file_bak} ${file}
+  if [ -f "${file}" ] ; then
+    return 0 
+  else
+    [ -f "${file_bak}" ] && mv ${file_bak} ${file}
+  fi
 }
 
 update_subgeo() {
@@ -108,7 +111,7 @@ update_subgeo() {
   esac
 
   if [ "${auto_updategeox}" = "true" ] ; then
-    if log debug "download ${geoip_file}" && update_file ${geoip_file} ${geoip_url} && log debug "download ${geosite_file}" && update_file ${geosite_file} ${geosite_url} ; then
+    if log debug "download ${geoip_url}" && update_file ${geoip_file} ${geoip_url} && log debug "download ${geosite_url}" && update_file ${geosite_file} ${geosite_url} ; then
       log debug "Update geo $(date +"%Y-%m-%d %I.%M %p")"
       flag=false
     fi
@@ -226,36 +229,52 @@ update_kernel() {
   case "${bin_name}" in
     clash)
       [ -f /system/bin/gunzip ] \
-      && extra="/system/bin/gunzip" || extra="${busybox_path} gunzip"
-      if (${extra} --help > /dev/null 2>&1) ; then
-        ${extra} "${data_dir}/${file_kernel}.gz"
+      && local extra="/system/bin/gunzip" || local extra="${busybox_path} gunzip"
+      if (${extra} "${data_dir}/${file_kernel}.gz" >&2) ; then
         mv -f "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}" \
         && flag="true" || log error "failed to move the kernel"
         [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
         && restart_box || log debug "${bin_name} does not restart"
+      else
+        log warn "failed extra file ${data_dir}/${file_kernel}.gz"
       fi
     ;;
     sing-box)
-      tar -xf "${data_dir}/${file_kernel}.tar.gz" -C ${data_dir}/bin
-      mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}"
-      rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}" \
-      && flag="true" || log error "failed to move the kernel"
-      [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
-      && restart_box || log debug "${bin_name} does not restart"
+      [ -f /system/bin/tar ] \
+      && local extra="/system/bin/tar" || local extra="${busybox_path} tar"
+      if (${extra} -xf "${data_dir}/${file_kernel}.tar.gz" -C ${data_dir}/bin >&2) ; then
+        mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}"
+        rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}" \
+        && flag="true" || log error "failed to move the kernel"
+        [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
+        && restart_box || log debug "${bin_name} does not restart"
+      else
+        log warn "failed extra file ${data_dir}/${file_kernel}.gz"
+      fi
     ;;
     v2fly)
-      (unzip -o "${data_dir}/${file_kernel}.zip" "v2ray" -d ${bin_kernel} >&2) \
-      && mv "${bin_kernel}/v2ray" "${bin_kernel}/v2fly" \
-      && flag="true" || log error "failed to move the kernel"
-      [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
-      && restart_box || log debug "${bin_name} does not restart"
+      [ -f /system/bin/unzip ] \
+      && local extra="/system/bin/unzip" || local extra="${busybox_path} unzip"
+      if (${extra} -o "${data_dir}/${file_kernel}.zip" "v2ray" -d ${bin_kernel} >&2) ; then
+        mv "${bin_kernel}/v2ray" "${bin_kernel}/v2fly" \
+        && flag="true" || log error "failed to move the kernel"
+        [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
+        && restart_box || log debug "${bin_name} does not restart"
+      else
+        log warn "failed extra file ${data_dir}/${file_kernel}.gz"
+      fi
     ;;
       xray)
-      (unzip -o "${data_dir}/${file_kernel}.zip" "xray" -d ${bin_kernel} >&2) \
-      && mv "${bin_kernel}/xray" "${bin_kernel}/xray" \
-      && flag="true" || log error "failed to move the kernel"
-      [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
-      && restart_box || log debug "${bin_name} does not restart"
+      [ -f /system/bin/unzip ] \
+      && local extra="/system/bin/unzip" || local extra="${busybox_path} unzip"
+      if (${extra} -o "${data_dir}/${file_kernel}.zip" "xray" -d ${bin_kernel} >&2) ; then
+        mv "${bin_kernel}/xray" "${bin_kernel}/xray" \
+        && flag="true" || log error "failed to move the kernel"
+        [ -f "${pid_file}" ] && [ "${flag}" = "true" ] \
+        && restart_box || log debug "${bin_name} does not restart"
+      else
+        log warn "failed extra file ${data_dir}/${file_kernel}.gz"
+      fi
     ;;
     *)
       log error "kernel error." && exit 1
