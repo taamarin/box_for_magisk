@@ -8,12 +8,48 @@ user_agent="${bin_name}"
 
 logs() {
   export TZ=Asia/Jakarta
-  now=$(date +"%I.%M %p")
+  now=$(date +"%I.%M %p %z")
   case $1 in
     info)[ -t 1 ] && echo -n "\033[1;34m${now} [info]: $2\033[0m" || echo -n "${now} [info]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
     port)[ -t 1 ] && echo -n "\033[1;33m$2 \033[0m" || echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-    *)[ -t 1 ] && echo -n "\033[1;32m${now} [$1]: $2\033[0m" || echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
+    succes)[ -t 1 ] && echo "\033[1;32m$2 \033[0m" || echo "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
+    failed)[ -t 1 ] && echo "\033[1;31m$2 \033[0m" || echo "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
+    *)[ -t 1 ] && echo -n "\033[1;35m${now} [$1]: $2\033[0m" || echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
   esac
+}
+
+testing () {
+  logs info "dns: "
+  for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=ntp.ntsc.ac.cn" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}') ; do
+	  ntpip=${network}
+	  break
+  done
+	if [ -n "${ntpip}" ] ; then
+		 logs succes "done"
+		logs info "http: "
+		httpIP=$(${data_dir}/bin/mlbox -timeout=5 -http="http://182.254.116.116/d?dn=qq.com&clientip=1" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+		if [ -n "${httpIP}" ] ; then
+			httpIP="${httpIP#*\|}"
+			logs succes "done"
+		else
+			logs failed "failed"
+		fi
+		logs info "https: "
+		ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
+		if echo "${ipInfo}" | grep -qi 'IP'; then
+			logs succes "done"
+		else
+			httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.cn/dns.html" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+			[ -n "${httpsResp}" ] && logs succes "done" || \
+			  logs failed "failed"
+		fi
+ 		logs info "udp: "
+		currentTime=$(${data_dir}/bin/mlbox -timeout=5 -ntp="${ntpip}" | grep -v 'timeout')
+		echo "${currentTime}" | grep -qi 'LI:' && \
+			logs succes "done" || logs failed "failed"
+  else
+  	logs failed "failed"
+	fi
 }
 
 ceks_connectivity() {
@@ -179,7 +215,7 @@ update_kernel() {
         filename="clash.meta"
         filename+="-${platform}"
         filename+="-${arch}"
-        # filename+="-cgo"
+        filename+="-cgo"
         filename+="-${latest_version}"
         log debug "download ${download_link}/download/${tag}/${filename}.gz"
         update_file "${data_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz"
@@ -328,6 +364,9 @@ case "$1" in
     update_subgeo
     find ${data_dir}/${bin_name} -type f -name "*.db.bak" | xargs rm -f
     find ${data_dir}/${bin_name} -type f -name "*.dat.bak" | xargs rm -f
+    ;;
+  testing)
+    testing
     ;;
   port)
     port_detection

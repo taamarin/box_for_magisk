@@ -4,8 +4,9 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
-id="233"
-
+table="222"
+fwmark="223"
+pref="100"
 # iptables_version=$(iptables -V | grep -o "v1\.[0-9]")
 # if [ "${iptables_version}" = "v1.4" ] ; then
   # iptables_x="iptables"
@@ -168,11 +169,11 @@ stop_redirect() {
 
 start_tproxy() {
   if [ "${iptables}" != "ip6tables -w 100" ] ; then
-    ip rule add fwmark ${id} table ${id}
-    ip route add local default dev lo table ${id}
+    ip rule add fwmark ${fwmark} table ${table} pref ${pref}
+    ip route add local default dev lo table ${table}
   else
-    ip -6 rule add fwmark ${id} table ${id}
-    ip -6 route add local default dev lo table ${id}
+    ip -6 rule add fwmark ${fwmark} table ${table} pref ${pref}
+    ip -6 route add local default dev lo table ${table}
   fi
 
   ${iptables} -t mangle -N BOX_EXTERNAL
@@ -212,16 +213,16 @@ start_tproxy() {
     fi
   fi
 
-  ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i lo -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${id}
-  ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i lo -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${id}
+  ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i lo -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
+  ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i lo -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
 
   # Allow ap interface
   # Notice: Old android device may only have one wlan interface.
   # Some new android device have multiple wlan interface like wlan0(for internet), wlan1(for AP).
   if [ "${ap_list}" != "" ] ; then
     for ap in ${ap_list[*]} ; do
-      ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i ${ap} -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${id}
-      ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i ${ap} -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${id}
+      ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i ${ap} -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
+      ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i ${ap} -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
     done
     [ "${iptables}" != "ip6tables -w 100" ] && log info "${ap_list[*]} transparent proxy."
   fi
@@ -275,8 +276,8 @@ start_tproxy() {
   if [ "${proxy_mode}" = "blacklist" ] ; then
     if [ "$(cat ${uid_list[*]})" = "" ] ; then
       # Route Everything
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${id}
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${id}
+      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${fwmark}
+      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${fwmark}
       [ "${iptables}" != "ip6tables -w 100" ] && log info "transparent proxy for all apps."
     else
       # Bypass apps
@@ -284,30 +285,30 @@ start_tproxy() {
         ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner ${appid} -j RETURN
       done
       # Allow !app
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${id}
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${id}
+      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${fwmark}
+      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${fwmark}
       [ "${iptables}" != "ip6tables -w 100" ] && log info "proxy mode: ${proxy_mode}, ${packages_list[*]} no transparent proxy."
     fi
 
   elif [ "${proxy_mode}" = "whitelist" ] ; then
     # Route apps to Box
     for appid in $(cat ${uid_list[*]}) ; do
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner ${appid} -j MARK --set-mark ${id}
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner ${appid} -j MARK --set-mark ${id}
+      ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner ${appid} -j MARK --set-mark ${fwmark}
+      ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner ${appid} -j MARK --set-mark ${fwmark}
     done
 
-    ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-mark ${id}
-    ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark ${id}
+    ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-mark ${fwmark}
+    ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark ${fwmark}
     # Route dnsmasq to Box
-    ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark ${id}
-    ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark ${id}
+    ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark ${fwmark}
+    ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark ${fwmark}
     # Route DNS request to Box
-    [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark ${id}
+    [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark ${fwmark}
     [ "${iptables}" != "ip6tables -w 100" ] && log info "proxy mode: ${proxy_mode}, ${packages_list[*]} transparent proxy."
   else
     log debug "proxy mode: ${proxy_mode}, error"
-    ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${id}
-    ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${id}
+    ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark ${fwmark}
+    ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark ${fwmark}
     [ "${iptables}" != "ip6tables -w 100" ] && log info "transparent proxy for all apps."
   fi
 
@@ -315,7 +316,7 @@ start_tproxy() {
 
   ${iptables} -t mangle -N DIVERT
   ${iptables} -t mangle -F DIVERT
-  ${iptables} -t mangle -A DIVERT -j MARK --set-mark ${id}
+  ${iptables} -t mangle -A DIVERT -j MARK --set-mark ${fwmark}
   ${iptables} -t mangle -A DIVERT -j ACCEPT
 
   ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
@@ -352,13 +353,13 @@ start_tproxy() {
 
 stop_tproxy() {
   if [ "${iptables}" != "ip6tables -w 100" ] ; then
-    ip rule del fwmark ${id} table ${id}
-    ip route del local default dev lo table ${id}
-    ip route flush table ${id}
+    ip rule del fwmark ${fwmark} table ${table} pref ${pref}
+    ip route del local default dev lo table ${table}
+    ip route flush table ${table}
   else
-    ip -6 rule del fwmark ${id} table ${id}
-    ip -6 route del local default dev lo table ${id}
-    ip -6 route flush table ${id}
+    ip -6 rule del fwmark ${fwmark} table ${table} pref ${pref}
+    ip -6 route del local default dev lo table ${table}
+    ip -6 route flush table ${table}
   fi
 
   ${iptables} -t mangle -D PREROUTING -j BOX_EXTERNAL
@@ -484,6 +485,7 @@ if [ "${proxy_mode}" != "core" ] ; then
       iptables="ip6tables -w 100" && stop_redirect >> /dev/null 2>&1
       iptables="ip6tables -w 100" && forward -D >> /dev/null 2>&1
       log warn "clean up iptables transparent proxy rules done."
+
       find_packages_uid
       case "${network_mode}" in
         tproxy)
@@ -603,6 +605,7 @@ else
       iptables="ip6tables -w 100" && stop_redirect >> /dev/null 2>&1
       iptables="ip6tables -w 100" && forward -D >> /dev/null 2>&1
       log warn "clean up tun rules done."
+
       iptables="iptables -w 100"
       forward -I && log info "use tun: tcp + udp, stack: ${clash_stack}" || log info "use tun: tcp + udp failed."
       if [ "${ipv6}" = "true" ] ; then
