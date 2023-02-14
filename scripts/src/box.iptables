@@ -474,7 +474,7 @@ if [ "${proxy_mode}" != "core" ] ; then
         ;;
       esac
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool connect
+      ${scripts_dir}/box.tool testing
       ;;
     renew)
       probe_user_group || log Error "failed to check Box user group, please make sure ${bin_name} core is started."
@@ -550,7 +550,7 @@ if [ "${proxy_mode}" != "core" ] ; then
       esac
       log info "restart iptables transparent proxy rules done."
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool connect
+      ${scripts_dir}/box.tool testing
       ;;
     disable)
       probe_user_group
@@ -594,7 +594,7 @@ else
       fi
       log info "create iptables tun rules done."
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool connect
+      ${scripts_dir}/box.tool testing
       ;;
     renew)
       probe_user_group || log Error "failed to check Box user group, please make sure ${bin_name} core is started."
@@ -622,7 +622,7 @@ else
       log info "create iptables tun rules done."
       log info "restart iptables tun rules done."
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool connect
+      ${scripts_dir}/box.tool testing
       ;;
     disable)
       probe_user_group || log Error "failed to check Box user group, please make sure ${bin_name} core is started."

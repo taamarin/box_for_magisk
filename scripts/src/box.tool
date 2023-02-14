@@ -12,54 +12,71 @@ logs() {
   case $1 in
     info)[ -t 1 ] && echo -n "\033[1;34m${now} [info]: $2\033[0m" || echo -n "${now} [info]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
     port)[ -t 1 ] && echo -n "\033[1;33m$2 \033[0m" || echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-    succes)[ -t 1 ] && echo "\033[1;32m$2 \033[0m" || echo "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-    failed)[ -t 1 ] && echo "\033[1;31m$2 \033[0m" || echo "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
+
+    testing)[ -t 1 ] && echo -n "\033[1;34m$2\033[0m" || echo -n "$2" | tee -a ${logs_file} >> /dev/null 2>&1;;
+    succes)[ -t 1 ] && echo -n "\033[1;32m$2 \033[0m" || echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
+    failed)[ -t 1 ] && echo -n "\033[1;31m$2 \033[0m" || echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
+
     *)[ -t 1 ] && echo -n "\033[1;35m${now} [$1]: $2\033[0m" || echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
   esac
 }
 
 testing () {
-  logs info "dns: "
-  for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=ntp.ntsc.ac.cn" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}') ; do
-	  ntpip=${network}
+  logs info "dns="
+  for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}') ; do
+	  local ntpip=${network}
 	  break
   done
+
 	if [ -n "${ntpip}" ] ; then
-		 logs succes "done"
-		logs info "http: "
-		httpIP=$(${data_dir}/bin/mlbox -timeout=5 -http="http://182.254.116.116/d?dn=qq.com&clientip=1" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-		if [ -n "${httpIP}" ] ; then
-			httpIP="${httpIP#*\|}"
-			logs succes "done"
-		else
-			logs failed "failed"
-		fi
-		logs info "https: "
-		ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
-		if echo "${ipInfo}" | grep -qi 'IP'; then
-			logs succes "done"
-		else
-			httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.cn/dns.html" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-			[ -n "${httpsResp}" ] && logs succes "done" || \
-			  logs failed "failed"
-		fi
- 		logs info "udp: "
-		currentTime=$(${data_dir}/bin/mlbox -timeout=5 -ntp="${ntpip}" | grep -v 'timeout')
-		echo "${currentTime}" | grep -qi 'LI:' && \
-			logs succes "done" || logs failed "failed"
+		logs succes "done"
+
+  	logs testing "http="
+  	httpIP=$(${data_dir}/bin/mlbox -timeout=5 -http="http://182.254.116.116/d?dn=reddit.com&clientip=1" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+  	if [ -n "${httpIP}" ] ; then
+  		httpIP="${httpIP#*\|}"
+  		logs succes "done"
+  	else
+  		logs failed "failed"
+  	fi
+  
+  	logs testing "https="
+  	ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
+  	if echo "${ipInfo}" | grep -qi 'IP'; then
+  		logs succes "done"
+  	else
+  		httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+  		[ -n "${httpsResp}" ] && logs succes "done" || \
+  		  logs failed "failed"
+  	fi
+  
+  	logs testing "udp="
+  	currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
+  	echo "${currentTime}" | grep -qi 'LI:' && \
+  		logs succes "done" || logs failed "failed"
+
   else
   	logs failed "failed"
 	fi
+
+	[ -t 1 ] && echo "\033[1;31m""\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
 
-ceks_connectivity() {
+network_check() {
   sleep 0.5
-  if [ -f /system/bin/curl ] ; then
-    case "$(curl -s --max-time 2 -I http://gstatic.com | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
-      [23])log info "connected to the internet network";;
-      5)log warn "the web proxy won't let us through" && exit 0;;
-      *)log debug "the network is down or very slow" && exit 0;;
-    esac
+  if [ -f ${data_dir}/bin/mlbox ] ; then
+		ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
+		if echo "${ipInfo}" | grep -qi 'IP'; then
+			log info "connected to the internet network"
+		else
+			httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+			if [ -n "${httpsResp}" ] ; then
+  			log info "connected to the internet network"
+			else
+  		  log debug "the network is down or very slow"
+  		  exit 0
+		  fi
+		fi
   fi
 }
 
@@ -119,7 +136,7 @@ update_file() {
 
 update_subgeo() {
   log info "daily updates"
-  ceks_connectivity
+  network_check
   case "${bin_name}" in
     clash)
       if [ "${meta}" = "false" ] ; then
@@ -178,7 +195,8 @@ port_detection() {
     sleep 0.5
     logs port "${sub_port}"
   done
-  echo "" >> ${logs_file} && echo ""
+
+	[ -t 1 ] && echo "\033[1;31m""\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
 
 kill_alive() {
@@ -188,7 +206,7 @@ kill_alive() {
 }
 
 update_kernel() {
-  ceks_connectivity
+  network_check
   if [ $(uname -m) = "aarch64" ] ; then
     arch="arm64"
     platform="android"
@@ -331,7 +349,7 @@ cgroup_limit() {
 }
 
 update_dashboard() {
-  ceks_connectivity
+  network_check
   file_dasboard="${data_dir}/dashboard.zip"
   rm -rf ${data_dir}/dashboard/dist
   #url="https://github.com/haishanh/yacd/archive/refs/heads/gh-pages.zip"
@@ -387,7 +405,7 @@ case "$1" in
     keep_dns
     ;;
   connect)
-    ceks_connectivity
+    network_check
     ;;
   *)
     echo "$0: usage: $0 {connect|rbase64|upyacd|upcore|cgroup|port|subgeo}"
