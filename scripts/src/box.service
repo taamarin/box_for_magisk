@@ -128,8 +128,8 @@ create_tun() {
 	echo 1 > /proc/sys/net/ipv4/ip_forward
 	[ ! -e "/dev/net/tun" ] && \
     mkdir -p /dev/net && ln -s /dev/tun /dev/net/tun
-    # mkdir -p /dev/net
-    # [ ! -L /dev/net/tun ] && ln -sf /dev/tun /dev/net/tun
+  # mkdir -p /dev/net
+  # [ ! -L /dev/net/tun ] && ln -sf /dev/tun /dev/net/tun
 }
 
 run_box() {
@@ -140,7 +140,8 @@ run_box() {
   ulimit -SHn 1000000
   case "${bin_name}" in
     sing-box)
-      [ "${proxy_mode}" = "core" ] && log info "don't forget to set 'auto detect interface': true"
+      [ "${proxy_mode}" = "core" ] && \
+        log info "don't forget to set 'auto detect interface': true"
       # && (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": true/' ${data_dir}/sing-box/config.json) || (sed -i 's/"auto_detect_interface":.*/"auto_detect_interface": false/' ${data_dir}/sing-box/config.json)
       sed -i 's/network_mode=.*/network_mode="tproxy"/' ${settings}
       if (${bin_path} check -D ${data_dir}/${bin_name} > "${run_path}/${bin_name}-report.log" 2>&1) ; then
@@ -250,23 +251,26 @@ crontab_alive() {
   crontab -c ${run_path} -r
   touch ${run_path}/root
   chmod 0600 ${run_path}/root
-  [ "${static_dns1}" != "" ] && echo "*/1 * * * * ${scripts_dir}/box.tool keepdns" >> ${run_path}/root && log info "dns remains open."
-  [ "${bin_name}" = "clash" ] && log info "configuration ${clash_config}."
+  [ "${static_dns1}" != "" ] && \
+    echo "*/1 * * * * ${scripts_dir}/box.tool keepdns" >> ${run_path}/root && log info "dns remains open."
+  [ "${bin_name}" = "clash" ] && \
+    log info "configuration ${clash_config}."
   crontab_geo
 }
 
 network_port () {
-  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "core" ] ; then
-    $(/system/bin/ifconfig | grep -q ${tun_device}) || log error "tun_device: ${tun_device} not found"
-  fi
   if [ "${clash_tun_status}" = "false" ] ; then
-    $(/system/bin/netstat -tnulp | grep -q "${tproxy_port}") || log debug "tproxy_port out of sync with config"
+    $(/system/bin/netstat -tnulp | grep -q "${tproxy_port}") || \
+      log debug "tproxy_port out of sync with config"
+  fi
+  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "core" ] ; then
+    $(/system/bin/ifconfig | grep -q ${tun_device}) || \
+      log error "tun_device: ${tun_device} not found"
   fi
 }
 
 start_box() {  
   echo -n "" > ${logs_file}
-
   [ -t 1 ] && echo "\033[1;31m$(date)\033[0m" || echo "$(date)" | tee -a ${logs_file} >> /dev/null 2>&1
   line="--------------------------------------------" 
   [ -t 1 ] && echo "\033[1;32m$line\033[0m" || echo "$line" | tee -a ${logs_file} >> /dev/null 2>&1
@@ -280,12 +284,12 @@ start_box() {
   check_in_bin || log error "kernel ${bin_name} corrupted."
   delete_logs
   create_tun
-  run_box
-  sleep 1
-  [ "${crontab_sec}" != "false" ] && crontab_alive || log info "crontab: disable." 
+  run_box && sleep 1
+  [ "${crontab_sec}" != "false" ] && \
+    crontab_alive || log info "crontab: disable." 
   cgroup_limit
   detected_port || sleep 1
-  network_port
+  # network_port
   still_alive
   display_bin_pid
 }
@@ -325,8 +329,8 @@ case "$1" in
       clash)echo -e "$(${bin_path} -v)";;
       *)echo -e "$(${bin_path} version)";;
     esac
-    [ $(pidof ${bin_name}) ] \
-    && bin_usage || log warn "${bin_name} service is stopped"
+    [ $(pidof ${bin_name}) ] && \
+      bin_usage || log warn "${bin_name} service is stopped"
   ;;
   reload)
     if [ "${bin_name}" = "clash" ] ; then

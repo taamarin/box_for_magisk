@@ -7,13 +7,14 @@ source /data/adb/box/settings.ini
 table="222"
 fwmark="223"
 pref="100"
+
 # iptables_version=$(iptables -V | grep -o "v1\.[0-9]")
 # if [ "${iptables_version}" = "v1.4" ] ; then
-  # iptables_x="iptables"
-  # ip6tables_x="ip6tables"
+  # ipts="iptables"
+  # ip6ts="ip6tables"
 # else
-  # iptables_x="iptables -w 100"
-  # ip6tables_x="ip6tables -w 100"
+  # ipts="iptables -w 100"
+  # ip6ts="ip6tables -w 100"
 # fi
 
 probe_user_group() {
@@ -42,6 +43,7 @@ ipv6_enable() {
   echo 0 > /proc/sys/net/ipv6/conf/default/disable_ipv6
   echo 0 > /proc/sys/net/ipv6/conf/wlan0/disable_ipv6
 }
+
 intranet=(0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 192.0.0.0/24 192.0.2.0/24 192.88.99.0/24 192.168.0.0/16 198.51.100.0/24 203.0.113.0/24 224.0.0.0/4 240.0.0.0/4 255.255.255.255/32)
 intranet6=(::/128 ::1/128 ::ffff:0:0/96 100::/64 64:ff9b::/96 2001::/32 2001:10::/28 2001:20::/28 2001:db8::/32 2002::/16 fe80::/10 ff00::/8)
 
