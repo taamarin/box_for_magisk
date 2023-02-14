@@ -79,7 +79,18 @@ sinkron_port() {
 }
 
 check_permission() {
-  if [ "${box_user_group}" != "root:net_admin" ] ; then
+  if [ "${box_user_group}" = "root:net_admin" ] ; then
+    if [ ! -f ${bin_path} ] ; then
+      log error "kernel ${bin_name} is missing"
+      log error "please download and place it in the ${bin_path} directory."
+      exit 1
+    fi
+    box_user_group="root:net_admin"
+    chown ${box_user_group} ${bin_path}
+    chmod 6755 ${bin_path}
+    chown -R ${box_user_group} ${data_dir}
+    log info "using kernel directory ${bin_name} in ${bin_path}"
+  else
     if which ${bin_name} | grep -q "/system/bin/" ; then
       box_user=$(echo ${box_user_group} | awk -F ':' '{print $1}')
       box_group=$(echo ${box_user_group} | awk -F ':' '{print $2}')
@@ -103,17 +114,6 @@ check_permission() {
       log error "replace it in the /data/adb/modules/box_for_magisk/system/bin/${bin_name} directory. and reboot "
       exit 1
     fi
-  else
-    if [ ! -f ${bin_path} ] ; then
-      log error "kernel ${bin_name} is missing"
-      log error "please download and place it in the ${bin_path} directory."
-      exit 1
-    fi
-    box_user_group="root:net_admin"
-    chown ${box_user_group} ${bin_path}
-    chmod 6755 ${bin_path}
-    chown -R ${box_user_group} ${data_dir}
-    log info "using kernel directory ${bin_name} in ${bin_path}"
   fi
 }
 
