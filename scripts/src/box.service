@@ -38,7 +38,9 @@ temporary_config_file() {
     if [ -f "${clash_config}" ] ; then
       cp -f ${data_dir}/template.yml ${data_dir}/run/config.yaml.temp \
         && echo "\n" >> ${data_dir}/run/config.yaml.temp
-      sed -n -E '/^proxies:$/,$p' ${clash_config} >> ${data_dir}/run/config.yaml.temp
+      # sed -n -E '/^proxies:$/,$p' ${clash_config} >> ${data_dir}/run/config.yaml.temp
+      awk '/proxies:/,EOF { print $0 }' ${clash_config} >> ${data_dir}/run/config.yaml.temp
+      sleep .3
       sed -i '/^[  ]*$/d' ${data_dir}/run/config.yaml.temp
     else
       log error "${clash_config} file is missing."
