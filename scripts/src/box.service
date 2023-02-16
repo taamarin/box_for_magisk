@@ -121,8 +121,21 @@ check_permission() {
 
 check_in_bin() {
   case "${bin_name}" in
-    clash)(log info "$(${bin_path} -v)") || return 1;;
-    *)(log info "$(${bin_path} version)") || return 1;;
+    clash)
+      test_version=$(${bin_path} -v | grep -v 'clash')
+  	  echo "${test_version}" | grep -qi 'clash' && \
+  	    log info "$(${bin_path} -v)" || log error "kernel ${bin_name} corrupted."
+  		;;
+    sing-box)
+      test_version=$(${bin_path} version | grep "${bin_name}")
+  	  echo "${test_version}" | grep -qi "${bin_name}" && \
+  	    log info "$(${bin_path} version)" || log error "kernel ${bin_name} corrupted."
+      ;;
+    *)
+      test_version=$(${bin_path} version | grep -v "${bin_name}")
+  	  echo "${test_version}" | grep -qi "${bin_name}" && \
+  	    log info "$(${bin_path} version)" || log error "kernel ${bin_name} corrupted."
+      ;;
   esac
 }
 
@@ -272,7 +285,7 @@ start_box() {
     exit 1
   fi
   check_permission
-  check_in_bin || log error "kernel ${bin_name} corrupted."
+  check_in_bin
   delete_logs
   create_tun
   run_box && sleep 1
