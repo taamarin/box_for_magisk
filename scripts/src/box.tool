@@ -41,14 +41,8 @@ testing () {
   	fi
   
   	logs testing "https="
-  	ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
-  	if echo "${ipInfo}" | grep -qi 'IP'; then
-  		logs succes "done"
-  	else
-  		httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-  		[ -n "${httpsResp}" ] && logs succes "done" || \
-  		  logs failed "failed"
-  	fi
+		httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+		[ -n "${httpsResp}" ] && logs succes "done" || logs failed "failed"
   
   	logs testing "udp="
   	currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
@@ -63,21 +57,18 @@ testing () {
 }
 
 network_check() {
-  sleep 0.5
   if [ -f ${data_dir}/bin/mlbox ] ; then
-		ipInfo=$(${data_dir}/bin/mlbox -timeout=5 -http="https://ip.tool.lu/" 2>&1 | grep -Ev 'timeout|httpGetResponse')
-		if echo "${ipInfo}" | grep -qi 'IP'; then
-			log info "connected to the internet network"
+  	logs info "check internet connection... "
+		httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+		if [ -n "${httpsResp}" ] ; then
+			logs succes "done"
 		else
-			httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-			if [ -n "${httpsResp}" ] ; then
-  			log info "connected to the internet network"
-			else
-  		  log debug "the network is down or very slow"
-  		  exit 0
-		  fi
-		fi
+		  logs failed "failed"
+		  flags=false
+	  fi
   fi
+	[ -t 1 ] && echo "\033[1;31m""\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
+  [ "${flags}" != "false" ] || exit 1
 }
 
 probe_bin_alive() {

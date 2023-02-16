@@ -260,17 +260,6 @@ crontab_alive() {
   crontab_geo
 }
 
-network_port () {
-  if [ "${clash_tun_status}" = "false" ] ; then
-    $(/system/bin/netstat -tnulp | grep -q "${tproxy_port}") || \
-      log debug "tproxy_port out of sync with config"
-  fi
-  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "core" ] ; then
-    $(/system/bin/ifconfig | grep -q ${tun_device}) || \
-      log error "tun_device: ${tun_device} not found"
-  fi
-}
-
 start_box() {  
   echo -n "" > ${logs_file}
   [ -t 1 ] && echo "\033[1;31m$(date)\033[0m" || echo "$(date)" | tee -a ${logs_file} >> /dev/null 2>&1
@@ -291,7 +280,6 @@ start_box() {
     crontab_alive || log info "crontab: disable." 
   cgroup_limit
   detected_port || sleep 1
-  # network_port
   still_alive
   display_bin_pid
 }
@@ -333,7 +321,7 @@ case "$1" in
     esac
     [ $(pidof ${bin_name}) ] && \
       bin_usage || log warn "${bin_name} service is stopped"
-  ;;
+    ;;
   reload)
     if [ "${bin_name}" = "clash" ] ; then
       temporary_config_file
