@@ -87,6 +87,7 @@ fi
 
 ui_print "- Move BFM files"
 mv ${MODPATH}/scripts/cacert.pem ${MODPATH}/system/etc/security/cacerts
+mv ${MODPATH}/scripts/bin/mlbox /data/adb/box/bin/
 mv ${MODPATH}/scripts/src/* /data/adb/box/scripts/
 mv ${MODPATH}/scripts/clash/* /data/adb/box/clash/
 mv ${MODPATH}/scripts/settings.ini /data/adb/box/
@@ -109,12 +110,14 @@ set_perm  /data/adb/service.d/box_service.sh  0  0  0755
 set_perm  ${MODPATH}/service.sh  0  0  0755
 set_perm  ${MODPATH}/uninstall.sh  0  0  0755
 set_perm  ${MODPATH}/system/etc/security/cacerts/cacert.pem 0 0 0644
+set_perm /data/adb/box/bin/mlbox   0  0  0755
 set_perm /data/adb/box/scripts/box.service   0  0  0755
 set_perm /data/adb/box/scripts/box.tool   0  0  0755
 set_perm /data/adb/box/scripts/start.sh   0  0  0755
 set_perm /data/adb/box/scripts/box.iptables   0  0  0755
 set_perm /data/adb/box/scripts/box.inotify   0  0  0755
 
+chmod ugo+x /data/adb/box/bin/*
 chmod ugo+x ${MODPATH}/system/bin/*
 ui_print "- Installation is complete, reboot your device"
 ui_print " --- Notes --- "
