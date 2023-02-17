@@ -4,8 +4,8 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
-table="222"
-fwmark="223"
+table="223"
+fwmark="222"
 pref="100"
 
 # ipts_version=$(iptables -V | grep -o "v1\.[0-9]")
@@ -146,7 +146,9 @@ start_redirect() {
     fi
   fi
 
-  ${iptables} -t nat -I OUTPUT -j BOX_LOCAL
+  if [ "${iptables}" != "ip6tables -w 100" ] ; then
+    ${iptables} -t nat -I OUTPUT -j BOX_LOCAL
+  fi
 
   if [ "${iptables}" != "ip6tables -w 100" ] ; then
     ${iptables} -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner ${box_user} --gid-owner ${box_group} -m tcp --dport ${redir_port} -j REJECT
