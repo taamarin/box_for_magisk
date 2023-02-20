@@ -502,7 +502,6 @@ if [ "${proxy_mode}" != "core" ] ; then
       iptables="ip6tables -w 100" && stop_redirect >> /dev/null 2>&1
       iptables="ip6tables -w 100" && forward -D >> /dev/null 2>&1
       log warn "clean up iptables transparent proxy rules done."
-
       find_packages_uid
       case "${network_mode}" in
         tproxy)
@@ -623,7 +622,6 @@ else
       iptables="ip6tables -w 100" && stop_redirect >> /dev/null 2>&1
       iptables="ip6tables -w 100" && forward -D >> /dev/null 2>&1
       log warn "clean up tun rules done."
-
       iptables="iptables -w 100"
       forward -I && log info "use tun: tcp + udp, stack: ${clash_stack}" || log info "use tun: tcp + udp failed."
       if [ "${ipv6}" = "true" ] ; then
