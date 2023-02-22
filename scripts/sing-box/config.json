@@ -6,42 +6,14 @@
     "timestamp": false
   },
   "dns": {
-    "final": "cloudflare",
-    "strategy": "prefer_ipv4",
-    "disable_cache": false,
-    "disable_expire": false,
     "servers": [
       {
         "tag": "cloudflare",
-        "address": "1.1.1.1",
-        "detour": "sing-box"
-      },
-      {
-        "tag": "googledns",
-        "address": "8.8.8.8",
-        "detour": "sing-box"
-      },
-      {
-        "tag": "block",
-        "address": "rcode://success"
+        "address": "tls://1.1.1.1"
       }
     ],
-    "rules": [
-      {
-        "domain_suffix": [
-          "googlesyndication.com"
-        ],
-        "server": "cloudflare",
-        "disable_cache": false
-      },
-      {
-        "geosite": [
-          "category-ads-all"
-        ],
-        "server": "block",
-        "disable_cache": false
-      }
-    ]
+    "rules": [],
+    "strategy": "ipv4_only"
   },
   "inbounds": [
     {
@@ -49,15 +21,10 @@
       "tag": "tproxy-in",
       "listen": "::",
       "listen_port": 9898,
-      "network": [
-        "udp",
-        "tcp"
-      ],
-      "tcp_fast_open": true,
       "sniff": true,
       "sniff_override_destination": true,
       "sniff_timeout": "300ms",
-      "domain_strategy": "prefer_ipv4",
+      "domain_strategy": "ipv4_only",
       "udp_timeout": 300
     }
   ],
@@ -75,51 +42,70 @@
       "tag": "dns-out"
     },
     {
-      "tag": "sing-box",
+      "tag": "BFM",
+      "type": "selector",
+      "outbounds": [
+        "akun-a"
+      ]
+    },
+    {
+      "tag": "blacklist",
       "type": "selector",
       "outbounds": [
         "direct",
-        "sub-box"
-      ]
+        "block"
+      ],
+      "default": "block"
     },
     {
-      "tag": "opok tsel",
+      "tag": "akun-a",
       "type": "vmess",
-      "server": "159.223.38.70",
-      "server_port": 80,
-      "uuid": "8a03dce3-3c8f-4785-be8d-bc8a832d0884",
+      "server": "server.com",
+      "server_port": 12345,
+      "uuid": "aaa-aaa-aaa",
       "security": "auto",
       "alter_id": 0,
+      "network": [
+        "tcp",
+        "udp"
+      ],
+      "packet_encoding": "xudp",
       "transport": {
         "type": "ws",
-        "path": "/worryfree",
+        "path": "/path",
         "headers": {
-          "Host": "dynamic-sg1b.obfs.xyz"
+          "Host": "host.com"
         }
       }
-    },
-    {
-      "tag": "sub-box",
-      "type": "selector",
-      "outbounds": [
-        "opok tsel"
-      ]
     }
   ],
   "route": {
-    "final": "sing-box",
-    "geoip": {
-      "download_url": "https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db",
-      "download_detour": "direct"
-    },
-    "geosite": {
-      "download_url": "https://github.com/CHIZI-0618/v2ray-rules-dat/raw/release/geosite.db",
-      "download_detour": "direct"
-    },
+    "final": "BFM",
     "rules": [
       {
         "protocol": "dns",
         "outbound": "dns-out"
+      },
+      {
+        "domain_suffix": [
+          "googlesyndication.com"
+        ],
+        "outbound": "BFM"
+      },
+      {
+        "protocol": [
+          "quic"
+        ],
+        "port": [
+          443
+        ],
+        "network": "udp",
+        "geosite": "youtube",
+        "outbound": "blacklist"
+      },
+      {
+        "geosite": "category-ads-all",
+        "outbound": "blacklist"
       }
     ],
     "find_process": false,
@@ -128,7 +114,7 @@
   "experimental": {
     "clash_api": {
       "external_controller": "0.0.0.0:9090",
-      "external_ui": "../dashboard/dist",
+      "external_ui": "./dashboard/dist",
       "store_selected": false
     }
   }

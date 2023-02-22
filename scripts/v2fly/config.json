@@ -35,14 +35,12 @@
       "settings": {
         "vnext": [
           {
-            "address": "104.21.235.171",
+            "address": "server.com",
             "port": 80,
             "users": [
               {
                 "alterId": 0,
-                "encryption": "",
-                "flow": "",
-                "id": "uuid",
+                "id": "aaa-aaa-aaa",
                 "level": 8,
                 "security": "auto"
               }
@@ -52,12 +50,16 @@
       },
       "streamSettings": {
         "network": "ws",
-        "security": "",
+        "security": "none",
+        "tlsSettings": {
+          "allowInsecure": false,
+          "serverName": "sni.com"
+        },
         "wsSettings": {
           "headers": {
-            "Host": "x-ui-llyc.hidedns.me"
+            "Host": "host.com"
           },
-          "path": "/pulsa"
+          "path": "/sheynsw"
         }
       },
       "tcpSettings": null,
@@ -89,7 +91,7 @@
       "tag": "dns-out",
       "protocol": "dns",
       "settings": {
-        "address": "1.1.1.1"
+        "address": "8.8.8.8"
       }
     }
   ],
@@ -100,7 +102,7 @@
       "domain:ota-cache2.googlezip.net": "127.0.0.1"
     },
     "servers": [
-      "8.8.8.8"
+      "1.1.1.1"
     ],
     "tag": "dns",
     "queryStrategy": "UseIP"
@@ -116,21 +118,6 @@
           "proxy-in"
         ],
         "outboundTag": "dns-out"
-      },
-      {
-        "ip": [
-          "1.1.1.1"
-        ],
-        "outboundTag": "proxy",
-        "port": "53",
-        "type": "field"
-      },
-      {
-        "type": "field",
-        "outboundTag": "direct",
-        "protocol": [
-          "bittorrent"
-        ]
       },
       {
         "domain": [

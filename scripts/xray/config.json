@@ -30,50 +30,10 @@
   ],
   "outbounds": [
     {
-      "tag": "proxy",
-      "protocol": "vmess",
-      "settings": {
-        "vnext": [
-          {
-            "address": "104.21.235.171",
-            "port": 80,
-            "users": [
-              {
-                "alterId": 0,
-                "encryption": "",
-                "flow": "",
-                "id": "uuid",
-                "level": 8,
-                "security": "auto"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "security": "",
-        "wsSettings": {
-          "headers": {
-            "Host": "x-ui-llyc.hidedns.me"
-          },
-          "path": "/pulsa"
-        }
-      },
-      "tcpSettings": null,
-      "sockopt": {
-        "domainStrategy": "UseIP"
-      },
-      "mux": {
-        "concurrency": 8,
-        "enabled": false
-      }
-    },
-    {
       "tag": "direct",
       "protocol": "freedom",
       "settings": {
-        "domainStrategy": "UseIP"
+        "domainStrategy": "UseIPv4"
       }
     },
     {
@@ -89,7 +49,50 @@
       "tag": "dns-out",
       "protocol": "dns",
       "settings": {
-        "address": "1.1.1.1"
+        "address": "8.8.8.8"
+      }
+    },
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "128.199.233.181",
+            "port": 443,
+            "users": [
+              {
+                "encryption": "none",
+                "flow": "xtls-rprx-vision",
+                "id": "8aeaf535-f729-4330-9474-669726f8c9d7",
+                "level": 8,
+                "security": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tcpSettings": {
+          "header": {
+            "type": "none"
+          }
+        },
+        "tlsSettings": {
+          "allowInsecure": true,
+          "fingerprint": "",
+          "serverName": "www.google.com"
+        }
+      },
+      "mux": {
+        "concurrency": 8,
+        "enabled": false
+      },
+      "tcpSettings": null,
+      "sockopt": {
+        "domainStrategy": "UseIPv4"
       }
     }
   ],
@@ -103,7 +106,7 @@
       "8.8.8.8"
     ],
     "tag": "dns",
-    "queryStrategy": "UseIP"
+    "queryStrategy": "UseIPv4"
   },
   "routing": {
     "domainStrategy": "IPIfNonMatch",
@@ -116,21 +119,6 @@
           "proxy-in"
         ],
         "outboundTag": "dns-out"
-      },
-      {
-        "ip": [
-          "1.1.1.1"
-        ],
-        "outboundTag": "proxy",
-        "port": "53",
-        "type": "field"
-      },
-      {
-        "type": "field",
-        "outboundTag": "direct",
-        "protocol": [
-          "bittorrent"
-        ]
       },
       {
         "domain": [

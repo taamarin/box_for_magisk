@@ -1,33 +1,33 @@
 #!/system/bin/sh
 
-scripts=$(realpath $0)
-scripts_dir=$(dirname ${scripts})
+scripts=$(realpath "$0")
+scripts_dir=$(dirname "${scripts}")
 
 service_path="/data/adb/box/scripts/box.service"
 iptables_path="/data/adb/box/scripts/box.iptables"
 data_box="/data/adb/box"
 run_path="/data/adb/box/run"
-now=$(date +"%I.%M %p")
+now=$(date +"%I.%M %p %z")
 
 events=$1
 monitor_dir=$2
 monitor_file=$3
 
 service_control() {
-  if [ "${monitor_file}" = "disable" ] ; then
-    if [ "${events}" = "d" ] ; then
-      ${service_path} start > ${run_path}/service.log 2>> ${run_path}/service.log && \
-      ${iptables_path} enable >> ${run_path}/service.log 2>> ${run_path}/service.log
-    elif [ "${events}" = "n" ] ; then
-      ${iptables_path} disable >> ${run_path}/service.log 2>> ${run_path}/service.log && \
-      ${service_path} stop >> ${run_path}/service.log 2>> ${run_path}/service.log
+  if [ "${monitor_file}" = "disable" ]; then
+    if [ "${events}" = "d" ]; then
+      "${service_path}" start > "${run_path}/service.log" 2>> "${run_path}/service.log" && \
+      "${iptables_path}" enable >> "${run_path}/service.log" 2>> "${run_path}/service.log"
+    elif [ "${events}" = "n" ]; then
+      "${iptables_path}" disable >> "${run_path}/service.log" 2>> "${run_path}/service.log" && \
+      "${service_path}" stop >> "${run_path}/service.log" 2>> "${run_path}/service.log"
     fi
   fi
 }
 
-[ -d ${run_path} ] || (mkdir -p ${run_path})
-if [ -f "${data_box}/settings.ini" ] ; then
+mkdir -p "${run_path}"
+if [ -f "${data_box}/settings.ini" ]; then
   service_control
 else
-  echo "${now} [ERROR] settings.ini file not found" > ${run_path}/error.inotify.log
+  echo "${now} [ERROR] settings.ini file not found" > "${run_path}/error.inotify.log"
 fi
