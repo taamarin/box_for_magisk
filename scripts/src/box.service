@@ -442,7 +442,7 @@ start_box() {
   sleep 1
   still_alive
   display_bin_pid
-  data_wifi
+  # data_wifi
 }
 
 stop_box() {

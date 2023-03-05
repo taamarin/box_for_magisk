@@ -595,7 +595,7 @@ if [ "${proxy_mode}" != "tun" ]; then
         ;;
       esac
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool testing
+      # ${scripts_dir}/box.tool testing
       ;;
     renew)
       probe_empty
@@ -721,7 +721,7 @@ else
       fi
       log info "create iptables tun rules done."
       log info "${bin_name} connected."
-      ${scripts_dir}/box.tool testing
+      # ${scripts_dir}/box.tool testing
       ;;
     renew)
       network_port
