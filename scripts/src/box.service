@@ -8,15 +8,16 @@ delete_logs() {
   # Delete logs for each bin in the list
   log info "Deleting & Backup logs for ${bin_list[*]}"
   for bin in "${bin_list[@]}" ; do
-    mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).logs"
-    rm -f "${run_path}/${bin}.log" || log warn "Error deleting ${bin}.log"
+    if [ -f "${run_path}/${bin}.log" ]; then
+      mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
+    fi
   done
   
   # Delete other log files
   find "${run_path}" -type f \( -name "root" -o -name "*.yaml" -o -name "*.list" -o -name "*.inotify.log" -o -name "*-report.log" \) -exec rm -f {} \; || log warn "Error deleting other log files"
   
   # Delete logs that are three days old or older
-  find "${run_path}" -type f -name "*.logs" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old logs"
+  find "${run_path}" -type f -name "*.log" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old log"
 }
 
 crontab_geo() {
