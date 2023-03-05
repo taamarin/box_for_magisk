@@ -96,10 +96,10 @@ unzip -o "${MODPATH}/dashboard.zip" -d /data/adb/box/clash/dashboard/ >&2
 unzip -o "${MODPATH}/dashboard.zip" -d /data/adb/box/sing-box/dashboard/ >&2
 
 ui_print ""
-ui_print "--------------------------------------------------------"
-ui_print "- Are you going to create a resolve.conf file?"
-ui_print "- Press Vol Up: to create the resolve.conf file."
-ui_print "- Press Vol Down: to ignore the resolve.conf file."
+ui_print "********************************************************"
+ui_print "- do you want to add DNS nameservers in resolve.conf?"
+ui_print "- Vol Up: to create the resolve.conf file."
+ui_print "- Vol Down: to ignore the resolve.conf file."
 while true ; do
   getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
   sleep 1
@@ -149,8 +149,7 @@ set_perm "/data/adb/service.d/box_service.sh"  0  0  0755
 set_perm "${MODPATH}/service.sh"  0  0  0755
 set_perm "${MODPATH}/uninstall.sh"  0  0  0755
 set_perm "${MODPATH}/system/etc/security/cacerts/cacert.pem" 0 0 0644
-set_perm ${MODPATH}/system/bin/curl  0  0  0755
-
+set_perm "${MODPATH}/system/bin/curl"  0  0  0755
 set_perm /data/adb/box/scripts/box.inotify  0  0  0755
 set_perm /data/adb/box/scripts/box.service  0  0  0755
 set_perm /data/adb/box/scripts/box.iptables  0  0  0755
@@ -161,22 +160,22 @@ set_perm /data/adb/box/bin/mlbox  0  0  0755
 sleep 1
 
 ui_print ""
-ui_print "--------------------------------------------------------"
-ui_print "- Have you downloaded KERNEL and GEOX?"
+ui_print "********************************************************"
+ui_print "- do you want to download KERNEL and GEOX?"
 ui_print "- Make sure you have a good internet connection."
-ui_print "- Press Vol Up: to download GEOX and KERNEL."
-ui_print "- Press Vol Down: to ignore downloading GEOX and KERNEL."
+ui_print "- Vol Up: to download GEOX and KERNEL."
+ui_print "- Vol Down: to ignore downloading GEOX and KERNEL."
 while true ; do
   getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
   sleep 1
   if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
     ui_print "- it will take a while...."
-    if [ ! -f /data/adb/box/run/box.pid ]; then
-      /data/adb/box/scripts/box.tool all && echo "- downloads are complete."
-    else
-      ui_print "  - BFM service is still running, Cannot update geo and kernel, as it will cause conflicts"
-      ui_print "  - Download manually after reboot is complete"
-    fi
+    # if [ ! -f /data/adb/box/run/box.pid ]; then
+    /data/adb/box/scripts/box.tool all && echo "- downloads are complete."
+    # else
+      # ui_print "  - BFM service is still running, Cannot update geo and kernel, as it will cause conflicts"
+      # ui_print "  - Download manually after reboot is complete"
+    # fi
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
      ui_print "- ignore download GEOX and KERNEL"
@@ -186,6 +185,6 @@ done
 
 ui_print "- Installation is complete, reboot your device"
 ui_print ""
-ui_print " --- Notes --- "
-ui_print "[+] report issues to @taamarin on Telegram"
-ui_print "[+] Join @taamarin on telegram to get more updates"
+ui_print "- Notes: "
+ui_print "- report issues to @taamarin on Telegram"
+ui_print "- Join @taamarin on telegram to get more updates"
