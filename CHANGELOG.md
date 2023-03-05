@@ -1,5 +1,9 @@
-#### ⟳ Changelog v0.2.1
-- adjust iptables
-- fix ceks bin/kernel
-- fix probe tproxy and tun device
-- remove `testing` on renew
+#### ⟳ Changelog v0.4.1
++ small improvement
+#### ⟳ Changelog v0.4
++ delete template for clash
++ add dashboard files
++ fix update kernel & geo
++ optimize `bfm` scripts
+
+[README](https://github.com/taamarin/box_for_magisk/blob/master/README.md)
