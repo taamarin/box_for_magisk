@@ -107,22 +107,22 @@ dns:
     # - '1.1.1.1'
   # nameserver-policy: { "geosite:youtube": [1.1.1.1, 8.8.8.8] }
 
-  # fallback:
-    # - 'https://8.8.8.8/dns-query'
-    # - 'tcp://8.8.4.4'
-    # - 'quic://dns.adguard.com:784'
-  # fallback-filter:
-    # geoip: false
-    # geoip-code: 'ID'
-    # geosite:
-      # # - gfw
-    # ipcidr:
-      # # - 240.0.0.0/4
-    # domain:
-      # - '+.google.com'
-      # - '+.facebook.com'
-      # - '+.youtube.com'
-      # - '+.github.com'
+  fallback:
+    - 'https://8.8.8.8/dns-query'
+    - 'tcp://8.8.4.4'
+    - 'quic://dns.adguard.com:784'
+  fallback-filter:
+    geoip: false
+    geoip-code: '!ID'
+    geosite:
+      # - gfw
+    ipcidr:
+      # - 240.0.0.0/4
+    domain:
+      - '+.google.com'
+      - '+.facebook.com'
+      - '+.youtube.com'
+      - '+.github.com'
 
 hosts:
   # block update system android
