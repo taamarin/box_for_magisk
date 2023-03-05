@@ -466,10 +466,10 @@ stop_tproxy() {
     ip -6 route flush table "${table}"
   fi
 
-  ip rule delete not fwmark 2022 table main
-  ip rule delete iif lo lookup 2022
-  ip rule delete iif utun lookup main suppress_prefixlength 0
-  ip rule delete iif lo from 28.0.0.0/30 lookup 2022
+  # ip rule delete not fwmark 2022 table main
+  # ip rule delete iif lo lookup 2022
+  # ip rule delete iif utun lookup main suppress_prefixlength 0
+  # ip rule delete iif lo from 28.0.0.0/30 lookup 2022
 
   ${iptables} -t mangle -D PREROUTING -j BOX_EXTERNAL
   ${iptables} -t mangle -D PREROUTING -p tcp -m socket -j DIVERT
