@@ -5,6 +5,10 @@ scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
 user_agent="${bin_name}"
+# set meta and dev flags
+meta=true
+# if meta flag is true, download clash.meta
+dev=true
 
 # membuat log pada terminal
 logs() {
@@ -165,20 +169,19 @@ update_subgeo() {
   case "${bin_name}" in
     clash)
       geoip_file="${data_dir}/clash/$(if [ "${meta}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [ "${meta}" = "false" ]; then echo "Loyalsoldier/geoip/raw/release/Country-only-cn-private.mmdb"; else echo "v2fly/geoip/raw/release/geoip-only-cn-private.dat"; fi)"
-
+      geoip_url="$(if [ "${meta}" = "false" ]; then echo "https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb"; else echo "https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"; fi)"
       geosite_file="${data_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
       ;;
     sing-box)
       geoip_file="${data_dir}/sing-box/geoip.db"
-      geoip_url="https://github.com/SagerNet/sing-geoip/releases/download/20221012/geoip-cn.db"
+      geoip_url="https://github.com/CHIZI-0618/v2ray-rules-dat/raw/release/geoip.db"
       geosite_file="${data_dir}/sing-box/geosite.db"
       geosite_url="https://github.com/CHIZI-0618/v2ray-rules-dat/raw/release/geosite.db"
       ;;
     *)
       geoip_file="${data_dir}/${bin_name}/geoip.dat"
-      geoip_url="https://github.com/v2fly/geoip/raw/release/geoip-only-cn-private.dat"
+      geoip_url="https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"
       geosite_file="${data_dir}/${bin_name}/geosite.dat"
       geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
       ;;
@@ -259,10 +262,6 @@ update_kernel() {
       # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
       ;;
     clash)
-      # set meta and dev flags
-      meta=true
-      dev=true
-      # if meta flag is true, download clash.meta
       if [ "${meta}" = "true" ]; then
         # set download link and get the latest version
         download_link="https://github.com/taamarin/Clash.Meta/releases"
