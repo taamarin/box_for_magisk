@@ -169,7 +169,7 @@ update_subgeo() {
   case "${bin_name}" in
     clash)
       geoip_file="${data_dir}/clash/$(if [ "${meta}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="$(if [ "${meta}" = "false" ]; then echo "https://github.com/Dreamacro/maxmind-geoip/raw/release/Country.mmdb"; else echo "https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"; fi)"
+      geoip_url="https://github.com/$(if [ "${meta}" = "false" ]; then echo "Dreamacro/maxmind-geoip/raw/release/Country.mmdb"; else echo "Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"; fi)"
       geosite_file="${data_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
       ;;
@@ -243,7 +243,7 @@ update_kernel() {
   network_check
   case $(uname -m) in
     "aarch64") arch="arm64"; platform="android" ;;
-    "armv7l") arch="armv7"; platform="linux" ;;
+    "armv7l"|"armv8l") arch="armv7"; platform="linux" ;;
     "i686") arch="386"; platform="linux" ;;
     "x86_64") arch="amd64"; platform="linux" ;;
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
@@ -252,9 +252,9 @@ update_kernel() {
   file_kernel="${bin_name}-${arch}"
   case "${bin_name}" in
     sing-box)
-      url_api="https://api.github.com/repos/SagerNet/sing-box/releases/latest"
       url_down="https://github.com/SagerNet/sing-box/releases"
-      sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_api}" | grep '"tag_name":' | cut -d'"' -f4)
+      sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
+      # sing_box_version_temp=$(wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[a-z0-9]+*' | head -1 | cut -d'/' -f3)
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
       log debug "download ${download_link}"
@@ -278,15 +278,13 @@ update_kernel() {
       else
         # if dev flag is true, download latest dev version
         if [ "${dev}" != "false" ]; then
-          download_link="https://release.dreamacro.workers.dev/latest"
-          log debug "download ${download_link}/clash-linux-${arch}-latest.gz"
-          update_file "${data_dir}/${file_kernel}.gz" "${download_link}/clash-linux-${arch}-latest.gz"
-        # if dev flag is false, download latest premium version
+          log debug "download https://release.dreamacro.workers.dev/latest/clash-linux-${arch}-latest.gz"
+          update_file "${data_dir}/${file_kernel}.gz" "https://release.dreamacro.workers.dev/latest/clash-linux-${arch}-latest.gz"
         else
-          download_link="https://github.com/Dreamacro/clash/releases"
-          filename=$(wget --no-check-certificate -qO- "${download_link}/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
-          log debug "download ${download_link}/download/premium/${filename}.gz"
-          update_file "${data_dir}/${file_kernel}.gz" "${download_link}/download/premium/${filename}.gz"
+        # if dev flag is false, download latest premium version
+          filename=$(wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+          log debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
+          update_file "${data_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         fi
       fi
       # if the update_file command was successful, kill the alive process
@@ -298,7 +296,7 @@ update_kernel() {
       case $(uname -m) in
         "i386") download_file="Xray-linux-32.zip" ;;
         "x86_64") download_file="Xray-linux-64.zip" ;;
-        "armv7l") download_file="Xray-linux-arm32-v7a.zip" ;;
+        "armv7l"|"armv8l") download_file="Xray-linux-arm32-v7a.zip" ;;
         "aarch64") download_file="Xray-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
@@ -315,7 +313,7 @@ update_kernel() {
       case $(uname -m) in
         "i386") download_file="v2ray-linux-32.zip" ;;
         "x86_64") download_file="v2ray-linux-64.zip" ;;
-        "armv7l") download_file="v2ray-linux-arm32-v7a.zip" ;;
+        "armv7l"|"armv8l") download_file="v2ray-linux-arm32-v7a.zip" ;;
         "aarch64") download_file="v2ray-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
