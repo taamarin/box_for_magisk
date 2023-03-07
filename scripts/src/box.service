@@ -134,7 +134,7 @@ check_in_bin() {
       log info "$(${bin_path} -v)";;
     *)
       if ! "${bin_path}" version >/dev/null 2>&1; then
-        echo "Error: '${bin_name}' version information not available."
+        log error "Error: '${bin_name}' version information not available."
         exit 1
       fi
       log info "$(${bin_path} version)";;
