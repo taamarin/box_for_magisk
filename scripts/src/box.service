@@ -12,10 +12,10 @@ delete_logs() {
       mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
     fi
   done
-  
+
   # Delete other log files
   find "${run_path}" -type f \( -name "root" -o -name "*.yaml" -o -name "*.list" -o -name "*.inotify.log" -o -name "*-report.log" \) -exec rm -f {} \; || log warn "Error deleting other log files"
-  
+
   # Delete logs that are three days old or older
   find "${run_path}" -type f -name "*.log" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old log"
 }
@@ -44,11 +44,11 @@ still_alive() {
     exit 1
   fi
   
-  if ! kill -0 $pid 2>/dev/null; then
+  if ! kill -0 "${pid}" 2>/dev/null; then
     log error "${bin_name} service is not running."
     log error "Killing stale pid ${pid}."
-    kill -9 $pid || killall -9 ${bin_name}
-    rm -f ${pid_file}
+    kill "${pid}" || killall "${bin_name}"
+    rm -f "${pid_file}"
     exit 1
   fi
 }
@@ -190,7 +190,6 @@ run_box() {
         exit 1
       fi
       ;;
-      
     clash)
       if [ "${clash_tun_status}" != "true" ]; then
         awk -v tproxy_port="${tproxy_port}" '/tproxy-port:/ {$2=tproxy_port} {print}' ${clash_config} > ${data_dir}/tmp && mv ${data_dir}/tmp ${clash_config}
@@ -207,7 +206,6 @@ run_box() {
         exit 1
       fi
       ;;
-      
     xray)
       default_tp
       if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
@@ -226,7 +224,6 @@ run_box() {
         exit 1
       fi
     ;;
-    
     v2fly)
       default_tp
       if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
@@ -317,7 +314,7 @@ display_bin_pid() {
     log error "bin_name: ${bin_name} not defined"
     return 1
   fi
-  
+
   # Mencari PID dari bin_name
   bin_pid=$(pidof "${bin_name}")
   
@@ -346,7 +343,7 @@ crontab_alive() {
     echo "${intervaldns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
     log info "DNS remains open."
   fi
-  
+
   # Menampilkan pesan konfigurasi jika bin_name adalah "clash"
   if [ "${bin_name}" = "clash" ]; then
     log info "Configuration ${clash_config}."
@@ -354,45 +351,6 @@ crontab_alive() {
   
   # Menjalankan fungsi crontab_geo untuk menambahkan cron job berdasarkan lokasi geografis
   crontab_geo
-}
-
-data_wifi() {
-  network_interface=$(ip route show | sed -n '1p' | awk '{print $3}')
-  # network_interface=$(ip route show | sed -n '2p' | awk '{print $3}')
-  data_info=$(ifconfig "${network_interface}" | grep "RX bytes")
-  # Retrieving data usage from data information
-  data_usage=$(echo "$data_info" | awk '/RX bytes/ {print $2}' | cut -d: -f2)
-  # Convert bytes to MB/KB
-  if (( $(echo "${data_usage} > 1024 * 1024 * 1024" | bc -l) )); then
-    # Convert to GB
-    data_usage_gb=$(echo "scale=2; ${data_usage} / 1024 / 1024 / 1024" | bc)
-    log debug "Data usage: ${data_usage_gb} GB"
-  elif (( $(echo "${data_usage} > 1024 * 1024" | bc -l) )); then
-    data_usage_mb=$(echo "scale=2; ${data_usage} / 1024 / 1024" | bc)
-    log debug "Data usage: ${data_usage_mb} MB"
-  else
-    data_usage_mb=$(echo "scale=2; ${data_usage} / 1024" | bc)
-    log debug "Data usage: ${data_usage_mb} KB"
-  fi
-
-  # Run dumpsys command to get wifi usage
-  # Retrieving wifi information using ifconfig
-  network_ap=$(ip route show | sed -n '3p' | awk '{print $3}')
-  wifi_info=$(ifconfig "${network_ap}" | grep "RX bytes")
-  # Retrieve data usage from wifi information
-  wifi_usage=$(echo "$wifi_info" | awk '/RX bytes/ {print $2}' | cut -d: -f2)
-  # Konversi byte menjadi MB / KB
-  if (( $(echo "${wifi_usage} > 1024 * 1024 * 1024" | bc -l) )); then
-    # Convert to GB
-    wifi_usage_gb=$(echo "scale=2; ${wifi_usage} / 1024 / 1024 / 1024" | bc)
-    log debug "WiFi usage: ${wifi_usage_gb} GB"
-  elif (( $(echo "${wifi_usage} > 1024 * 1024" | bc -l) )); then
-    wifi_usage_mb=$(echo "scale=2; ${wifi_usage} / 1024 / 1024" | bc)
-    log debug "WiFi usage: ${wifi_usage_mb} MB"
-  else
-    wifi_usage_mb=$(echo "scale=2; ${wifi_usage} / 1024" | bc)
-    log debug "WiFi usage: ${wifi_usage_mb} KB"
-  fi
 }
 
 start_box() {
@@ -443,7 +401,6 @@ start_box() {
   sleep 1
   still_alive
   display_bin_pid
-  # data_wifi
 }
 
 stop_box() {
@@ -456,7 +413,7 @@ stop_box() {
   # Menggunakan loop untuk membunuh setiap binary
   for bin in ${bin_list[@]}; do
     # Menggunakan `pkill` untuk membunuh binary
-    kill -9 "$(pidof ${bin})" || killall -9 "${bin}"
+    kill "$(pidof ${bin})" || killall "${bin}"
   done
 
   sleep 0.5
@@ -489,7 +446,6 @@ case "$1" in
     ${scripts_dir}/box.iptables renew
     ;;
   usage)
-    data_wifi
     case "${bin_name}" in
       clash) log debug "$(${bin_path} -v)";;
       *) log debug "$(${bin_path} version)";;

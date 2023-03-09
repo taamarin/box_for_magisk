@@ -38,7 +38,6 @@ if [ "${bin_name}" = "clash" ]; then
 fi
 }
 
-
 probe_user_group() {
   if bin_pid=$(pidof ${bin_name}) ; then
     box_user=$(stat -c %U /proc/${bin_pid})
