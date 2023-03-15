@@ -57,7 +57,7 @@ check_permission() {
   if [ "${box_user_group}" = "root:net_admin" ]; then
     if [ ! -f ${bin_path} ]; then
       log error "Kernel ${bin_name} is missing."
-      log error "Please download and place it in the ${bin_path} directory."
+      log error "Please download the ${bin_name} kernel and place it in the ${bin_kernel}/ directory."
       exit 1
     fi
     # Set ownership and permission of kernel directory
@@ -108,7 +108,7 @@ check_permission() {
       fi
     else
       log error "Kernel ${bin_name} is missing."
-      log error "Please download kernel, replace it in the /data/adb/modules/box_for_magisk/system/bin/${bin_name} directory, and reboot."
+      log error "Please download the ${bin_name} kernel, place it in the /data/adb/modules/box_for_magisk/system/bin/ directory and reboot."
       exit 1
     fi
   fi
