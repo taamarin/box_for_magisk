@@ -192,7 +192,11 @@ run_box() {
       ;;
     clash)
       clash_external_ui=$(awk '/external-ui: /{print $1}' "${clash_config}" | head -1)
+      clash_tproxy_port=$(awk '/tproxy-port: /{print $1}' "${clash_config}" | head -1)
+      clash_redir_port=$(awk '/redir-port: /{print $1}' "${clash_config}" | head -1)
       [ "${clash_external_ui}" != "" ] || echo -e "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
+      [ "${clash_tproxy_port}" != "" ] || echo -e "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
+      [ "${clash_redir_port}" != "" ] || echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
       sleep 0.5
       if [ "${clash_tun_status}" != "true" ]; then
         awk -v tproxy_port="${tproxy_port}" '/tproxy-port:/ {$2=tproxy_port} {print}' ${clash_config} > ${data_dir}/tmp && mv ${data_dir}/tmp ${clash_config}
