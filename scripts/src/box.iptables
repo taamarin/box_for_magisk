@@ -17,11 +17,11 @@ clash_dns_port=""
 tun_device="utun"
 
 # Mencari nilai dari blok "fake-ip-range: / listen: / device:" dalam file konfigurasi YAML
-# clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2; exit }' "${clash_config}" || echo "198.18.0.1/16")
-clash_fake_ip_range=$(awk '/fake-ip-range: /{print $2;found=1;exit} END{if(!found) print "198.18.0.1/16"}' "${clash_config}")
-# tun_device=$(awk '/device: / { print $2; exit }' "${clash_config}"))
+#clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2; exit }' "${clash_config}" || echo "198.18.0.1/16")
+# clash_tun_device=$(awk '/device: / { print $2; exit }' "${clash_config}"))
+clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}")
 clash_enhanced_mode=$(awk '/enhanced-mode: / { print $2; exit }' "${clash_config}")
-clash_dns_port=$(awk -F ':' '/listen:/ { print $3; exit }' "${clash_config}")
+clash_dns_port=$(awk -F ':' '/listen:/ { print $3; exit }' "${clash_config}" || echo "1053")
 
 probe_empty () {
 if [ "${bin_name}" = "clash" ]; then
