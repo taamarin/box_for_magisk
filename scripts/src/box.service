@@ -261,7 +261,10 @@ if [ "${cgroup_memory}" = "true" ]; then
   if ${scripts_dir}/box.tool cgroup; then
     log info "cgroup limit: ${cgroup_memory_limit}."
   else
-    log error "Failed to enable cgroup for ${bin_name}."
+    log warn "Failed to enable cgroup for ${bin_name}."
+    log warn "Cgroups is turned off"
+    awk -v var="cgroup_memory" '$0 ~ var {gsub("true","false",$0)} {print}' ${settings} > ${data_dir}/tmp && mv ${data_dir}/tmp ${settings}
+    # sed -i 's/cgroup_memory=true/cgroup_memory=false/g' ${settings}
   fi
 else
   log info "${bin_name} cgroup: disabled."
