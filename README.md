@@ -5,7 +5,7 @@
   <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.png" alt="BOX" width="200">
   <br>BOX<br>
 </h1>
-<h4 align="center">Proxy Transparan for android(root)</h4>
+<h4 align="center">Transparent Proxy for Android(root)</h4>
 
 
 <div align="center">
