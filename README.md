@@ -1,9 +1,19 @@
 # Box for Magisk
+[![id](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](index_id.md) [![en](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](index_en.md) [![cn](https://img.shields.io/badge/cn-blue.svg?style=for-the-badge)](index_cn.md)
 
-[README ID](index_id.md) || [README EN](index_en.md) || [README CN](index_cn.md)
+<h1 align="center">
+  <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.png" alt="BOX" width="200">
+  <br>BOX<br>
+</h1>
+<h4 align="center">Proxy Transparan for android(root)</h4>
 
-[![ANDROID](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)]()
-[![RELEASES](https://img.shields.io/github/downloads/taamarin/box_for_magisk/total.svg?style=for-the-badge)](https://github.com/taamarin/box_for_magisk/releases)
+
+<div align="center">
+
+[![android](https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white)]()
+[![releases](https://img.shields.io/github/downloads/taamarin/box_for_magisk/total.svg?style=for-the-badge)](https://github.com/taamarin/box_for_magisk/releases)
+
+</div>
 
 A fork of [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)
 
@@ -13,7 +23,7 @@ Proyek ini adalah modul [Magisk](https://github.com/topjohnwu/Magisk) yang inclu
 
 ## Tun (tcp + udp)
 
-_open and edit /data/adb/box/settings.ini_
+```open and edit /data/adb/box/settings.ini```
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
@@ -74,7 +84,7 @@ tun:
 
 ## Mixed (redirec tcp + tun udp)
 
-_open and edit /data/adb/box/settings.ini_
+```open and edit /data/adb/box/settings.ini```
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
@@ -148,7 +158,7 @@ tun:
 
 
 ## Tproxy (tcp + tun)
-_open and edit /data/adb/box/settings.ini_
+```open and edit /data/adb/box/settings.ini```
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
