@@ -254,7 +254,6 @@ update_kernel() {
     sing-box)
       url_down="https://github.com/SagerNet/sing-box/releases"
       sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
-      # sing_box_version_temp=$(wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[a-z0-9]+*' | head -1 | cut -d'/' -f3)
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
       log debug "download ${download_link}"

@@ -264,7 +264,6 @@ if [ "${cgroup_memory}" = "true" ]; then
     log warn "Failed to enable cgroup for ${bin_name}."
     log warn "Cgroups is turned off"
     awk -v var="cgroup_memory" '$0 ~ var {gsub("true","false",$0)} {print}' ${settings} > ${data_dir}/tmp && mv ${data_dir}/tmp ${settings}
-    # sed -i 's/cgroup_memory=true/cgroup_memory=false/g' ${settings}
   fi
 else
   log info "${bin_name} cgroup: disabled."
