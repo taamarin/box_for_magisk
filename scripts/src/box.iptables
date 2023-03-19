@@ -4,24 +4,24 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
-# set -euo pipefail
-
 # Variabel yang digunakan
-table='223'
-fwmark='222'
-pref='100'
+table='0x69'
+fwmark='0x69'
+pref='0x64'
 # Inisialisasi variabel
 clash_fake_ip_range=""
 clash_dns_port=""
-# sesuai dengan nama tun di konfigurasi anda, Clash.Premium default "utun"
-tun_device="utun"
+tun_device=""
 
-# Mencari nilai dari blok "fake-ip-range: / listen: / device:" dalam file konfigurasi YAML
-#clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2; exit }' "${clash_config}" || echo "198.18.0.1/16")
-# clash_tun_device=$(awk '/device: / { print $2; exit }' "${clash_config}"))
-clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}")
-clash_enhanced_mode=$(awk '/enhanced-mode: / { print $2; exit }' "${clash_config}")
-clash_dns_port=$(awk -F ':' '/listen:/ { print $3; exit }' "${clash_config}" || echo "1053")
+# Mencari nilai dari blok "fake-ip-range: / listen: / tun_device" dalam file konfigurasi YAML / JSON
+if [ "${bin_name}" = "clash" ]; then
+  tun_device=$(awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
+elif [ "${bin_name}" = "sing-box" ]; then
+  tun_device=$(awk -F'"' '/interface_name/{ print $4;found=1; exit } END{ if(!found) print "tun0" }' "${data_dir}/sing-box/config.json" 2>/dev/null)
+fi
+clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
+clash_enhanced_mode=$(awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
+clash_dns_port=$(awk -F ':' '/listen:/ { print $3;found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
 
 probe_empty () {
 if [ "${bin_name}" = "clash" ]; then
@@ -30,12 +30,32 @@ if [ "${bin_name}" = "clash" ]; then
       log info "Tidak dapat menemukan nilai dari blok 'listen/fake-ip-range' dalam file konfigurasi YAML."
       exit 1
     else
-    # Menampilkan hasil
+    # Showing results
       log debug "Ip dari clash_fake_ip_range: ${clash_fake_ip_range}"
       log debug "port dari clash_dns_port: ${clash_dns_port}"
     fi
   fi
 fi
+}
+
+network_port() {
+  if [ "${network_mode}" = "tproxy" ] && [ "${proxy_mode}" != "tun" ]; then
+    /system/bin/netstat -tnulp | grep -q "${tproxy_port}" && \
+      log info "tproxy_port: ${tproxy_port} is in sync with config" || \
+      log error "tproxy_port: ${tproxy_port} out of sync with config"
+  fi
+  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+    /system/bin/ifconfig | grep -q "${tun_device}" && \
+     log info "using tun_device: '${tun_device}' " || \
+     log error "tun_device: '${tun_device}' not found"
+  fi
+}
+
+find_packages_uid() {
+  echo -n "" > ${uid_list} 
+  for package in "${packages_list[@]}"; do
+      awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
+  done
 }
 
 probe_user_group() {
@@ -55,7 +75,7 @@ disable_ipv6() {
   sysctl -w net.ipv6.conf.all.disable_ipv6=1
   sysctl -w net.ipv6.conf.default.disable_ipv6=1
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=1
-}
+} >> /dev/null 2>&1
 
 ipv6_enable() {
   sysctl -w net.ipv6.conf.all.accept_ra=1
@@ -63,7 +83,7 @@ ipv6_enable() {
   sysctl -w net.ipv6.conf.all.disable_ipv6=0
   sysctl -w net.ipv6.conf.default.disable_ipv6=0
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=0
-}
+} >> /dev/null 2>&1
 
 intranet=(
   0.0.0.0/8
@@ -81,6 +101,7 @@ intranet=(
   240.0.0.0/4
   255.255.255.255/32
 )
+
 intranet6=(
   ::/128
   ::1/128
@@ -95,27 +116,6 @@ intranet6=(
   fe80::/10
   ff00::/8
 )
-
-network_port() {
-  if [ "${network_mode}" = "tproxy" ] && [ "${proxy_mode}" != "tun" ]; then
-    /system/bin/netstat -tnulp | grep -q "${tproxy_port}" && \
-      log info "tproxy_port: ${tproxy_port} is in sync with config" || \
-      log error "tproxy_port: ${tproxy_port} out of sync with config"
-  fi
-
-  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
-    /system/bin/ifconfig | grep -q "${tun_device}" && \
-     log info "using tun_device: '${tun_device}' " || \
-     log error "tun_device: '${tun_device}' not found"
-  fi
-}
-
-find_packages_uid() {
-  echo -n "" > ${uid_list} 
-  for package in "${packages_list[@]}"; do
-      awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
-  done
-}
 
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
@@ -465,11 +465,6 @@ stop_tproxy() {
     ip -6 route flush table "${table}"
   fi
 
-  # ip rule delete not fwmark 2022 table main
-  # ip rule delete iif lo lookup 2022
-  # ip rule delete iif utun lookup main suppress_prefixlength 0
-  # ip rule delete iif lo from 28.0.0.0/30 lookup 2022
-
   ${iptables} -t mangle -D PREROUTING -j BOX_EXTERNAL
   ${iptables} -t mangle -D PREROUTING -p tcp -m socket -j DIVERT
 
@@ -594,15 +589,22 @@ if [ "${proxy_mode}" != "tun" ]; then
         ;;
       esac
       log info "${bin_name} connected."
-      # ${scripts_dir}/box.tool testing
       ;;
     renew)
       probe_empty
       network_port
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
-      iptables="iptables -w 100" && { stop_tproxy; stop_redirect; forward -D; } >> /dev/null 2>&1
-      iptables="ip6tables -w 100" && { stop_tproxy; stop_redirect; forward -D; } >> /dev/null 2>&1
+      iptables="iptables -w 100" && {
+        stop_tproxy
+        stop_redirect
+        forward -D
+      } >> /dev/null 2>&1
+      iptables="ip6tables -w 100" && {
+        stop_tproxy
+        stop_redirect
+        forward -D
+      } >> /dev/null 2>&1
       log warn "clean up iptables transparent proxy rules done."
       find_packages_uid
       case "${network_mode}" in
@@ -668,6 +670,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       log info "${bin_name} connected."
       ;;
     disable)
+      ipv6_enable
       probe_user_group
       log warn "cleaning up iptables transparent proxy rules."
       #ipv4
@@ -682,7 +685,6 @@ if [ "${proxy_mode}" != "tun" ]; then
         stop_redirect
         forward -D
       }
-      ipv6_enable
       log warn "clean up iptables transparent proxy rules done."
       ;;
     *)
@@ -720,7 +722,6 @@ else
       fi
       log info "create iptables tun rules done."
       log info "${bin_name} connected."
-      # ${scripts_dir}/box.tool testing
       ;;
     renew)
       network_port
@@ -755,6 +756,7 @@ else
       log info "${bin_name} connected."
       ;;
     disable)
+      ipv6_enable
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."
       #ipv4
@@ -769,7 +771,6 @@ else
         stop_redirect
       } >> /dev/null 2>&1
       iptables="ip6tables -w 100" && forward -D
-      ipv6_enable
       log warn "clean up tun rules done."
       ;;
     *)
