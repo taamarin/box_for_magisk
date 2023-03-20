@@ -30,4 +30,5 @@ if [ -f "${data_box}/settings.ini" ]; then
   service_control
 else
   echo "${now} [ERROR] settings.ini file not found" > "${run_path}/error.inotify.log"
+  exit 1
 fi

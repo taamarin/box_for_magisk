@@ -8,9 +8,9 @@ user_agent="${bin_name}"
 # set meta and dev flags
 meta=true
 # if meta flag is true, download clash.meta
-dev=true
+dev=false
 
-# membuat log pada terminal
+# log on terminal
 logs() {
   export TZ=Asia/Jakarta
   now=$(date +"%I.%M %p %Z")
@@ -35,7 +35,7 @@ logs() {
   fi
 }
 
-# Memeriksa koneksi internet dengan mlbox
+# Check internet connection with mlbox
 testing() {
   logs info "dns="
   for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}'); do
@@ -45,7 +45,6 @@ testing() {
 
   if [ -n "${ntpip}" ]; then
     logs success "done"
-
     logs testing "http="
     httpIP=$(${data_dir}/bin/mlbox -timeout=5 -http="http://182.254.116.116/d?dn=reddit.com&clientip=1" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
     if [ -n "${httpIP}" ]; then
@@ -54,7 +53,6 @@ testing() {
     else
       logs failed "failed"
     fi
-
     logs testing "https="
     httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
     [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
@@ -66,11 +64,10 @@ testing() {
   else
     logs failed "failed"
   fi
-
   [ -t 1 ] && echo -e "\033[1;31m\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
 
-# Memeriksa koneksi internet dengan mlbox
+# Check internet connection with mlbox
 network_check() {
   if [ -f "${data_dir}/bin/mlbox" ]; then
     logs info "Checking internet connection... "
@@ -90,7 +87,7 @@ network_check() {
   [ "${flags}" != "false" ] || exit 1
 }
 
-# Memeriksa apakah suatu binary berjalan dengan mengecek file pid dan cmdline
+# Check if a binary is running by checking the pid file and cmdline
 probe_bin_alive() {
   if [ -f "${pid_file}" ]; then
     cmd_file="/proc/$(pidof "${bin_name}")/cmdline"
@@ -104,7 +101,7 @@ probe_bin_alive() {
   fi
 }
 
-# Restart binary, setelah dihentikan dan dijalankan kembali
+# Restart the binary, after stopping and running again
 restart_box() {
   ${scripts_dir}/box.service restart
   sleep 0.5
@@ -116,7 +113,7 @@ restart_box() {
   fi
 }
 
-# Set DNS secara manual, mengubah net.ipv4.ip_forward dan net.ipv6.conf.all.forwarding menjadi 1
+# Set DNS manually, change net.ipv4.ip_forward and net.ipv6.conf.all.forwarding to 1
 keep_dns() {
   local_dns1=$(getprop net.dns1)
   local_dns2=$(getprop net.dns2)
@@ -134,22 +131,19 @@ keep_dns() {
   unset local_dns2
 }
 
-# Memperbarui file dari URL
+# Updating files from URLs
 update_file() {
-  local file="$1"
-  local update_url="$2"
-  local file_bak="${file}.bak"
-  
+  file="$1"
+  update_url="$2"
+  file_bak="${file}.bak"
   if [ -f "${file}" ]; then
     mv "${file}" "${file_bak}" || return 1
   fi
-  
-  local request="wget"
-  local request+=" --no-check-certificate"
-  local request+=" --user-agent ${user_agent}"
-  local request+=" -O ${file}"
-  local request+=" ${update_url}"
-
+  request="wget"
+  request+=" --no-check-certificate"
+  request+=" --user-agent ${user_agent}"
+  request+=" -O ${file}"
+  request+=" ${update_url}"
   echo ${request}
   ${request} >&2 || {
     if [ -f "${file_bak}" ]; then
@@ -157,7 +151,6 @@ update_file() {
     fi
     return 1
   }
-  
   return 0
 }
 
@@ -191,12 +184,10 @@ update_subgeo() {
     log debug "Update geo $(date +"%Y-%m-%d %I.%M %p")"
     flag=false
   fi
-  
   if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${clash_config}" "${subscription_url}"; then
     flag=true
     log debug "Downloading ${clash_config}"
   fi
-  
   if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
     restart_box
   fi
@@ -213,7 +204,6 @@ port_detection() {
     log debug "Warning: 'ss' command not found, skipping port detection." >&2
     return
   fi
-
   # Log the detected ports
   logs debug "${bin_name} port detected: "
   while read -r port ; do
@@ -232,8 +222,8 @@ port_detection() {
 # kill bin
 kill_alive() {
   for list in "${bin_list[@]}" ; do
-    if pgrep "$list" >/dev/null ; then
-      kill -9 $(pgrep "$list") >/dev/null 2>&1 || killall -9 "$list" >/dev/null 2>&1
+    if pidof "${list}" >/dev/null ; then
+      pkill -9 "${list}" >/dev/null 2>&1 || killall -9 "${list}" >/dev/null 2>&1
     fi
   done
 }
@@ -248,7 +238,7 @@ update_kernel() {
     "x86_64") arch="amd64"; platform="linux" ;;
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
   esac
-# Lakukan hal lainnya di bawah ini
+# Do anything else below
   file_kernel="${bin_name}-${arch}"
   case "${bin_name}" in
     sing-box)
@@ -316,7 +306,7 @@ update_kernel() {
         "aarch64") download_file="v2ray-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
-      # Lakukan hal lainnya di bawah ini
+      # Do anything else below
       download_link="https://github.com/v2fly/v2ray-core/releases"
       log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
@@ -345,22 +335,11 @@ update_kernel() {
         log warn "failed to extract ${data_dir}/${file_kernel}.tar.gz" && flag="false"
       fi
     ;;
-    v2fly)
+    v2fly|xray)
+      [ "${bin_name}" = "xray" ] && bin='xray' || bin='v2ray'
       unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "${busybox_path} unzip")
       if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "v2ray" -d "${bin_kernel}" >&2; then
-        if mv "${bin_kernel}/v2ray" "${bin_kernel}/v2fly"; then
-          [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
-        else
-          log error "failed to move the kernel"
-        fi
-      else
-        log warn "failed to extract ${data_dir}/${file_kernel}.zip"
-      fi
-    ;;
-    xray)
-      unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "${busybox_path} unzip")
-      if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "xray" -d "${bin_kernel}" >&2; then
-        if mv "${bin_kernel}/xray" "${bin_kernel}/xray"; then
+        if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
           [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
         else
           log error "failed to move the kernel"
@@ -386,7 +365,6 @@ cgroup_limit() {
     log warn "cgroup_memory_limit is not set"
     return 1
   fi
-
   # Check if cgroup_memory_path is set and exists
   if [ -z "${cgroup_memory_path}" ]; then
     local cgroup_memory_path=$(mount | grep cgroup | awk '/memory/{print $3}' | head -1)
@@ -398,7 +376,6 @@ cgroup_limit() {
     log warn "${cgroup_memory_path} does not exist"
     return 1
   fi
-
   # Check if pid_file is set and exists
   if [ -z "${pid_file}" ]; then
     log warn "pid_file is not set"
@@ -407,18 +384,15 @@ cgroup_limit() {
     log warn "${pid_file} does not exist"
     return 1
   fi
-
   # Create cgroup directory and move process to cgroup
   local bin_name=$(basename "$0")
   mkdir -p "${cgroup_memory_path}/${bin_name}"
   local pid=$(cat "${pid_file}")
   echo "${pid}" > "${cgroup_memory_path}/${bin_name}/cgroup.procs" \
     && log info "Moved process ${pid} to ${cgroup_memory_path}/${bin_name}/cgroup.procs"
-
   # Set memory limit for cgroup
   echo "${cgroup_memory_limit}" > "${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes" \
     && log info "Set memory limit to ${cgroup_memory_limit} for ${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes"
-
   return 0
 }
 
@@ -435,31 +409,6 @@ update_dashboard() {
     rm -f "${file_dashboard}"
   else
     log debug "${bin_name} does not support dashboards"
-  fi
-}
-
-run_base64() {
-  acc_file="${data_dir}/sing-box/acc.txt"
-  proxy_file="${data_dir}/dashboard/dist/proxy.txt"
-  
-  if [ -s "$acc_file" ]; then
-    log info "$(cat "$acc_file" 2>&1)"
-    base64 "${acc_file}" > "${proxy_file}"
-    log info "Generated ${proxy_file}"
-    log info "Done"
-  else
-    log warn "${acc_file} is empty or does not exist"
-    exit 1
-  fi
-}
-
-# copy bin ke system/bin
-cp_bin() {
-  if cp /data/adb/box/bin/* /data/adb/modules/box_for_magisk/system/bin/; then
-    log debug "File copy completed successfully."
-  else
-    log debug "File copy failed." >&2
-    exit 1
   fi
 }
 
@@ -502,9 +451,6 @@ case "$1" in
   connect)
     network_check
     ;;
-  rbase64)
-    run_base64
-    ;;
   upyacd)
     update_dashboard
     ;;
@@ -517,13 +463,13 @@ case "$1" in
   port)
     port_detection
     ;;
+  reload)  
+    reload
+    ;;
   subgeo)
     update_subgeo
     find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
     find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
-    ;;
-  reload)  
-    reload
     ;;
   all)  
     for list in "${bin_list[@]}" ; do
@@ -533,7 +479,7 @@ case "$1" in
     done
     ;;
   *)
-    echo "$0: usage: $0 {reload|testing|keepdns|connect|rbase64|upyacd|upcore|cgroup|port|subgeo|all}"
+    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|cgroup|port|subgeo|all}"
     exit 1
     ;;
 esac

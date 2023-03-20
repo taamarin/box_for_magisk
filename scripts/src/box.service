@@ -12,10 +12,8 @@ delete_logs() {
       mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
     fi
   done
-
   # Delete other log files
   find "${run_path}" -type f \( -name "root" -o -name "*.yaml" -o -name "*.list" -o -name "*.inotify.log" -o -name "*-report.log" \) -exec rm -f {} \; || log warn "Error deleting other log files"
-
   # Delete logs that are three days old or older
   find "${run_path}" -type f -name "*.log" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old log"
 }
@@ -43,7 +41,6 @@ still_alive() {
     log error "Please check ${bin_name}.log for more information."
     exit 1
   fi
-  
   if ! kill -0 "${pid}" 2>/dev/null; then
     log error "${bin_name} service is not running."
     log error "Killing stale pid ${pid}."
@@ -119,12 +116,10 @@ check_in_bin() {
     log error "Error: '${bin_path}' not found or not executable."
     exit 1
   fi
-
   if [ ! -f "${bin_path}" ] || [ ! -x "${bin_path}" ]; then
     log error "Error: '${bin_path}' is not a valid file or cannot be executed."
     exit 1
   fi
-
   case "${bin_name}" in
     clash)
       if ! "${bin_path}" -v >/dev/null 2>&1; then
@@ -142,15 +137,14 @@ check_in_bin() {
 }
 
 create_tun() {
-  # Mengaktifkan IP forwarding
+  # Enable IP forwarding
   sysctl net.ipv4.ip_forward=1 >/dev/null 2>&1
-  # Membuat symlink untuk /dev/tun jika belum ada
+  # Creates a symlink for /dev/tun if it doesn't already exist
   if [ ! -c "/dev/net/tun" ]; then
     if ! mkdir -p /dev/net; then
       log warn "Cannot create directory /dev/net" >&2
       exit 1
     fi
-  
     if ! mknod /dev/net/tun c 10 200; then
       log warn "Cannot create /dev/net/tun. Possible reasons:"
       log warn "This script is not executed as root user."
@@ -253,7 +247,7 @@ run_box() {
       exit 1
       ;;
   esac
-  rm -rf ${run_path}/${bin_name}-report.log
+  rm -f "${run_path}/${bin_name}-report.log"
 }
 
 cgroup_limit() {
@@ -274,29 +268,23 @@ fi
 bin_usage() {
   # Get the process ID of the binary
   bin_pid=$(pidof ${bin_name})
-
   if [ -z "${bin_pid}" ]; then
     log error "${bin_name} is not running"
     return
   fi
-
   # Get the memory usage of the binary
   rss=$(grep VmRSS /proc/${bin_pid}/status | awk '{print $2}')
   [ "${rss}" -ge 1024 ] && bin_rss="$(expr ${rss} / 1024) MB" || bin_rss="${rss} KB"
   swap=$(grep VmSwap /proc/${bin_pid}/status | awk '{print $2}')
   [ "${swap}" -ge 1024 ] && bin_swap="$(expr ${swap} / 1024) MB" || bin_swap="${swap} KB"
-
   # Get the state of the binary
   state=$(grep State /proc/${bin_pid}/status | awk '{print $2}')
-
   # Get the user and group of the binary
   user_group=$(stat -c %U:%G /proc/${bin_pid})
-
   # Log the information
   log info "${bin_name} has started with the ${user_group} user group."
   log info "${bin_name} status: ${state}, PID: (${bin_pid})"
   log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
-
   # Get the CPU usage of the binary
   cpu=$(/system/bin/ps -p ${bin_pid} -o pcpu | awk 'NR==2{print $1}' 2> /dev/null)
   if [ -n "${cpu}" ]; then
@@ -304,7 +292,6 @@ bin_usage() {
   else
     log info "${bin_name} cpu usage: not available"
   fi
-
   # Get the running time of the binary
   running_time=$(/system/bin/ps -p ${bin_pid} -o etime | awk 'NR==2{print $1}' 2> /dev/null)
   if [ -n "${running_time}" ]; then
@@ -312,58 +299,52 @@ bin_usage() {
   else
     log info "${bin_name} running time: not available"
   fi
-
   # Save the process ID to the pid file
-  echo -n ${bin_pid} > ${pid_file}
+  echo -n "${bin_pid}" > "${pid_file}"
 }
 
 display_bin_pid() {
-  # Mengecek apakah bin_name sudah didefinisikan
+  # Checks if bin_name is defined
   if [ -z "${bin_name}" ]; then
     log error "bin_name: ${bin_name} not defined"
     return 1
   fi
-
-  # Mencari PID dari bin_name
+  # Look up the PID of bin_name
   bin_pid=$(pidof "${bin_name}")
-  
-  # Mengecek apakah bin_name sedang berjalan
+  # Checks if bin_name is running
   if [ -n "${bin_pid}" ]; then
-    # Jika iya, mencetak pesan dan memanggil fungsi bin_usage
+    # If so, prints a message and calls the bin_usage function
     log info "${bin_name} service is running. (PID: ${bin_pid})."
     bin_usage
   else
-    # Jika tidak, mencetak pesan dan mengembalikan status 1
+    # Otherwise, it prints a message and returns status 1
     log warn "${bin_name} service is stopped."
     return 1
   fi
 }
 
 crontab_alive() {
-  # Memulai crond dengan opsi "-c" dan menyimpannya di background
+  # Start crond with the "-c" option and keep it in the background
   nohup crond -c "${run_path}" > /dev/null 2>&1 &
-  # Menghapus crontab sebelumnya dan membuat crontab baru
+  # Delete the previous crontab and create a new crontab
   crontab -c "${run_path}" -r
   touch "${run_path}/root"
   chmod 0600 "${run_path}/root"
-  
-  # Menambahkan cron job untuk memanggil box.tool keepdns setiap menit
+  # Added a cron job to call box.tool keptns every minute
   if [ "${intervaldns}" != "" ]; then
     echo "${intervaldns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
     log info "DNS remains open."
   fi
-
-  # Menampilkan pesan konfigurasi jika bin_name adalah "clash"
+  # Displays a configuration message if bin_name is "clash"
   if [ "${bin_name}" = "clash" ]; then
     log info "Configuration ${clash_config}."
   fi
-  
-  # Menjalankan fungsi crontab_geo untuk menambahkan cron job berdasarkan lokasi geografis
+  # Running the geo crontab function
   crontab_geo
 }
 
 start_box() {
-  # Mengosongkan file log dan menambahkan timestamp dan garis pembatas
+  # Cleared the log file and added the timestamp and delimiter
   echo -n "" > "${logs_file}"
   # Then use the chmod command to set file permissions to 755
   if [ -t 1 ]; then
@@ -373,8 +354,7 @@ start_box() {
     echo "$(date)" | tee -a "${logs_file}" > /dev/null 2>&1
     echo "--------------------------------------------" | tee -a "${logs_file}" > /dev/null 2>&1
   fi
-
-  # Memperbarui iptables jika bin_name masih berjalan
+  # Update iptables if bin_name is still running
   if bin_pid=$(pidof "${bin_name}"); then
     log info "${bin_name} service is still running, refreshing iptables"
     if "${scripts_dir}/box.iptables" renew; then
@@ -387,8 +367,7 @@ start_box() {
   else
     log info "Good day"
   fi
-
-  # Memeriksa izin, memeriksa keberadaan bin, menghapus log lama, membuat TUN, menjalankan box, dan menunggu selama 1 detik
+  # Checked permissions, checked for bin existence, deleted old logs, created a TUN, ran box, and waited for 1 second
   check_permission
   check_in_bin
   delete_logs
@@ -396,14 +375,13 @@ start_box() {
     create_tun
   fi
   run_box && sleep 1
-  # Menjalankan crontab_alive jika crontab_sec tidak sama dengan "false"
+  # Executes crontab_alive if crontab_sec is not equal to "false"
   if [ "${crontab_sec}" != "false" ]; then
     crontab_alive
   else
     log info "crontab: disabled."
   fi
-
-  # Menjalankan cgroup_limit, menunggu selama 1 detik, mendeteksi port yang digunakan, menunggu selama 1 detik, dan menampilkan PID bin
+  # Runs cgroup limit, waits 1 second, detects the port in use, waits 1 second, and displays the PID of bin
   cgroup_limit
   sleep 1
   detected_port
@@ -413,23 +391,21 @@ start_box() {
 }
 
 stop_box() {
-  # Menggunakan perintah `pgrep` untuk mencari PID cronjob
+  # Using `pgrep` command to find cronjob PID
   cronkill=$(pgrep -f "crond -c ${run_path}")
   for cron in ${cronkill[@]}; do
-    kill -15 ${cron}
+    log warn "Killing cron process ${cron}"
+    kill -15 "${cron}"
   done
-
-  # Menggunakan loop untuk membunuh setiap binary
+  # Using a loop to kill each binary
   for bin in ${bin_list[@]}; do
     # Use `pkill` to kill the binary with signal 15
     pkill "${bin}" || killall "${bin}"
   done
-
   sleep 1
-
-  # Mengecek apakah binary sudah terhenti
+  # Check if the binary has stopped
   if ! pidof ${bin_name} >/dev/null 2>&1; then
-    # Menghapus file `box.pid` jika ada
+    # Delete the `box.pid` file if it exists
     if [ -f ${run_path}/box.pid ]; then
       rm ${run_path}/box.pid
       sleep 0.5
