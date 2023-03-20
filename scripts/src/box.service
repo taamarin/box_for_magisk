@@ -421,8 +421,8 @@ stop_box() {
 
   # Menggunakan loop untuk membunuh setiap binary
   for bin in ${bin_list[@]}; do
-    # Menggunakan `pkill` untuk membunuh binary
-    kill "$(pidof ${bin})" || killall "${bin}"
+    # Use `pkill` to kill the binary with signal 15
+    pkill "${bin}" || killall "${bin}"
   done
 
   sleep 1
