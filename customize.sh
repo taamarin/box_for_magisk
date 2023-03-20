@@ -95,36 +95,6 @@ unzip -o "${MODPATH}/dashboard.zip" -d /data/adb/box/dashboard/ >&2
 unzip -o "${MODPATH}/dashboard.zip" -d /data/adb/box/clash/dashboard/ >&2
 unzip -o "${MODPATH}/dashboard.zip" -d /data/adb/box/sing-box/dashboard/ >&2
 
-ui_print ""
-ui_print "********************************************************"
-ui_print "- do you want to add DNS nameservers in resolve.conf?"
-ui_print "- Vol Up: to create the resolve.conf file."
-ui_print "- Vol Down: to ignore the resolve.conf file."
-while true ; do
-  getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
-  sleep 1
-  if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
-    ui_print "- Create a resolve.conf file if it doesn't already exist and add server nameservers."
-    if [ ! -f "/data/adb/modules/box_for_magisk/system/etc/resolv.conf" ]; then
-    cat > "${MODPATH}/system/etc/resolv.conf" <<EOF
-nameserver 8.8.8.8
-nameserver 1.1.1.1
-nameserver 9.9.9.9
-nameserver 94.140.14.14
-EOF
-    ui_print "[+] /data/adb/modules/box_for_magisk/system/etc/resolv.conf"
-    ui_print "[+] nameserver 8.8.8.8"
-    ui_print "[+] nameserver 1.1.1.1"
-    ui_print "[+] nameserver 9.9.9.9"
-    ui_print "[+] nameserver 94.140.14.14"
-    fi
-    break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-     ui_print "- ignore creating file resolve.conf"
-    break
-  fi
-done
-
 ui_print "- Move BFM files"
 mv "$MODPATH/scripts/cacert.pem" "$MODPATH/system/etc/security/cacerts"
 mv "$MODPATH/scripts/src/"* "/data/adb/box/scripts/"
