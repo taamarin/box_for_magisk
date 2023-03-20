@@ -442,6 +442,11 @@ stop_box() {
       # Use `pkill` to kill the binary with signal 9
       pkill -9 "${bin}" >/dev/null 2>&1 || killall -9 "${bin}" >/dev/null 2>&1
     done
+    sleep 0.5
+    # Check whether the binary has stopped
+    if ! pidof ${bin_name} >/dev/null 2>&1; then
+      log warn "done"
+    fi
   fi
 }
 
