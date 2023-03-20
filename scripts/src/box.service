@@ -425,7 +425,7 @@ stop_box() {
     kill "$(pidof ${bin})" || killall "${bin}"
   done
 
-  sleep 0.5
+  sleep 1
 
   # Mengecek apakah binary sudah terhenti
   if ! pidof ${bin_name} >/dev/null 2>&1; then
@@ -437,6 +437,11 @@ stop_box() {
     display_bin_pid || log warn "${bin_name} disconnected."
   else
     log error "failed to stop ${bin_name}"
+    log warn "force stop ${bin_name}."
+    for bin in "${bin_list[@]}"; do
+      # Use `pkill` to kill the binary with signal 9
+      pkill -9 "${bin}" >/dev/null 2>&1 || killall -9 "${bin}" >/dev/null 2>&1
+    done
   fi
 }
 
