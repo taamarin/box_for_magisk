@@ -17,8 +17,7 @@
 
 A fork of [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)
 
-Proyek ini adalah modul [Magisk](https://github.com/topjohnwu/Magisk) yang include proxy `clash`, `sing-box`, `v2ray`, dan `xray`.
-
+This project is a [Magisk](https://github.com/topjohnwu/Magisk) module which includes `clash`, `sing-box`, `v2ray` and `xray` proxies.
 
 
 ## Tun (tcp + udp)
