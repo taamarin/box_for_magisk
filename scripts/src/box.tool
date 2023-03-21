@@ -415,9 +415,8 @@ update_dashboard() {
 reload() {
   case "${bin_name}" in
     sing-box)
-      if ${bin_path} check -D "${data_dir}/${bin_name}" > "${run_path}/${bin_name}-report.log" 2>&1; then
+      if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1; then
         log info "config.json passed"
-        log info "Open yacd-meta/configs and click 'Reload Configs'"
       else
         log error "config.json check failed"
         cat "${run_path}/${bin_name}-report.log" >&2

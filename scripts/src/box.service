@@ -175,9 +175,9 @@ run_box() {
         # awk '{gsub(/"auto_detect_interface": true/,"\"auto_detect_interface\": false")}1' "${data_dir}/sing-box/config.json" > "${data_dir}/temp" && mv "${data_dir}/temp" "${data_dir}/sing-box/config.json"
       # fi
       # sleep 1
-      if ${bin_path} check -D "${data_dir}/${bin_name}" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
+      if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
         ulimit -SHn 65535
-        nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" > "${run_path}/${bin_name}.log" 2>&1 &
+        nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "Configuration failed, please check the ${run_path}/${bin_name}-report.log file." >&2
