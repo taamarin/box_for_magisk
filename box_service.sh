@@ -2,7 +2,7 @@
 
 (
     until [ $(getprop init.svc.bootanim) = "stopped" ]; do
-        sleep 3
+        sleep 10
     done
 
     if [ -f "/data/adb/box/scripts/start.sh" ]; then
