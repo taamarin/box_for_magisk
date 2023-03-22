@@ -1,4 +1,5 @@
 name: release
+# description:
 
 on:
   push:
@@ -15,7 +16,13 @@ jobs:
       - name: run build.sh
         run: sh build.sh
 
-      - name: upload release
+      - name: Upload Release Asset
+        uses: actions/upload-artifact@v2
+        with:
+          name: box_for_magisk
+          path: box_for_magisk-v*.zip
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
