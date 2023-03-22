@@ -12,8 +12,7 @@ dev=false
 
 # log on terminal
 logs() {
-  export TZ=Asia/Jakarta
-  now=$(date +"%I.%M %p %Z")
+  now=$(date +"%I.%M %P")
   if [ -t 1 ]; then
     case $1 in
       info) echo -n "\033[1;34m${now} [info]: $2\033[0m";;

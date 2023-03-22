@@ -34,20 +34,24 @@ crontab_geo() {
 }
 
 detected_port() {
-  [ "${port_detect}" = "true" ] && ${scripts_dir}/box.tool port || log warn "${bin_name} skip port detected." && return 1
+  sleep 1
+  [ "${port_detect}" = "true" ] && ${scripts_dir}/box.tool port || log debug "${bin_name} skip port detected." && return 1
 }
 
 still_alive() {
+  sleep 1.5
   pid=$(pidof ${bin_name} 2>/dev/null)
   if [ -z "${pid}" ]; then
     log error "${bin_name} service is not running."
     log error "Please check ${bin_name}.log for more information."
+    ${scripts_dir}/box.iptables disable >/dev/null 2>&1
     exit 1
   fi
   if ! kill -0 "${pid}" 2>/dev/null; then
     log error "${bin_name} service is not running."
-    log error "Killing stale pid ${pid}."
+    log error "Killing stale pid '${pid}'"
     pkill -15 "${bin_list[@]}" >/dev/null 2>&1 || killall -15 "${bin_list[@]}" >/dev/null 2>&1
+    ${scripts_dir}/box.iptables disable >/dev/null 2>&1
     exit 1
   fi
 }
@@ -65,7 +69,7 @@ check_permission() {
     chmod 644 "${data_dir}/${bin_name}"/*
     # Set ownership of data directory
     chown -R ${box_user_group} ${data_dir}
-    log info "Using kernel directory ${bin_name} in ${bin_path}"
+    log info "use the kernel located in '${bin_path}'"
   else
     if which ${bin_name} | grep -q "/system/bin/" ; then
       box_user=$(echo ${box_user_group} | awk -F ':' '{print $1}')
@@ -103,7 +107,7 @@ check_permission() {
         chmod 644 "${data_dir}/${bin_name}"/*
         # Set ownership of data directory
         chown -R ${box_user_group} ${data_dir}
-        log info "Using kernel directory ${bin_name} in ${bin_path}"
+        log info "use the kernel located in '${bin_path}'"
       fi
     else
       log error "Kernel '${bin_name}' is missing."
@@ -175,12 +179,11 @@ prepare_singbox() {
 
 prepare_clash() {
   clash_external_ui=$(awk '/external-ui: /{print $1}' "${clash_config}")
-  [ -z "${clash_external_ui}" ] && echo -e "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
+  [ -z "${clash_external_ui}" ] && printf "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
   clash_tproxy_port=$(awk '/tproxy-port: /{print $1}' "${clash_config}")
-  [ -z "${clash_tproxy_port}" ] && echo -e "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
+  [ -z "${clash_tproxy_port}" ] && printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
   clash_redir_port=$(awk '/redir-port: /{print $1}' "${clash_config}")
-  [ -z "${clash_redir_port}" ] && echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
-  sleep 0.5
+  [ -z "${clash_redir_port}" ] && printf "\nredir-port: ${redir_port}" >> "${clash_config}"
   if [ "${clash_tun_status}" != "true" ]; then
     sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
     default_tproxy
@@ -190,15 +193,22 @@ prepare_clash() {
   sleep 0.5
 }
 
+prepare_xvray() {
+  if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
+    log error "file ${data_dir}/${bin_name}/*.json not found"
+    exit 1
+  fi
+}
+
 run_box() {
   log info "client list: ${bin_list[*]}"
   log info "select: ${bin_name}"
   log info "starting ${bin_name} service."
+  ulimit -SHn 65535
   case "${bin_name}" in
     sing-box)
       # prepare_singbox
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
-        ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
@@ -209,7 +219,6 @@ run_box() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}-report.log" 2>&1; then
-        ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
@@ -219,14 +228,10 @@ run_box() {
       ;;
     xray)
       default_tproxy
-      if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
-        log error "file ${data_dir}/${bin_name}/*.json not found"
-        exit 1
-      fi
+      prepare_xvray
       export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
-        ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
@@ -236,14 +241,10 @@ run_box() {
     ;;
     v2fly)
       default_tproxy
-      if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
-        log error "file ${data_dir}/v2ray/*.json not found"
-        exit 1
-      fi
-      export V2RAY_LOCATION_ASSET=${data_dir}/${bin_name}
-      export V2RAY_LOCATION_CONFDIR=${data_dir}/${bin_name}
+      prepare_xvray
+      export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
+      export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
@@ -291,7 +292,7 @@ bin_usage() {
   # Get the user and group of the binary
   user_group=$(stat -c %U:%G /proc/${bin_pid})
   # Log the information
-  log info "${bin_name} has started with the ${user_group} user group."
+  log info "${bin_name} has started with the '${user_group}' user group."
   log info "${bin_name} status: ${state}, PID: (${bin_pid})"
   log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
   # Get the CPU usage of the binary
@@ -344,10 +345,12 @@ crontab_alive() {
     echo "${intervaldns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
     log info "DNS remains open."
   fi
-  # Displays a configuration message if bin_name is "clash"
-  if [ "${bin_name}" = "clash" ]; then
-    log info "Configuration ${clash_config}."
-  fi
+  # Displays a configuration message if bin_name is "clash|xray|sing-box|v2ray"
+  case "${bin_name}" in
+    clash) log info "config '${clash_config}'";;
+    xray|sing-box|v2ray) log info "config '${data_dir}/${bin_name}/*.json'";;
+    *) log error "${bin_name}: <unknown>"; exit 1;;
+  esac
   # Executes the crontab_geo function
   crontab_geo
 }
@@ -397,10 +400,8 @@ start_box() {
   fi
   # Runs cgroup limit, waits 1 second, detects the port in use, waits 1 second, and displays the PID of bin
   cgroup_limit
-  sleep 1
   # Executes the detected_port, still_alive, display_bin_pid function
   detected_port
-  sleep 1
   still_alive
   display_bin_pid
 }
@@ -409,7 +410,7 @@ stop_box() {
   # Use `pgrep` command to find cronjob PID
   cronkill=$(pgrep -f "crond -c ${run_path}")
   for cron in ${cronkill[@]}; do
-    kill -15 ${cron}
+    kill -15 "${cron}"
   done
   # Using a loop to kill each binary
   for bin in ${bin_list[@]}; do
