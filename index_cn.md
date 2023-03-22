@@ -3,7 +3,7 @@
 
 **请确保您的配置文件不会引起流量回环，否则可能会导致您的手机无限重启。**
 
-如果你真的不知道如何配置这个模块，你可能需要一个像 ClashForAndroid、ClashMetaForAndroid、v2rayNG、Surfboard、SagerNet、AnXray、NekoBox 等应用程序。
+如果你真的不知道如何配置这个模块，你可能需要一个像 **ClashForAndroid、ClashMetaForAndroid、v2rayNG、Surfboard、SagerNet、AnXray、NekoBox** 等应用程序。
 
 ## 安装
 - 从RELEASE下载模块zip包，并通过MAGISK安装它。然后重新启动设备。
@@ -96,16 +96,16 @@ su -c /data/adb/box/scripts/box.tool all
 - 终端会同时打印日志并将其输出到日志文件中。
 
 #### 管理透明代理是否启用
-- 透明代理脚本是 /data/adb/box/scripts/box.tproxy。
+- 透明代理脚本是 /data/adb/box/scripts/box.iptables。
 
 - 启用透明代理：
 ```shell
-  su -c /data/adb/box/scripts/box.tproxy enable
+  su -c /data/adb/box/scripts/box.iptables enable
 ```
 
 - 禁用透明代理：
 ```shell
-  su -c /data/adb/box/scripts/box.tproxy disable
+  su -c /data/adb/box/scripts/box.iptables disable
 ```
 
 ## 其他指令

@@ -41,7 +41,6 @@ testing() {
     ntpip=${network}
     break
   done
-
   if [ -n "${ntpip}" ]; then
     logs success "done"
     logs testing "http="
@@ -55,7 +54,6 @@ testing() {
     logs testing "https="
     httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
     [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
-
     logs testing "udp="
     currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
     echo "${currentTime}" | grep -qi 'LI:' && \
@@ -109,6 +107,7 @@ restart_box() {
     log debug "$(date) ${bin_name} restarted successfully."
   else
     log error "Failed to restart ${bin_name}."
+    ${scripts_dir}/box.iptables disable >/dev/null 2>&1
   fi
 }
 
@@ -153,11 +152,10 @@ update_file() {
   return 0
 }
 
-# Memeriksa dan memperbarui geoip dan geosite
+# Check and update geoip and geosite
 update_subgeo() {
   log info "daily updates"
   network_check
-
   case "${bin_name}" in
     clash)
       geoip_file="${data_dir}/clash/$(if [ "${meta}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
@@ -178,7 +176,6 @@ update_subgeo() {
       geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
       ;;
   esac
-
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
     log debug "Update geo $(date +"%Y-%m-%d %I.%M %p")"
     flag=false
@@ -209,7 +206,6 @@ port_detection() {
     sleep 0.5
     logs port "${port}"
   done <<< "${ports}"
-
   # Add a newline to the output if running in a terminal
   if [ -t 1 ]; then
     echo -e "\033[1;31m""\033[0m"
@@ -222,7 +218,7 @@ port_detection() {
 kill_alive() {
   for list in "${bin_list[@]}" ; do
     if pidof "${list}" >/dev/null ; then
-      pkill -9 "${list}" >/dev/null 2>&1 || killall -9 "${list}" >/dev/null 2>&1
+      pkill -15 "${list}" >/dev/null 2>&1 || killall -15 "${list}" >/dev/null 2>&1
     fi
   done
 }
@@ -288,7 +284,7 @@ update_kernel() {
         "aarch64") download_file="Xray-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
-      # Lakukan hal lainnya di bawah ini
+      # Do anything else below
       download_link="https://github.com/XTLS/Xray-core/releases"
       log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
@@ -313,7 +309,8 @@ update_kernel() {
       # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
       ;;
     *)
-      log error "kernel error." && exit 1
+      log error "kernel error."
+      exit 1
       ;;
   esac
 
@@ -348,7 +345,8 @@ update_kernel() {
       fi
     ;;
     *)
-      log error "kernel error." && exit 1
+      log error "kernel error."
+      exit 1
     ;;
   esac
 

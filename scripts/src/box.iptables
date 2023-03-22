@@ -13,7 +13,7 @@ clash_fake_ip_range=""
 clash_dns_port=""
 tun_device=""
 
-# Mencari nilai dari blok "fake-ip-range: / listen: / tun_device" dalam file konfigurasi YAML / JSON
+# Looking for value from "fake-ip-range: / listen: / tun_device" block in YAML / JSON configuration file
 if [ "${bin_name}" = "clash" ]; then
   tun_device=$(awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
 elif [ "${bin_name}" = "sing-box" ]; then
@@ -27,12 +27,8 @@ probe_empty () {
 if [ "${bin_name}" = "clash" ]; then
   if [ "${clash_enhanced_mode}" = "fake-ip" ] ; then
     if [ -z "${clash_fake_ip_range}" ] && [ -z "${clash_dns_port}" ]; then
-      log info "Tidak dapat menemukan nilai dari blok 'listen/fake-ip-range' dalam file konfigurasi YAML."
+      log info "could not find value from 'listen/fake-ip-range' block in YAML configuration file."
       exit 1
-    else
-    # Showing results
-      log debug "Ip dari clash_fake_ip_range: ${clash_fake_ip_range}"
-      log debug "port dari clash_dns_port: ${clash_dns_port}"
     fi
   fi
 fi
@@ -40,19 +36,15 @@ fi
 
 network_port() {
   if [ "${network_mode}" = "tproxy" ] && [ "${proxy_mode}" != "tun" ]; then
-    /system/bin/netstat -tnulp | grep -q "${tproxy_port}" && \
-      log info "tproxy_port: ${tproxy_port} is in sync with config" || \
-      log error "tproxy_port: ${tproxy_port} out of sync with config"
+    /system/bin/netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
   fi
   if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
-    /system/bin/ifconfig | grep -q "${tun_device}" && \
-     log info "using tun_device: '${tun_device}' " || \
-     log error "tun_device: '${tun_device}' not found"
+    /system/bin/ifconfig | grep -q "${tun_device}" || log error "tun_device: '${tun_device}' not found"
   fi
 }
 
 find_packages_uid() {
-  echo -n "" > ${uid_list} 
+  echo -n "" > "${uid_list}"
   for package in "${packages_list[@]}"; do
       awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
   done
@@ -420,6 +412,11 @@ start_tproxy() {
 
   ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
 
+  # # # Disable QUIC
+  [ "${quic}" = "disable" ] && ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
+  # ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
+  # ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
+
   # This rule blocks local access to tproxy-port to prevent traffic loopback.
   if [ "${iptables}" != "ip6tables -w 100" ]; then
     ${iptables} -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
@@ -482,6 +479,11 @@ stop_tproxy() {
   ${iptables} -t mangle -F DIVERT
   ${iptables} -t mangle -X DIVERT
 
+  # flush QUIC
+  ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
+  ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
+  ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
+
   if [ "${iptables}" != "ip6tables -w 100" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner 0 --gid-owner 3005 -m tcp --dport "${tproxy_port}" -j REJECT
@@ -512,8 +514,6 @@ stop_tproxy() {
 if [ "${proxy_mode}" != "tun" ]; then
   case "$1" in
     enable)
-      probe_empty
-      network_port
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       #ipv4
       iptables="iptables -w 100" && {
@@ -588,11 +588,11 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
+      probe_empty
+      network_port
       log info "${bin_name} connected."
       ;;
     renew)
-      probe_empty
-      network_port
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
       iptables="iptables -w 100" && {
@@ -666,12 +666,14 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
+      probe_empty
+      network_port
       log info "restart iptables transparent proxy rules done."
       log info "${bin_name} connected."
       ;;
     disable)
       ipv6_enable
-      probe_user_group
+      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
       #ipv4
       iptables="iptables -w 100" && {
@@ -694,7 +696,6 @@ if [ "${proxy_mode}" != "tun" ]; then
 else
   case "$1" in
     enable)
-      network_port
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log info "proxy_mode: ${proxy_mode}, disable transparent proxy."
       #ipv4
@@ -720,11 +721,11 @@ else
         disable_ipv6
         log warn "disable IPv6."
       fi
+      network_port
       log info "create iptables tun rules done."
       log info "${bin_name} connected."
       ;;
     renew)
-      network_port
       probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."
       #ipv4
@@ -751,6 +752,7 @@ else
         disable_ipv6
         log warn "disable IPv6."
       fi
+      network_port
       log info "create iptables tun rules done."
       log info "restart iptables tun rules done."
       log info "${bin_name} connected."

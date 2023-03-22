@@ -4,7 +4,9 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
+# Reads the enable value from the tun configuration
 # singbox_tun=$(find /data/adb/box/sing-box/ -name "*.json" -exec awk -F':' '/"type":[[:space:]]*"tun"/{gsub(/^[[:space:]]+|[",[:space:]]+$/,"",$2); print $2}' {} \; | tr -d '"')
+clash_tun_status=$(awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
 
 delete_logs() {
   # Delete logs for each bin in the list
@@ -87,8 +89,7 @@ check_permission() {
         if [ "${box_user_id}" != "0" ] || [ "${box_group_id}" != "3005" ]; then
           # Set capability of kernel directory
           if command -v setcap > /dev/null; then
-            setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' ${bin_path} || \
-              (box_user_group="root:net_admin" && log error "setcap authorization failed, you may need libcap package.")
+            setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' ${bin_path} || (box_user_group="root:net_admin" && log error "setcap authorization failed, you may need libcap package.")
           else
             box_user_group="root:net_admin"
             log warn "setcap authorization failed, you may need libcap package. Using root:net_admin instead."
@@ -207,7 +208,7 @@ run_box() {
   ulimit -SHn 65535
   case "${bin_name}" in
     sing-box)
-      # prepare_singbox
+      prepare_singbox
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
         nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
@@ -451,6 +452,7 @@ case "$1" in
     ;;
   restart)
     stop_box
+    ${scripts_dir}/box.iptables disable >> /dev/null 2>&1
     sleep 1
     start_box
     ${scripts_dir}/box.iptables renew

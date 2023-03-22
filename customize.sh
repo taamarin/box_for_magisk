@@ -4,7 +4,6 @@ ASH_STANDALONE=1
 
 status=""
 architecture=""
-latest=$(date +%Y%m%d%H%M)
 
 if $BOOTMODE; then
   ui_print "- Installing from Magisk app"
@@ -39,8 +38,9 @@ esac
 
 ui_print "- Installing Box for Magisk"
 
-if [ -d "/data/adb/box" ] ; then
+if [ -d "/data/adb/box" ]; then
     ui_print "- Backup box"
+    latest=$(date '+%Y-%m-%d_%H-%M-%S')
     mkdir -p "/data/adb/box/${latest}"
     mv /data/adb/box/* "/data/adb/box/${latest}/"
 fi
