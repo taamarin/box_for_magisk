@@ -17,7 +17,7 @@ tun_device=""
 if [ "${bin_name}" = "clash" ]; then
   tun_device=$(awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
 elif [ "${bin_name}" = "sing-box" ]; then
-  tun_device=$(awk -F'"' '/interface_name/{ print $4;found=1; exit } END{ if(!found) print "tun0" }' "${data_dir}/sing-box/config.json" 2>/dev/null)
+  tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
 fi
 clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
 clash_enhanced_mode=$(awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
