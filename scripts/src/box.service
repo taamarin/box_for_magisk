@@ -4,6 +4,8 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
+# singbox_tun=$(find /data/adb/box/sing-box/ -name "*.json" -exec awk -F':' '/"type":[[:space:]]*"tun"/{gsub(/^[[:space:]]+|[",[:space:]]+$/,"",$2); print $2}' {} \; | tr -d '"')
+
 delete_logs() {
   # Delete logs for each bin in the list
   log info "Deleting & Backup logs for ${bin_list[*]}"
@@ -36,7 +38,8 @@ detected_port() {
 }
 
 still_alive() {
-  if ! pid=$(pidof ${bin_name} 2>/dev/null); then
+  pid=$(pidof ${bin_name} 2>/dev/null)
+  if [ -z "${pid}" ]; then
     log error "${bin_name} service is not running."
     log error "Please check ${bin_name}.log for more information."
     exit 1
@@ -44,8 +47,7 @@ still_alive() {
   if ! kill -0 "${pid}" 2>/dev/null; then
     log error "${bin_name} service is not running."
     log error "Killing stale pid ${pid}."
-    kill "${pid}" || killall "${bin_name}"
-    rm -f "${pid_file}"
+    pkill -15 "${bin_list[@]}" >/dev/null 2>&1 || killall -15 "${bin_list[@]}" >/dev/null 2>&1
     exit 1
   fi
 }
@@ -53,8 +55,8 @@ still_alive() {
 check_permission() {
   if [ "${box_user_group}" = "root:net_admin" ]; then
     if [ ! -f ${bin_path} ]; then
-      log error "Kernel ${bin_name} is missing."
-      log error "Please download the ${bin_name} kernel and place it in the ${bin_kernel}/ directory."
+      log error "Kernel '${bin_name}' is missing."
+      log error "Please download the '${bin_name}' kernel and place it in the ${bin_kernel}/ directory."
       exit 1
     fi
     # Set ownership and permission of kernel directory
@@ -104,8 +106,8 @@ check_permission() {
         log info "Using kernel directory ${bin_name} in ${bin_path}"
       fi
     else
-      log error "Kernel ${bin_name} is missing."
-      log error "Please download the ${bin_name} kernel, place it in the /data/adb/modules/box_for_magisk/system/bin/ directory and reboot."
+      log error "Kernel '${bin_name}' is missing."
+      log error "Please download the '${bin_name}' kernel, place it in the /data/adb/modules/box_for_magisk/system/bin/ directory and reboot."
       exit 1
     fi
   fi
@@ -155,8 +157,37 @@ create_tun() {
   fi
 }
 
-default_tp() {
-  awk -v new_val="tproxy" '/network_mode/ {$0 = "network_mode=\"" new_val "\""} 1' ${settings} > ${data_dir}/tmp && mv ${data_dir}/tmp ${settings}
+default_tproxy() {
+  # set network_mode variable value to "tproxy"
+  sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+}
+
+prepare_singbox() {
+  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+    sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${data_dir}/sing-box/"*.json
+    sed -i 's/auto_route\": false/auto_route\": true/g' "${data_dir}/sing-box/"*.json
+  else
+    sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "${data_dir}/sing-box/"*.json
+    sed -i 's/auto_route\": true/auto_route\": false/g' "${data_dir}/sing-box/"*.json
+  fi
+  sleep 0.5
+}
+
+prepare_clash() {
+  clash_external_ui=$(awk '/external-ui: /{print $1}' "${clash_config}")
+  [ -z "${clash_external_ui}" ] && echo -e "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
+  clash_tproxy_port=$(awk '/tproxy-port: /{print $1}' "${clash_config}")
+  [ -z "${clash_tproxy_port}" ] && echo -e "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
+  clash_redir_port=$(awk '/redir-port: /{print $1}' "${clash_config}")
+  [ -z "${clash_redir_port}" ] && echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
+  sleep 0.5
+  if [ "${clash_tun_status}" != "true" ]; then
+    sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
+    default_tproxy
+  else
+    sed -i -E "s/(network_mode=)\"[^\"]+\"/\1\"mixed\"/" "${settings}"
+  fi
+  sleep 0.5
 }
 
 run_box() {
@@ -165,16 +196,7 @@ run_box() {
   log info "starting ${bin_name} service."
   case "${bin_name}" in
     sing-box)
-      # if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
-        # awk '{gsub(/"auto_detect_interface": false/,"\"auto_detect_interface\": true")}1' "${data_dir}/sing-box/config.json" > "${data_dir}/temp" && mv "${data_dir}/temp" "${data_dir}/sing-box/config.json"
-        # sleep 0.75
-        # awk '{gsub(/auto_route\": false/, "auto_route\": true"); print}' "${data_dir}/sing-box/config.json" > "${data_dir}/temp" && mv "${data_dir}/temp" "${data_dir}/sing-box/config.json"
-      # else
-        # awk '{gsub(/auto_route\": true/, "auto_route\": false"); print}' "${data_dir}/sing-box/config.json" > "${data_dir}/temp" && mv "${data_dir}/temp" "${data_dir}/sing-box/config.json"
-        # sleep 0.75
-        # awk '{gsub(/"auto_detect_interface": true/,"\"auto_detect_interface\": false")}1' "${data_dir}/sing-box/config.json" > "${data_dir}/temp" && mv "${data_dir}/temp" "${data_dir}/sing-box/config.json"
-      # fi
-      # sleep 1
+      # prepare_singbox
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
         ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
@@ -185,19 +207,7 @@ run_box() {
       fi
       ;;
     clash)
-      clash_external_ui=$(awk '/external-ui: /{print $1}' "${clash_config}" | head -1)
-      clash_tproxy_port=$(awk '/tproxy-port: /{print $1}' "${clash_config}" | head -1)
-      clash_redir_port=$(awk '/redir-port: /{print $1}' "${clash_config}" | head -1)
-      [ "${clash_external_ui}" != "" ] || echo -e "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
-      [ "${clash_tproxy_port}" != "" ] || echo -e "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
-      [ "${clash_redir_port}" != "" ] || echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
-      sleep 0.5
-      if [ "${clash_tun_status}" != "true" ]; then
-        awk -v tproxy_port="${tproxy_port}" '/tproxy-port:/ {$2=tproxy_port} {print}' ${clash_config} > ${data_dir}/tmp && mv ${data_dir}/tmp ${clash_config}
-        default_tp
-      else
-        awk -v new_val="mixed" '/network_mode/ {$0 = "network_mode=\"" new_val "\""} 1' ${settings} > ${data_dir}/tmp && mv ${data_dir}/tmp ${settings}
-      fi
+      prepare_clash
       if ${bin_path} -t -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}-report.log" 2>&1; then
         ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
@@ -208,14 +218,13 @@ run_box() {
       fi
       ;;
     xray)
-      default_tp
+      default_tproxy
       if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
         log error "file ${data_dir}/${bin_name}/*.json not found"
         exit 1
       fi
       export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
-      
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
         ulimit -SHn 65535
         nohup setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
@@ -226,7 +235,7 @@ run_box() {
       fi
     ;;
     v2fly)
-      default_tp
+      default_tproxy
       if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
         log error "file ${data_dir}/v2ray/*.json not found"
         exit 1
@@ -257,7 +266,7 @@ if [ "${cgroup_memory}" = "true" ]; then
   else
     log warn "Failed to enable cgroup for ${bin_name}."
     log warn "Cgroups is turned off"
-    awk -v var="cgroup_memory" '$0 ~ var {gsub("true","false",$0)} {print}' ${settings} > ${data_dir}/tmp && mv ${data_dir}/tmp ${settings}
+    sed -i -E "/cgroup_memory/ s/(true)/false/" "${settings}"
   fi
 else
   log info "${bin_name} cgroup: disabled."
@@ -306,7 +315,7 @@ bin_usage() {
 display_bin_pid() {
   # Checks if bin_name is defined
   if [ -z "${bin_name}" ]; then
-    log error "bin_name: ${bin_name} not defined"
+    log error "bin_name: '${bin_name}<unknown>' not defined"
     return 1
   fi
   # Look up the PID of bin_name
@@ -339,7 +348,7 @@ crontab_alive() {
   if [ "${bin_name}" = "clash" ]; then
     log info "Configuration ${clash_config}."
   fi
-  # Running the geo crontab function
+  # Executes the crontab_geo function
   crontab_geo
 }
 
@@ -365,13 +374,18 @@ start_box() {
       exit 1
     fi
   else
-    log info "Good day"
+    case "${bin_name}" in
+      "xray"|"sing-box"|"clash"|"v2fly") log info "Good day" ;;
+      *) log error "bin_name: '${bin_name}<unknown>' not defined"; exit 1 ;;
+    esac
   fi
   # Checked permissions, checked for bin existence, deleted old logs, created a TUN, ran box, and waited for 1 second
+  # Executes the check_permission,check_in_bin & delete_logs function
   check_permission
   check_in_bin
   delete_logs
   if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+    # Executes the create_tun function
     create_tun
   fi
   run_box && sleep 1
@@ -384,6 +398,7 @@ start_box() {
   # Runs cgroup limit, waits 1 second, detects the port in use, waits 1 second, and displays the PID of bin
   cgroup_limit
   sleep 1
+  # Executes the detected_port, still_alive, display_bin_pid function
   detected_port
   sleep 1
   still_alive
@@ -391,23 +406,22 @@ start_box() {
 }
 
 stop_box() {
-  # Using `pgrep` command to find cronjob PID
+  # Use `pgrep` command to find cronjob PID
   cronkill=$(pgrep -f "crond -c ${run_path}")
   for cron in ${cronkill[@]}; do
-    log warn "Killing cron process ${cron}"
-    kill -15 "${cron}"
+    kill -15 ${cron}
   done
   # Using a loop to kill each binary
   for bin in ${bin_list[@]}; do
     # Use `pkill` to kill the binary with signal 15
-    pkill "${bin}" || killall "${bin}"
+    pkill -15 "${bin}" || killall -15 "${bin}"
   done
   sleep 1
   # Check if the binary has stopped
   if ! pidof ${bin_name} >/dev/null 2>&1; then
     # Delete the `box.pid` file if it exists
     if [ -f ${run_path}/box.pid ]; then
-      rm ${run_path}/box.pid
+      rm -f "${pid_file}"
       sleep 0.5
     fi
     display_bin_pid || log warn "${bin_name} disconnected."
