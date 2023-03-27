@@ -412,10 +412,12 @@ start_tproxy() {
 
   ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
 
-  # # # Disable QUIC
-  [ "${quic}" = "disable" ] && ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
-  # ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
-  # ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
+  # # Disable QUIC
+  if [ "${quic}" = "disable" ]; then
+    ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
+    ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
+    # ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
+  fi
 
   # This rule blocks local access to tproxy-port to prevent traffic loopback.
   if [ "${iptables}" != "ip6tables -w 100" ]; then
@@ -480,9 +482,9 @@ stop_tproxy() {
   ${iptables} -t mangle -X DIVERT
 
   # flush QUIC
-  ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
+  # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
 
   if [ "${iptables}" != "ip6tables -w 100" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
