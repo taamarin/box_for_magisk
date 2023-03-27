@@ -9,6 +9,8 @@ user_agent="${bin_name}"
 meta=true
 # if meta flag is true, download clash.meta
 dev=false
+# option to download Singbox kernel beta or release
+singbox_releases=true
 
 # log on terminal
 logs() {
@@ -238,7 +240,11 @@ update_kernel() {
   case "${bin_name}" in
     sing-box)
       url_down="https://github.com/SagerNet/sing-box/releases"
-      sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
+      if [ "${singbox_releases}" = "false" ]; then
+        sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
+      else
+        sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F'/' '{print $3}')
+      fi
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
       log debug "download ${download_link}"
@@ -248,9 +254,9 @@ update_kernel() {
     clash)
       if [ "${meta}" = "true" ]; then
         # set download link and get the latest version
-        download_link="https://github.com/taamarin/Clash.Meta/releases"
+        download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
         tag=$(wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
-        latest_version=$(wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9,a-z]+" | head -1)
+        latest_version=$(wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
         filename="clash.meta-${platform}-${arch}"
         [ $(uname -m) != "aarch64" ] || filename+="-cgo"
