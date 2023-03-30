@@ -15,8 +15,6 @@
 
 </div>
 
-A fork of [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)
-
 This project is a [Magisk](https://github.com/topjohnwu/Magisk) module which includes `clash`, `sing-box`, `v2ray` and `xray` proxies.
 
 
@@ -236,3 +234,7 @@ tproxy-port: 9898
 ```
 
 #### make sure the ports in settings.ini and configuration are in sync.
+
+
+## Credits
+  - [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)
