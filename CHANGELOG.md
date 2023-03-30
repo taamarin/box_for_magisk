@@ -1,3 +1,13 @@
+#### ⟳ Changelog v0.6
++ increase time on boot
++ add: sing-box multiple configuration support
++ fix the tun_device retrieval in the sing-box config.
++ add: disable/enable quic using iptables.tproxy rules. >>>> settings.ini
++ update: yacd (displays update core / restart clash)
++ adjust kernel update:
+    + clash-meta: change using the official clash.meta tag-alpha url.
+    + sing-box: option to download Singbox kernel beta or release
+
 #### ⟳ Changelog v0.5.1
 + **remove the selection to create the DNS resolve.conf file**. [#3 (comment)](https://github.com/taamarin/box_for_magisk/issues/3#issuecomment-1475454926)
 + **add force stop `${bin_name}`.** if stubborn
