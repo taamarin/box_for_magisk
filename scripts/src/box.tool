@@ -252,7 +252,8 @@ update_kernel() {
       if [ "${meta}" = "true" ]; then
         # set download link and get the latest version
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
-        tag=$(wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
+        # tag=$(wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
+        tag="Prerelease-Alpha"
         latest_version=$(wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
         filename="clash.meta-${platform}-${arch}"
@@ -337,7 +338,7 @@ update_kernel() {
     v2fly|xray)
       [ "${bin_name}" = "xray" ] && bin='xray' || bin='v2ray'
       unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "${busybox_path} unzip")
-      if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "v2ray" -d "${bin_kernel}" >&2; then
+      if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2 ; then
         if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
           [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
         else
