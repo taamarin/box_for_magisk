@@ -4,13 +4,10 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
-user_agent="${bin_name}"
-# set meta and dev flags
-meta=true
-# if meta flag is true, download clash.meta
-dev=false
-# option to download Singbox kernel beta or release
-singbox_releases=true
+user_agent="box_for_magisk"
+meta=true # option to download Clash kernel clash-premium{false} or clash-meta{true}
+dev=false # for clash-premium,
+singbox_releases=false # option to download Singbox kernel beta or release
 
 # log on terminal
 logs() {

@@ -39,6 +39,7 @@ network_port() {
     /system/bin/netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
   fi
   if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+    sleep 1
     /system/bin/ifconfig | grep -q "${tun_device}" || log error "tun_device: '${tun_device}' not found"
   fi
 }
