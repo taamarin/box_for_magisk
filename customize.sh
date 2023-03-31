@@ -2,21 +2,23 @@
 SKIPUNZIP=1
 ASH_STANDALONE=1
 
-status=""
-architecture=""
+SKIPUNZIP=1
+ASH_STANDALONE=1
 
-if $BOOTMODE; then
-  ui_print "- Installing from Magisk app"
-else
+if [ "$BOOTMODE" ! = true ] ; then
   ui_print "*********************************************************"
+  ui_print "! Please install in Magisk Manager or KernelSU Manager"
   ui_print "! Install from recovery is NOT supported"
   ui_print "! Some recovery has broken implementations, install with such recovery will finally cause BFM modules not working"
-  ui_print "! Please install from Magisk app"
   abort "*********************************************************"
+elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ] ; then
+  abort "Error: Please update your KernelSU and KernelSU Manager or KernelSU Manager"
 fi
 
 # check Magisk
-ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
+if [ "$KSU" ! = true ] ; then
+    ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
+fi
 
 # check android
 if [ "$API" -lt 28 ]; then
@@ -26,18 +28,21 @@ else
   ui_print "- Device sdk: $API"
 fi
 
-ui_print "- check architecture"
-case $ARCH in
-  arm|arm64|x86|x64)
-    ui_print "- Device platform: $ARCH"
-    ;;
-  *)
-    abort "! Unsupported platform: $ARCH"
-    ;;
-esac
+if [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10683 ] ; then
+  service_dir="/data/adb/ksu/service.d"
+else 
+  service_dir="/data/adb/service.d"
+fi
 
-ui_print "- Installing Box for Magisk"
+if [ ! -d "${service_dir}" ] ; then
+    mkdir -p "${service_dir}"
+fi
 
+if [ "$KSU" = true ] ; then
+  sed -i "s/name=.*/name=Box for KernelSU/g" "${MODPATH}/module.prop"
+fi
+
+ui_print "- Installing Box for Magisk/KernelSU"
 if [ -d "/data/adb/box" ]; then
     ui_print "- Backup box"
     latest=$(date '+%Y-%m-%d_%H-%M-%S')
@@ -82,9 +87,9 @@ mkdir -p "/data/adb/box/sing-box/dashboard"
 ui_print "- Extract the ZIP file and skip the META-INF folder into the ${MODPATH} folder"
 unzip -o "${ZIPFILE}" -x 'META-INF/*' -d "${MODPATH}" >&2
 
-ui_print "- Extract the files uninstall.sh and box_service.sh into the ${MODPATH} folder and /data/adb/service.d"
+ui_print "- Extract the files uninstall.sh and box_service.sh into the ${MODPATH} folder and ${service_dir}"
 unzip -j -o "${ZIPFILE}" 'uninstall.sh' -d "${MODPATH}" >&2
-unzip -j -o "${ZIPFILE}" 'box_service.sh' -d /data/adb/service.d >&2
+unzip -j -o "${ZIPFILE}" 'box_service.sh' -d "${service_dir}" >&2
 
 ui_print "- Extract the files from the binary archive and copy them to the /system/bin and /data/adb/box/bin"
 tar -xjf "${MODPATH}/binary/${ARCH}.tar.bz2" -C "${MODPATH}/system/bin" >&2
@@ -115,11 +120,13 @@ ui_print "- Setting permissions"
 set_perm_recursive "${MODPATH}" 0 0 0755 0644
 set_perm_recursive "/data/adb/box/" 0 3005 0755 0644
 set_perm_recursive "/data/adb/box/scripts/" 0 3005 0755 0700
-set_perm "/data/adb/service.d/box_service.sh"  0  0  0755
+set_perm "${service_dir}/box_service.sh"  0  0  0755
 set_perm "${MODPATH}/service.sh"  0  0  0755
 set_perm "${MODPATH}/uninstall.sh"  0  0  0755
 set_perm "${MODPATH}/system/etc/security/cacerts/cacert.pem" 0 0 0644
 set_perm "${MODPATH}/system/bin/curl"  0  0  0755
+# fix "set_perm_recursive /data/adb/box/scripts" not working on some phones.
+chmod ugo+x /data/adb/box/scripts/*
 set_perm /data/adb/box/scripts/box.inotify  0  0  0755
 set_perm /data/adb/box/scripts/box.service  0  0  0755
 set_perm /data/adb/box/scripts/box.iptables  0  0  0755
@@ -140,12 +147,7 @@ while true ; do
   sleep 1
   if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
     ui_print "- it will take a while...."
-    # if [ ! -f /data/adb/box/run/box.pid ]; then
     /data/adb/box/scripts/box.tool all && echo "- downloads are complete."
-    # else
-      # ui_print "  - BFM service is still running, Cannot update geo and kernel, as it will cause conflicts"
-      # ui_print "  - Download manually after reboot is complete"
-    # fi
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
      ui_print "- ignore download GEOX and KERNEL"

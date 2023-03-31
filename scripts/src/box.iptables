@@ -15,13 +15,13 @@ tun_device=""
 
 # Looking for value from "fake-ip-range: / listen: / tun_device" block in YAML / JSON configuration file
 if [ "${bin_name}" = "clash" ]; then
-  tun_device=$(awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
+  tun_device=$(busybox awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
 elif [ "${bin_name}" = "sing-box" ]; then
-  tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
+  tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
 fi
-clash_fake_ip_range=$(awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
-clash_enhanced_mode=$(awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
-clash_dns_port=$(awk -F ':' '/listen:/ { print $3;found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
+clash_fake_ip_range=$(busybox awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
+clash_enhanced_mode=$(busybox awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
+clash_dns_port=$(busybox awk -F ':' '/listen:/ { print $3;found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
 
 probe_empty () {
 if [ "${bin_name}" = "clash" ]; then
@@ -36,23 +36,23 @@ fi
 
 network_port() {
   if [ "${network_mode}" = "tproxy" ] && [ "${proxy_mode}" != "tun" ]; then
-    /system/bin/netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
+    netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
   fi
   if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
     sleep 1
-    /system/bin/ifconfig | grep -q "${tun_device}" || log error "tun_device: '${tun_device}' not found"
+    ifconfig | grep -q "${tun_device}" || log error "tun_device: '${tun_device}' not found"
   fi
 }
 
 find_packages_uid() {
   echo -n "" > "${uid_list}"
   for package in "${packages_list[@]}"; do
-      awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
+      busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
   done
 }
 
 probe_user_group() {
-  if bin_pid=$(pidof ${bin_name}) ; then
+  if bin_pid=$(busybox pidof ${bin_name}) ; then
     box_user=$(stat -c %U /proc/${bin_pid})
     box_group=$(stat -c %G /proc/${bin_pid})
     return 0
@@ -537,13 +537,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "use tproxy: tcp + udp."
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_tproxy && log info "create iptables transparent proxy rules done." || { log error "create iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
             log debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 100"
-            intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_tproxy && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -554,13 +554,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "use redirect: tcp only"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_redirect && log info "create iptables transparent proxy rules done." || { log error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
             log debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 100"
-            intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -572,13 +572,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
           forward -I || forward -D >> /dev/null 2>&1
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_redirect && log info "create iptables transparent proxy rules done." || (log error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           if [ "${ipv6}" = "true" ]; then
               log debug "use IPv6."
               ipv6_enable
               iptables="ip6tables -w 100"
-              intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+              intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
               forward -I || forward -D >> /dev/null 2>&1
               start_redirect && log info "create ip6tables transparent proxy rules done." || (log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
@@ -615,13 +615,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "use tproxy: tcp + udp."
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_tproxy && log info "create iptables transparent proxy rules done." || { log error "create iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
             log debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 100"
-            intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_tproxy && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -632,13 +632,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "use redirect: tcp only"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_redirect && log info "create iptables transparent proxy rules done." || { log error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
             log debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 100"
-            intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -650,13 +650,13 @@ if [ "${proxy_mode}" != "tun" ]; then
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 100"
           forward -I || forward -D >> /dev/null 2>&1
-          intranet+=($(ip address | awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+          intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_redirect && log info "create iptables transparent proxy rules done." || { log error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
               log debug "use IPv6."
               ipv6_enable
               iptables="ip6tables -w 100"
-              intranet6+=($(ip address | awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+              intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
               forward -I || forward -D >> /dev/null 2>&1
               start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else

@@ -5,8 +5,8 @@ scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
 # Reads the enable value from the tun configuration
-# singbox_tun=$(find /data/adb/box/sing-box/ -name "*.json" -exec awk -F':' '/"type":[[:space:]]*"tun"/{gsub(/^[[:space:]]+|[",[:space:]]+$/,"",$2); print $2}' {} \; | tr -d '"')
-clash_tun_status=$(awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
+# singbox_tun=$(find /data/adb/box/sing-box/ -name "*.json" -exec busybox awk -F':' '/"type":[[:space:]]*"tun"/{gsub(/^[[:space:]]+|[",[:space:]]+$/,"",$2); print $2}' {} \; | tr -d '"')
+clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
 
 delete_logs() {
   # Delete logs for each bin in the list
@@ -42,7 +42,7 @@ detected_port() {
 
 still_alive() {
   sleep 1.5
-  pid=$(pidof ${bin_name} 2>/dev/null)
+  pid=$(busybox pidof ${bin_name} 2>/dev/null)
   if [ -z "${pid}" ]; then
     log error "${bin_name} service is not running."
     log error "Please check ${bin_name}.log for more information."
@@ -52,7 +52,7 @@ still_alive() {
   if ! kill -0 "${pid}" 2>/dev/null; then
     log error "${bin_name} service is not running."
     log error "Killing stale pid '${pid}'"
-    pkill -15 "${bin_list[@]}" >/dev/null 2>&1 || killall -15 "${bin_list[@]}" >/dev/null 2>&1
+    busybox pkill -15 "${bin_list[@]}" >/dev/null 2>&1 || killall -15 "${bin_list[@]}" >/dev/null 2>&1
     ${scripts_dir}/box.iptables disable >/dev/null 2>&1
     exit 1
   fi
@@ -74,8 +74,8 @@ check_permission() {
     log info "use the kernel located in '${bin_path}'"
   else
     if which ${bin_name} | grep -q "/system/bin/" ; then
-      box_user=$(echo ${box_user_group} | awk -F ':' '{print $1}')
-      box_group=$(echo ${box_user_group} | awk -F ':' '{print $2}')
+      box_user=$(echo ${box_user_group} | busybox awk -F ':' '{print $1}')
+      box_group=$(echo ${box_user_group} | busybox awk -F ':' '{print $2}')
       box_user_id=$(id -u ${box_user})
       box_group_id=$(id -g ${box_group})
       # Check if box_user and box_group exist
@@ -179,11 +179,13 @@ prepare_singbox() {
 }
 
 prepare_clash() {
-  clash_external_ui=$(awk '/external-ui: /{print $1}' "${clash_config}")
+  ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
+  sed -i "s/ipv6=.*/ipv6=${ipv6}/g" /data/adb/box/settings.ini
+  clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   [ -z "${clash_external_ui}" ] && printf "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
-  clash_tproxy_port=$(awk '/tproxy-port: /{print $1}' "${clash_config}")
+  clash_tproxy_port=$(busybox awk '/tproxy-port: /{print $1}' "${clash_config}")
   [ -z "${clash_tproxy_port}" ] && printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
-  clash_redir_port=$(awk '/redir-port: /{print $1}' "${clash_config}")
+  clash_redir_port=$(busybox awk '/redir-port: /{print $1}' "${clash_config}")
   [ -z "${clash_redir_port}" ] && printf "\nredir-port: ${redir_port}" >> "${clash_config}"
   if [ "${clash_tun_status}" != "true" ]; then
     sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
@@ -210,7 +212,7 @@ run_box() {
     sing-box)
       prepare_singbox
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
-        nohup setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "Configuration failed, please check the ${run_path}/${bin_name}-report.log file." >&2
@@ -220,7 +222,7 @@ run_box() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}-report.log" 2>&1; then
-        nohup setuidgid 0:3005 ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid 0:3005 ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -233,7 +235,7 @@ run_box() {
       export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
-        nohup setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -246,7 +248,7 @@ run_box() {
       export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
@@ -278,18 +280,18 @@ fi
 # Function to display the usage of a binary
 bin_usage() {
   # Get the process ID of the binary
-  bin_pid=$(pidof ${bin_name})
+  bin_pid=$(busybox pidof ${bin_name})
   if [ -z "${bin_pid}" ]; then
     log error "${bin_name} is not running"
     return
   fi
   # Get the memory usage of the binary
-  rss=$(grep VmRSS /proc/${bin_pid}/status | awk '{print $2}')
+  rss=$(grep VmRSS /proc/${bin_pid}/status | busybox awk '{print $2}')
   [ "${rss}" -ge 1024 ] && bin_rss="$(expr ${rss} / 1024) MB" || bin_rss="${rss} KB"
-  swap=$(grep VmSwap /proc/${bin_pid}/status | awk '{print $2}')
+  swap=$(grep VmSwap /proc/${bin_pid}/status | busybox awk '{print $2}')
   [ "${swap}" -ge 1024 ] && bin_swap="$(expr ${swap} / 1024) MB" || bin_swap="${swap} KB"
   # Get the state of the binary
-  state=$(grep State /proc/${bin_pid}/status | awk '{print $2}')
+  state=$(grep State /proc/${bin_pid}/status | busybox awk '{print $2}')
   # Get the user and group of the binary
   user_group=$(stat -c %U:%G /proc/${bin_pid})
   # Log the information
@@ -297,14 +299,14 @@ bin_usage() {
   log info "${bin_name} status: ${state}, PID: (${bin_pid})"
   log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
   # Get the CPU usage of the binary
-  cpu=$(/system/bin/ps -p ${bin_pid} -o pcpu | awk 'NR==2{print $1}' 2> /dev/null)
+  cpu=$(ps -p ${bin_pid} -o pcpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
   if [ -n "${cpu}" ]; then
     log info "${bin_name} cpu usage: ${cpu}%"
   else
     log info "${bin_name} cpu usage: not available"
   fi
   # Get the running time of the binary
-  running_time=$(/system/bin/ps -p ${bin_pid} -o etime | awk 'NR==2{print $1}' 2> /dev/null)
+  running_time=$(ps -p ${bin_pid} -o etime | busybox awk 'NR==2{print $1}' 2> /dev/null)
   if [ -n "${running_time}" ]; then
     log info "${bin_name} running time: ${running_time} seconds"
   else
@@ -321,7 +323,7 @@ display_bin_pid() {
     return 1
   fi
   # Look up the PID of bin_name
-  bin_pid=$(pidof "${bin_name}")
+  bin_pid=$(busybox pidof "${bin_name}")
   # Checks if bin_name is running
   if [ -n "${bin_pid}" ]; then
     # If so, prints a message and calls the bin_usage function
@@ -359,6 +361,11 @@ crontab_alive() {
 start_box() {
   # Cleared the log file and added the timestamp and delimiter
   echo -n "" > "${logs_file}"
+  # command command -v to check whether busybox is installed or not on your system.
+  if ! command -v busybox &> /dev/null; then
+    log error "Perintah busybox tidak ditemukan"
+    exit 1
+  fi
   # Then use the chmod command to set file permissions to 755
   if [ -t 1 ]; then
     echo -e "\033[1;31m$(date)\033[0m"
@@ -368,7 +375,7 @@ start_box() {
     echo "--------------------------------------------" | tee -a "${logs_file}" > /dev/null 2>&1
   fi
   # Update iptables if bin_name is still running
-  if bin_pid=$(pidof "${bin_name}"); then
+  if bin_pid=$(busybox pidof "${bin_name}"); then
     log info "${bin_name} service is still running, refreshing iptables"
     if "${scripts_dir}/box.iptables" renew; then
       log info "iptables refreshed successfully"
@@ -415,12 +422,12 @@ stop_box() {
   done
   # Using a loop to kill each binary
   for bin in ${bin_list[@]}; do
-    # Use `pkill` to kill the binary with signal 15
-    pkill -15 "${bin}" || killall -15 "${bin}"
+    # Use `busybox pkill` to kill the binary with signal 15
+    busybox pkill -15 "${bin}" || killall -15 "${bin}"
   done
   sleep 1
   # Check if the binary has stopped
-  if ! pidof ${bin_name} >/dev/null 2>&1; then
+  if ! busybox pidof ${bin_name} >/dev/null 2>&1; then
     # Delete the `box.pid` file if it exists
     if [ -f ${run_path}/box.pid ]; then
       rm -f "${pid_file}"
@@ -431,12 +438,12 @@ stop_box() {
     log error "failed to stop ${bin_name}"
     log warn "force stop ${bin_name}."
     for bin in "${bin_list[@]}"; do
-      # Use `pkill` to kill the binary with signal 9
-      pkill -9 "${bin}" >/dev/null 2>&1 || killall -9 "${bin}" >/dev/null 2>&1
+      # Use `busybox pkill` to kill the binary with signal 9
+      busybox pkill -9 "${bin}" >/dev/null 2>&1 || killall -9 "${bin}" >/dev/null 2>&1
     done
     sleep 0.5
     # Check whether the binary has stopped
-    if ! pidof ${bin_name} >/dev/null 2>&1; then
+    if ! busybox pidof ${bin_name} >/dev/null 2>&1; then
       log warn "done"
     fi
   fi
@@ -462,7 +469,7 @@ case "$1" in
       clash) log debug "$(${bin_path} -v)";;
       *) log debug "$(${bin_path} version)";;
     esac
-    [ $(pidof ${bin_name}) ] && \
+    [ $(busybox pidof ${bin_name}) ] && \
       bin_usage || log warn "${bin_name} service is stopped"
     ;;
   *)

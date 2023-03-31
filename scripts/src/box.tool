@@ -86,7 +86,7 @@ network_check() {
 # Check if a binary is running by checking the pid file and cmdline
 probe_bin_alive() {
   if [ -f "${pid_file}" ]; then
-    cmd_file="/proc/$(pidof "${bin_name}")/cmdline"
+    cmd_file="/proc/$(busybox pidof "${bin_name}")/cmdline"
     if [ -f "${cmd_file}" ] && grep -q "${bin_name}" "${cmd_file}"; then
       return 0 # binary is alive
     else
@@ -136,7 +136,7 @@ update_file() {
   if [ -f "${file}" ]; then
     mv "${file}" "${file_bak}" || return 1
   fi
-  request="wget"
+  request="busybox wget"
   request+=" --no-check-certificate"
   request+=" --user-agent ${user_agent}"
   request+=" -O ${file}"
@@ -193,7 +193,7 @@ port_detection() {
   # Use 'command' function to check if 'ss' is available
   if command -v ss > /dev/null ; then
     # Use 'awk' with a regular expression to match the process ID
-    ports=$(ss -antup | awk -v pid="$(pidof "${bin_name}")" '$7 ~ pid {print $5}' | awk -F ':' '{print $2}' | sort -u)
+    ports=$(ss -antup | awk -v pid="$(busybox pidof "${bin_name}")" '$7 ~ pid {print $5}' | awk -F ':' '{print $2}' | sort -u)
   else
     # Log a warning message if 'ss' is not available
     log debug "Warning: 'ss' command not found, skipping port detection." >&2
@@ -216,8 +216,8 @@ port_detection() {
 # kill bin
 kill_alive() {
   for list in "${bin_list[@]}" ; do
-    if pidof "${list}" >/dev/null ; then
-      pkill -15 "${list}" >/dev/null 2>&1 || killall -15 "${list}" >/dev/null 2>&1
+    if busybox pidof "${list}" >/dev/null ; then
+      busybox pkill -15 "${list}" >/dev/null 2>&1 || killall -15 "${list}" >/dev/null 2>&1
     fi
   done
 }
@@ -238,9 +238,9 @@ update_kernel() {
     sing-box)
       url_down="https://github.com/SagerNet/sing-box/releases"
       if [ "${singbox_releases}" = "false" ]; then
-        sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
+        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
       else
-        sing_box_version_temp=$(wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F'/' '{print $3}')
+        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F'/' '{print $3}')
       fi
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
@@ -252,9 +252,9 @@ update_kernel() {
       if [ "${meta}" = "true" ]; then
         # set download link and get the latest version
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
-        # tag=$(wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
+        # tag=$(busybox wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
         tag="Prerelease-Alpha"
-        latest_version=$(wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
+        latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
         filename="clash.meta-${platform}-${arch}"
         [ $(uname -m) != "aarch64" ] || filename+="-cgo"
@@ -270,7 +270,7 @@ update_kernel() {
           update_file "${data_dir}/${file_kernel}.gz" "https://release.dreamacro.workers.dev/latest/clash-linux-${arch}-latest.gz"
         else
         # if dev flag is false, download latest premium version
-          filename=$(wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+          filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
           log debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
           update_file "${data_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         fi
@@ -280,7 +280,7 @@ update_kernel() {
       ;;
     xray)
       # set download link and get the latest version
-      latest_version=$(wget --no-check-certificate -qO- https://api.github.com/repos/XTLS/Xray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/XTLS/Xray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
       case $(uname -m) in
         "i386") download_file="Xray-linux-32.zip" ;;
         "x86_64") download_file="Xray-linux-64.zip" ;;
@@ -297,7 +297,7 @@ update_kernel() {
     ;;
     v2fly)
       # set download link and get the latest version
-      latest_version=$(wget --no-check-certificate -qO- https://api.github.com/repos/v2fly/v2ray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/v2fly/v2ray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
       case $(uname -m) in
         "i386") download_file="v2ray-linux-32.zip" ;;
         "x86_64") download_file="v2ray-linux-64.zip" ;;
@@ -320,7 +320,7 @@ update_kernel() {
 
   case "${bin_name}" in
     clash)
-      gunzip_command=$(command -v gunzip >/dev/null 2>&1 && echo "gunzip" || echo "${busybox_path} gunzip")
+      gunzip_command=$(command -v gunzip >/dev/null 2>&1 && echo "gunzip" || echo "busybox gunzip")
       if ${gunzip_command} "${data_dir}/${file_kernel}.gz" >&2 && mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
         [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
       else
@@ -328,7 +328,7 @@ update_kernel() {
       fi
     ;;
     sing-box)
-      tar_command=$(command -v tar >/dev/null 2>&1 && echo "tar" || echo "${busybox_path} tar")
+      tar_command=$(command -v tar >/dev/null 2>&1 && echo "tar" || echo "busybox tar")
       if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 && mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" && rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
         [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
       else
@@ -337,7 +337,7 @@ update_kernel() {
     ;;
     v2fly|xray)
       [ "${bin_name}" = "xray" ] && bin='xray' || bin='v2ray'
-      unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "${busybox_path} unzip")
+      unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "busybox unzip")
       if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2 ; then
         if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
           [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
@@ -404,7 +404,7 @@ update_dashboard() {
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
     url="https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
     dir_name="Yacd-meta-gh-pages"
-    wget --no-check-certificate "${url}" -O "${file_dashboard}" 2>&1
+    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" 2>&1
     unzip -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
     mv -f "${data_dir}/${bin_name}/dashboard/${dir_name}" "${data_dir}/${bin_name}/dashboard/dist"
     rm -f "${file_dashboard}"

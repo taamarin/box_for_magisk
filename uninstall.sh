@@ -2,8 +2,20 @@
 
 box_data_dir="data/adb/box"
 rm_data() {
-  rm -rf ${box_data_dir}
-  rm -rf /data/adb/service.d/box_service.sh
+  if [ ! -d "${box_data_dir}" ]; then
+    exit 1
+  else
+    rm -rf "${box_data_dir}"
+  fi
+  
+  if [ -f "/data/adb/ksu/service.d/box_service.sh" ]; then
+    rm -f "/data/adb/ksu/service.d/box_service.sh"
+  fi
+
+  if [ -f "/data/adb/service.d/box_service.sh" ]; then
+    rm -f "/data/adb/service.d/box_service.sh"
+  fi
+
 }
 
 rm_data
