@@ -10,7 +10,7 @@ clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_
 
 delete_logs() {
   # Delete logs for each bin in the list
-  log info "Deleting & Backup logs for ${bin_list[*]}"
+  log info "deleting & backup logs for ${bin_list[*]}"
   for bin in "${bin_list[@]}" ; do
     if [ -f "${run_path}/${bin}.log" ]; then
       mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
@@ -37,7 +37,8 @@ crontab_geo() {
 
 detected_port() {
   sleep 1
-  [ "${port_detect}" = "true" ] && ${scripts_dir}/box.tool port || log debug "${bin_name} skip port detected." && return 1
+  [ "${port_detect}" = "true" ] && ${scripts_dir}/box.tool port || \
+    log debug "${bin_name} skip port detected." && return 1
 }
 
 still_alive() {
@@ -112,7 +113,7 @@ check_permission() {
       fi
     else
       log error "Kernel '${bin_name}' is missing."
-      log error "Please download the '${bin_name}' kernel, place it in the /data/adb/modules/box_for_magisk/system/bin/ directory and reboot."
+      log error "Please download the '${bin_name}' kernel, place it in the /data/adb/modules/box_for_root/system/bin/ directory and reboot."
       exit 1
     fi
   fi
@@ -204,9 +205,8 @@ prepare_xvray() {
 }
 
 run_box() {
-  log info "client list: ${bin_list[*]}"
-  log info "select: ${bin_name}"
-  log info "starting ${bin_name} service."
+  log info "client-list: [ ${bin_list[*]} ]"
+  log info "choose: ${bin_name}, start the service."
   ulimit -SHn 65535
   case "${bin_name}" in
     sing-box)
@@ -215,7 +215,10 @@ run_box() {
         nohup busybox setuidgid 0:3005 ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
-        log error "Configuration failed, please check the ${run_path}/${bin_name}-report.log file." >&2
+        log error "Configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
+        MESSAGE+=$(cat "${run_path}/${bin_name}.log")
+        log error "$MESSAGE"
         exit 1
       fi
       ;;
@@ -226,6 +229,8 @@ run_box() {
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
+        log error "$MESSAGE"
         exit 1
       fi
       ;;
@@ -239,6 +244,8 @@ run_box() {
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
+        log error "$MESSAGE"
         exit 1
       fi
     ;;
@@ -251,7 +258,9 @@ run_box() {
         nohup busybox setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
-        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file." 
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
+        log error "$MESSAGE"
         exit 1
       fi
       ;;
@@ -296,7 +305,7 @@ bin_usage() {
   user_group=$(stat -c %U:%G /proc/${bin_pid})
   # Log the information
   log info "${bin_name} has started with the '${user_group}' user group."
-  log info "${bin_name} status: ${state}, PID: (${bin_pid})"
+  log info "${bin_name} status: ${state}, (PID: ${bin_pid})"
   log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
   # Get the CPU usage of the binary
   cpu=$(ps -p ${bin_pid} -o pcpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
@@ -338,9 +347,9 @@ display_bin_pid() {
 
 crontab_alive() {
   # Start crond with the "-c" option and keep it in the background
-  nohup crond -c "${run_path}" > /dev/null 2>&1 &
+  nohup busybox crond -c "${run_path}" > /dev/null 2>&1 &
   # Delete the previous crontab and create a new crontab
-  crontab -c "${run_path}" -r
+  busybox crontab -c "${run_path}" -r
   touch "${run_path}/root"
   chmod 0600 "${run_path}/root"
   # Added a cron job to call box.tool keptns every minute
@@ -350,8 +359,8 @@ crontab_alive() {
   fi
   # Displays a configuration message if bin_name is "clash|xray|sing-box|v2ray"
   case "${bin_name}" in
-    clash) log info "config '${clash_config}'";;
-    xray|sing-box|v2ray) log info "config '${data_dir}/${bin_name}/*.json'";;
+    "clash") log info "config '${clash_config}'";;
+    "xray"|"sing-box"|"v2ray") log info "config '${data_dir}/${bin_name}/*.json'";;
     *) log error "${bin_name}: <unknown>"; exit 1;;
   esac
   # Executes the crontab_geo function
@@ -363,7 +372,7 @@ start_box() {
   echo -n "" > "${logs_file}"
   # command command -v to check whether busybox is installed or not on your system.
   if ! command -v busybox &> /dev/null; then
-    log error "Perintah busybox tidak ditemukan"
+    log error "busybox command not found"
     exit 1
   fi
   # Then use the chmod command to set file permissions to 755

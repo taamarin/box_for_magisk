@@ -4,7 +4,7 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
-user_agent="box_for_magisk"
+user_agent="box_for_root"
 meta=true # option to download Clash kernel clash-premium{false} or clash-meta{true}
 dev=false # for clash-premium,
 singbox_releases=false # option to download Singbox kernel beta or release
@@ -35,31 +35,31 @@ logs() {
 
 # Check internet connection with mlbox
 testing() {
+  # check DNS
   logs info "dns="
   for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}'); do
     ntpip=${network}
     break
   done
+  [ ! -z "${ntpip}" ] && logs success "done" || logs failed "failed"
+
+  # check HTTP
   if [ -n "${ntpip}" ]; then
-    logs success "done"
     logs testing "http="
-    httpIP=$(${data_dir}/bin/mlbox -timeout=5 -http="http://182.254.116.116/d?dn=reddit.com&clientip=1" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-    if [ -n "${httpIP}" ]; then
-      httpIP="${httpIP#*\|}"
-      logs success "done"
-    else
-      logs failed "failed"
-    fi
+    httpIP=$(busybox wget -qO- http://182.254.116.116/d?dn=reddit.com\&clientip=1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+    [ -n "${httpIP}" ] && ( httpIP="${httpIP#*\|}"; logs success "done" ) || logs failed "failed"
+
+    # check HTTPS
     logs testing "https="
-    httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+    httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
     [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
+
+    # check UDP
     logs testing "udp="
     currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
-    echo "${currentTime}" | grep -qi 'LI:' && \
-      logs success "done" || logs failed "failed"
-  else
-    logs failed "failed"
+    echo "${currentTime}" | grep -qi 'LI:' && logs success "done" || logs failed "failed"
   fi
+
   [ -t 1 ] && echo -e "\033[1;31m\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
 
@@ -67,34 +67,23 @@ testing() {
 network_check() {
   if [ -f "${data_dir}/bin/mlbox" ]; then
     logs info "Checking internet connection... "
-    httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-    if [ -n "${httpsResp}" ]; then
-      logs success "done"
-    else
-      logs failed "failed"
-      flags=false
-    fi
+    httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+    [ -n "${httpsResp}" ] && logs success "done" || ( logs failed "failed"; flags=false )
   fi
-  if [ -t 1 ]; then
-    echo "\033[1;31m""\033[0m"
-  else
-    echo "" | tee -a ${logs_file} >> /dev/null 2>&1
-  fi
-  [ "${flags}" != "false" ] || exit 1
+  [ -t 1 ] && echo "\033[1;31m""\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
+  [ "$flags" != false ] || exit 1
 }
 
-# Check if a binary is running by checking the pid file and cmdline
+# Check if a binary is running by checking the pid file
 probe_bin_alive() {
-  if [ -f "${pid_file}" ]; then
-    cmd_file="/proc/$(busybox pidof "${bin_name}")/cmdline"
-    if [ -f "${cmd_file}" ] && grep -q "${bin_name}" "${cmd_file}"; then
-      return 0 # binary is alive
-    else
-      return 1 # binary is not alive
-    fi
-  else
+  if [ ! -f "${pid_file}" ]; then
     return 1 # pid file not found, binary is not alive
   fi
+  sleep 0.5
+  if ! busybox pidof "${bin_name}" >/dev/null; then
+    return 1 # binary is not alive
+  fi
+  return 0 # binary is alive
 }
 
 # Restart the binary, after stopping and running again
@@ -193,10 +182,10 @@ port_detection() {
   # Use 'command' function to check if 'ss' is available
   if command -v ss > /dev/null ; then
     # Use 'awk' with a regular expression to match the process ID
-    ports=$(ss -antup | awk -v pid="$(busybox pidof "${bin_name}")" '$7 ~ pid {print $5}' | awk -F ':' '{print $2}' | sort -u)
+    ports=$(ss -antup | busybox awk -v pid="$(busybox pidof "${bin_name}")" '$7 ~ pid {print $5}' | busybox awk -F ':' '{print $2}' | sort -u)
   else
     # Log a warning message if 'ss' is not available
-    log debug "Warning: 'ss' command not found, skipping port detection." >&2
+    log debug "ss command not found, skipping port detection." >&2
     return
   fi
   # Log the detected ports
@@ -206,11 +195,7 @@ port_detection() {
     logs port "${port}"
   done <<< "${ports}"
   # Add a newline to the output if running in a terminal
-  if [ -t 1 ]; then
-    echo -e "\033[1;31m""\033[0m"
-  else
-    echo "" >> "${logs_file}" 2>&1
-  fi
+  [ -t 1 ] && echo -e "\033[1;31m""\033[0m" || echo "" >> "${logs_file}" 2>&1
 }
 
 # kill bin
@@ -238,9 +223,9 @@ update_kernel() {
     sing-box)
       url_down="https://github.com/SagerNet/sing-box/releases"
       if [ "${singbox_releases}" = "false" ]; then
-        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | awk -F'/' '{print $3}')
+        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
       else
-        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | awk -F'/' '{print $3}')
+        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
       fi
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
@@ -368,7 +353,7 @@ cgroup_limit() {
   fi
   # Check if cgroup_memory_path is set and exists
   if [ -z "${cgroup_memory_path}" ]; then
-    local cgroup_memory_path=$(mount | grep cgroup | awk '/memory/{print $3}' | head -1)
+    local cgroup_memory_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
     if [ -z "${cgroup_memory_path}" ]; then
       log warn "cgroup_memory_path is not set and cannot be found"
       return 1

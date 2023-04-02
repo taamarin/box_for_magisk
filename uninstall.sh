@@ -1,6 +1,6 @@
 #!/system/bin/sh
 
-box_data_dir="data/adb/box"
+box_data_dir="/data/adb/box"
 rm_data() {
   if [ ! -d "${box_data_dir}" ]; then
     exit 1

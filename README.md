@@ -1,5 +1,5 @@
 # Box for Magisk
-[![id](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](index_id.md) [![en](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](index_en.md) [![cn](https://img.shields.io/badge/cn-blue.svg?style=for-the-badge)](index_cn.md)
+[![id](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](docs/index_id.md) [![en](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](docs/index_en.md) [![cn](https://img.shields.io/badge/cn-blue.svg?style=for-the-badge)](docs/index_cn.md)
 
 <h1 align="center">
   <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.png" alt="BOX" width="200">

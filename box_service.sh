@@ -11,4 +11,5 @@
     else
         echo "File '/data/adb/box/scripts/start.sh' not found"
     fi
+    
 )&
