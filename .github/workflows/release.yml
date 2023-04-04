@@ -20,11 +20,11 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: box_for_magisk
-          path: box_for_magisk-v*.zip
+          path: box_for_root-v*.zip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
-          files: box_for_magisk-v*.zip
+          files: box_for_root-v*.zip
           generate_release_notes: true
