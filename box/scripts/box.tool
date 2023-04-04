@@ -6,7 +6,7 @@ source /data/adb/box/settings.ini
 
 user_agent="box_for_root"
 meta=true # option to download Clash kernel clash-premium{false} or clash-meta{true}
-dev=false # for clash-premium,
+dev=true # for clash-premium,
 singbox_releases=false # option to download Singbox kernel beta or release
 
 # log on terminal

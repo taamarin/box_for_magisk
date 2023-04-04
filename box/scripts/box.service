@@ -181,7 +181,7 @@ prepare_singbox() {
 
 prepare_clash() {
   ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
-  sed -i "s/ipv6=.*/ipv6=${ipv6}/g" /data/adb/box/settings.ini
+  sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" /data/adb/box/settings.ini
   clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   [ -z "${clash_external_ui}" ] && printf "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
   clash_tproxy_port=$(busybox awk '/tproxy-port: /{print $1}' "${clash_config}")
@@ -234,11 +234,12 @@ run_box() {
         exit 1
       fi
       ;;
-    xray)
+    xray|v2fly)
       default_tproxy
       prepare_xvray
-      export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
-      export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
+      [ "${bin_name}" = "xray" ] && DIR="XRAY" || DIR="V2RAY"
+      export ${DIR}_LOCATION_ASSET="${data_dir}/${bin_name}"
+      export ${DIR}_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
         nohup busybox setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
@@ -249,21 +250,6 @@ run_box() {
         exit 1
       fi
     ;;
-    v2fly)
-      default_tproxy
-      prepare_xvray
-      export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
-      export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
-      if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup busybox setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
-        echo -n $! > ${pid_file}
-      else
-        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
-        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
-        log error "$MESSAGE"
-        exit 1
-      fi
-      ;;
     *)
       log error "kernel error, ${bin_name} write is wrong."
       exit 1
@@ -375,7 +361,6 @@ start_box() {
     log error "busybox command not found"
     exit 1
   fi
-  # Then use the chmod command to set file permissions to 755
   if [ -t 1 ]; then
     echo -e "\033[1;31m$(date)\033[0m"
     echo -e "\033[1;32m--------------------------------------------\033[0m"
@@ -415,9 +400,8 @@ start_box() {
   else
     log info "crontab: disabled."
   fi
-  # Runs cgroup limit, waits 1 second, detects the port in use, waits 1 second, and displays the PID of bin
+  # Executes the cgroup limit, detected_port, still_alive, display_bin_pid function
   cgroup_limit
-  # Executes the detected_port, still_alive, display_bin_pid function
   detected_port
   still_alive
   display_bin_pid

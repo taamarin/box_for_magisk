@@ -520,7 +520,7 @@ stop_tproxy() {
 if [ "${proxy_mode}" != "tun" ]; then
   case "$1" in
     enable)
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       #ipv4
       iptables="iptables -w 64" && {
         stop_tproxy
@@ -537,7 +537,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       find_packages_uid
       case "${network_mode}" in
         tproxy)
-          log info "use tproxy: tcp + udp."
+          log info "use TPROXY: TCP + UDP."
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
@@ -554,7 +554,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           fi
         ;;
         redirect)
-          log info "use redirect: tcp only"
+          log info "use REDIRECT: TCP ONLY"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
@@ -571,22 +571,22 @@ if [ "${proxy_mode}" != "tun" ]; then
           fi
         ;;
         mixed)
-          log info "use mixed: tcp + tun"
+          log info "use MIXED: TCP + TUN"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           forward -I || forward -D >> /dev/null 2>&1
           intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
           start_redirect && log info "create iptables transparent proxy rules done." || (log error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           if [ "${ipv6}" = "true" ]; then
-              log debug "use IPv6."
-              ipv6_enable
-              iptables="ip6tables -w 64"
-              intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-              forward -I || forward -D >> /dev/null 2>&1
-              start_redirect && log info "create ip6tables transparent proxy rules done." || (log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
+            log debug "use IPv6."
+            ipv6_enable
+            iptables="ip6tables -w 64"
+            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            forward -I || forward -D >> /dev/null 2>&1
+            start_redirect && log info "create ip6tables transparent proxy rules done." || (log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
-              disable_ipv6
-              log warn "disable IPv6."
+            disable_ipv6
+            log warn "disable IPv6."
           fi
         ;;
         *)
@@ -599,7 +599,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       log info "${bin_name} connected."
       ;;
     renew)
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
       iptables="iptables -w 64" && {
         stop_tproxy
@@ -615,7 +615,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       find_packages_uid
       case "${network_mode}" in
         tproxy)
-          log info "use tproxy: tcp + udp."
+          log info "use TPROXY: TCP + UDP."
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
@@ -632,7 +632,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           fi
         ;;
         redirect)
-          log info "use redirect: tcp only"
+          log info "use REDIRECT: TCP ONLY"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
@@ -649,7 +649,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           fi
         ;;
         mixed)
-          log info "use mixed: tcp + tun"
+          log info "use MIXED: TCP + TUN"
           log info "creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           forward -I || forward -D >> /dev/null 2>&1
@@ -679,7 +679,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       ;;
     disable)
       ipv6_enable
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
       #ipv4
       iptables="iptables -w 64" && {
@@ -702,7 +702,7 @@ if [ "${proxy_mode}" != "tun" ]; then
 else
   case "$1" in
     enable)
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log info "proxy_mode: ${proxy_mode}, disable transparent proxy."
       #ipv4
       iptables="iptables -w 64" && {
@@ -717,12 +717,12 @@ else
         forward -D
       } >> /dev/null 2>&1
       iptables="iptables -w 64"
-      forward -I && log info "use tun: tcp + udp" || { log info "use tun: tcp + udp failed." && forward -D >> /dev/null 2>&1; }
+      forward -I && log info "use TUN: TCP + UDP" || { log info "use TUN: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
       if [ "${ipv6}" = "true" ]; then
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "use tun ipv6: tcp + udp" || { log info "use tun ipv6: tcp + udp failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "use TUN IPV6: TCP + UDP" || { log info "use TUN IPV6: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
@@ -732,7 +732,7 @@ else
       log info "${bin_name} connected."
       ;;
     renew)
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."
       #ipv4
       iptables="iptables -w 64" && {
@@ -748,12 +748,12 @@ else
       } >> /dev/null 2>&1
       log warn "clean up tun rules done."
       iptables="iptables -w 64"
-      forward -I && log info "use tun: tcp + udp" || log info "use tun: tcp + udp failed."
+      forward -I && log info "use TUN: TCP + UDP" || log info "use TUN: TCP + UDP failed."
       if [ "${ipv6}" = "true" ]; then
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "use tun ipv6: tcp + udp" || { log info "use tun ipv6: tcp + udp failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "use TUN IPV6: TCP + UDP" || { log info "use TUN IPV6: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
@@ -765,7 +765,7 @@ else
       ;;
     disable)
       ipv6_enable
-      probe_user_group || log error "failed to check Box user group, please make sure ${bin_name} kernel is started."
+      probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."
       #ipv4
       iptables="iptables -w 64" && {
