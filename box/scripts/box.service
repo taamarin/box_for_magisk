@@ -234,12 +234,11 @@ run_box() {
         exit 1
       fi
       ;;
-    xray|v2fly)
+    xray)
       default_tproxy
       prepare_xvray
-      [ "${bin_name}" = "xray" ] && DIR="XRAY" || DIR="V2RAY"
-      export ${DIR}_LOCATION_ASSET="${data_dir}/${bin_name}"
-      export ${DIR}_LOCATION_CONFDIR="${data_dir}/${bin_name}"
+      export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
+      export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
         nohup busybox setuidgid 0:3005 ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
@@ -249,7 +248,22 @@ run_box() {
         log error "$MESSAGE"
         exit 1
       fi
-    ;;
+      ;;
+    v2fly)
+      default_tproxy
+      prepare_xvray
+      export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
+      export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
+      if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
+        nohup busybox setuidgid 0:3005 ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
+        echo -n $! > ${pid_file}
+      else
+        log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
+        MESSAGE=$(cat "${run_path}/${bin_name}-report.log")
+        log error "$MESSAGE"
+        exit 1
+      fi
+      ;;
     *)
       log error "kernel error, ${bin_name} write is wrong."
       exit 1
