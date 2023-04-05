@@ -28,7 +28,7 @@ bin_name="good day"
 proxy_mode="tun" # change to tun
 ```
 
-**sing-box confih.json**
+**sing-box config.json**
 ```json
   "inbounds": [
     {
@@ -60,7 +60,7 @@ proxy_mode="tun" # change to tun
   }
 ```
 
-**clash confih.yaml**
+**clash config.yaml**
 ```yaml
 tun:
   enable: true
@@ -94,7 +94,7 @@ network_mode="mixed" # change to mixed
 proxy_mode="blacklist"
 ```
 
-**sing-box confih.json**
+**sing-box config.json**
 ```json
   "inbounds": [
     {
@@ -133,7 +133,7 @@ proxy_mode="blacklist"
   }
 ```
 
-**clash confih.yaml**
+**clash config.yaml**
 ```yaml
 redir-port: 9797
 
@@ -168,7 +168,7 @@ network_mode="tproxy" # change to tproxy
 proxy_mode="blacklist"
 ```
  
-**sing-box confih.json**
+**sing-box config.json**
 ```json
   "inbounds": [
     {
@@ -185,7 +185,7 @@ proxy_mode="blacklist"
   ]
 ```
 
-**clash confih.yaml**
+**clash config.yaml**
 ```yaml
 tproxy-port: 9898
 
@@ -205,7 +205,7 @@ tproxy-port: 9898
   # inet6-address: [fdfe:dcba:9876::1/126]
 ```
 
-**xray/v2ray confih.json**
+**xray/v2ray config.json**
 ```json
   "inbounds": [
     {
