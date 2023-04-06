@@ -42,36 +42,21 @@ testing() {
     break
   done
   [ ! -z "${ntpip}" ] && logs success "done" || logs failed "failed"
-
   # check HTTP
   if [ -n "${ntpip}" ]; then
     logs testing "http="
     httpIP=$(busybox wget -qO- http://182.254.116.116/d?dn=reddit.com\&clientip=1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
     [ -n "${httpIP}" ] && ( httpIP="${httpIP#*\|}"; logs success "done" ) || logs failed "failed"
-
     # check HTTPS
     logs testing "https="
     httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
     [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
-
     # check UDP
     logs testing "udp="
     currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
     echo "${currentTime}" | grep -qi 'LI:' && logs success "done" || logs failed "failed"
   fi
-
   [ -t 1 ] && echo -e "\033[1;31m\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
-}
-
-# Check internet connection with mlbox
-network_check() {
-  if [ -f "${data_dir}/bin/mlbox" ]; then
-    logs info "Checking internet connection... "
-    httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-    [ -n "${httpsResp}" ] && logs success "done" || ( logs failed "failed"; flags=false )
-  fi
-  [ -t 1 ] && echo "\033[1;31m""\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
-  [ "$flags" != false ] || exit 1
 }
 
 # Check if a binary is running by checking the pid file
@@ -143,7 +128,6 @@ update_file() {
 # Check and update geoip and geosite
 update_subgeo() {
   log info "daily updates"
-  network_check
   case "${bin_name}" in
     clash)
       geoip_file="${data_dir}/clash/$(if [ "${meta}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
@@ -209,7 +193,6 @@ kill_alive() {
 
 update_kernel() {
   # su -c /data/adb/box/scripts/box.tool upcore
-  network_check
   case $(uname -m) in
     "aarch64") arch="arm64"; platform="android" ;;
     "armv7l"|"armv8l") arch="armv7"; platform="linux" ;;
@@ -383,7 +366,6 @@ cgroup_limit() {
 }
 
 update_dashboard() {
-  network_check
   if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
@@ -432,9 +414,6 @@ case "$1" in
     ;;
   keepdns)
     keep_dns
-    ;;
-  connect)
-    network_check
     ;;
   upyacd)
     update_dashboard
