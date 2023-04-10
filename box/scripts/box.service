@@ -300,7 +300,7 @@ bin_usage() {
   swap=$(grep VmSwap /proc/${bin_pid}/status | busybox awk '{print $2}')
   [ "${swap}" -ge 1024 ] && bin_swap="$(expr ${swap} / 1024) MB" || bin_swap="${swap} KB"
   # Get the state of the binary
-  state=$(grep State /proc/${bin_pid}/status | busybox awk '{print $2}')
+  state=$(grep State /proc/${bin_pid}/status | busybox awk '{print $2" "$3}')
   # Get the user and group of the binary
   user_group=$(stat -c %U:%G /proc/${bin_pid})
   # Log the information
@@ -308,7 +308,7 @@ bin_usage() {
   log info "${bin_name} status: ${state}, (PID: ${bin_pid})"
   log info "${bin_name} memory usage: ${bin_rss}, swap: ${bin_swap}"
   # Get the CPU usage of the binary
-  cpu=$(ps -p ${bin_pid} -o pcpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
+  cpu=$(ps -p ${bin_pid} -o %cpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
   if [ -n "${cpu}" ]; then
     log info "${bin_name} cpu usage: ${cpu}%"
   else
