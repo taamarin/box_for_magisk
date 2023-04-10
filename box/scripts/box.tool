@@ -9,30 +9,6 @@ meta=true # option to download Clash kernel clash-premium{false} or clash-meta{t
 dev=true # for clash-premium,
 singbox_releases=false # option to download Singbox kernel beta or release
 
-# log on terminal
-logs() {
-  now=$(date +"%I.%M %P")
-  if [ -t 1 ]; then
-    case $1 in
-      info) echo -n "\033[1;34m${now} [info]: $2\033[0m";;
-      port) echo -n "\033[1;33m$2 \033[0m";;
-      testing) echo -n "\033[1;34m$2\033[0m";;
-      success) echo -n "\033[1;32m$2 \033[0m";;
-      failed) echo -n "\033[1;31m$2 \033[0m";;
-      *) echo -n "\033[1;35m${now} [$1]: $2\033[0m";;
-    esac
-  else
-    case $1 in
-      info) echo -n "${now} [info]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      port) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      testing) echo -n "$2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      success) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      failed) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      *) echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-    esac
-  fi
-}
-
 # Check internet connection with mlbox
 testing() {
   # check DNS
