@@ -7,7 +7,7 @@ service_path="/data/adb/box/scripts/box.service"
 iptables_path="/data/adb/box/scripts/box.iptables"
 data_box="/data/adb/box"
 run_path="/data/adb/box/run"
-now=$(date +"%I.%M %p %z")
+now=$(date +"%R")
 
 events=$1
 monitor_dir=$2
@@ -16,11 +16,11 @@ monitor_file=$3
 service_control() {
   if [ "${monitor_file}" = "disable" ]; then
     if [ "${events}" = "d" ]; then
-      "${service_path}" start > "${run_path}/service.log" 2>> "${run_path}/service.log" && \
-      "${iptables_path}" enable >> "${run_path}/service.log" 2>> "${run_path}/service.log"
+      "${service_path}" start > "${run_path}/service.log" 2>&1 && \
+      "${iptables_path}" enable >> "${run_path}/service.log" 2>&1
     elif [ "${events}" = "n" ]; then
-      "${iptables_path}" disable >> "${run_path}/service.log" 2>> "${run_path}/service.log" && \
-      "${service_path}" stop >> "${run_path}/service.log" 2>> "${run_path}/service.log"
+      "${iptables_path}" disable >> "${run_path}/service.log" 2>&1 && \
+      "${service_path}" stop >> "${run_path}/service.log" 2>&1
     fi
   fi
 }

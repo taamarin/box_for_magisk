@@ -16,14 +16,20 @@ refresh_box() {
 
 start_service() {
   if [ ! -f "/data/adb/box/manual" ]; then
-    [ ! -f "${moddir}/disable" ] && "${scripts_dir}/box.service" start >> "/dev/null" 2>&1
-    [ -f "/data/adb/box/run/box.pid" ] && "${scripts_dir}/box.iptables" enable >> "/dev/null" 2>&1
+    if [ ! -f "${moddir}/disable" ]; then
+      "${scripts_dir}/box.service" start >> "/dev/null" 2>&1
+    fi
 
-    for pid in $(pidof inotifyd) ; do
-      if grep -q box.inotify /proc/${pid}/cmdline ; then
+    if [ -f "/data/adb/box/run/box.pid" ]; then
+      "${scripts_dir}/box.iptables" enable >> "/dev/null" 2>&1
+    fi
+
+    for pid in $(pidof inotifyd); do
+      if grep -q box.inotify /proc/${pid}/cmdline; then
         kill ${pid}
       fi
     done
+
     inotifyd "${scripts_dir}/box.inotify" "${moddir}" >> "/dev/null" 2>&1 &
   fi
 }

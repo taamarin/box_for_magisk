@@ -5,58 +5,54 @@ scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
 user_agent="box_for_root"
-meta=true # option to download Clash kernel clash-premium{false} or clash-meta{true}
-dev=true # for clash-premium,
-singbox_releases=false # option to download Singbox kernel beta or release
-
-# log on terminal
-logs() {
-  now=$(date +"%I.%M %P")
-  if [ -t 1 ]; then
-    case $1 in
-      info) echo -n "\033[1;34m${now} [info]: $2\033[0m";;
-      port) echo -n "\033[1;33m$2 \033[0m";;
-      testing) echo -n "\033[1;34m$2\033[0m";;
-      success) echo -n "\033[1;32m$2 \033[0m";;
-      failed) echo -n "\033[1;31m$2 \033[0m";;
-      *) echo -n "\033[1;35m${now} [$1]: $2\033[0m";;
-    esac
-  else
-    case $1 in
-      info) echo -n "${now} [info]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      port) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      testing) echo -n "$2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      success) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      failed) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      *) echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-    esac
-  fi
-}
+# option to download Clash kernel clash-premium{false} or clash-meta{true}
+meta="true"
+# for clash-premium
+dev=true
+# option to download Singbox kernel beta or release
+singbox_releases=false
 
 # Check internet connection with mlbox
-testing() {
-  # check DNS
-  logs info "dns="
-  for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}'); do
-    ntpip=${network}
-    break
-  done
-  [ ! -z "${ntpip}" ] && logs success "done" || logs failed "failed"
-  # check HTTP
-  if [ -n "${ntpip}" ]; then
-    logs testing "http="
-    httpIP=$(busybox wget -qO- http://182.254.116.116/d?dn=reddit.com\&clientip=1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
-    [ -n "${httpIP}" ] && ( httpIP="${httpIP#*\|}"; logs success "done" ) || logs failed "failed"
-    # check HTTPS
-    logs testing "https="
-    httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-    [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
-    # check UDP
-    logs testing "udp="
-    currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
-    echo "${currentTime}" | grep -qi 'LI:' && logs success "done" || logs failed "failed"
+check_connection_with_mlbox() {
+  now=$(date +"%R")
+  connect="\033[1;32mconnect\033[0m"
+  failed="\033[1;33mfailed\033[0m"
+
+  # Check DNS
+  echo -n "\033[1;34m${now} [info]: dns=\033[0m"
+  ntpip=$(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}' | head -n 1)
+  if [ -z "${ntpip}" ]; then
+    echo "$failed"
+  else
+    echo "$connect"
+
+    # Check HTTP
+    echo -n "\033[1;34m${now} [info]: http=\033[0m"
+    httpIP=$(busybox wget -qO- "http://182.254.116.116/d?dn=reddit.com&clientip=1" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 | cut -d "|" -f 2)
+    if [ -z "${httpIP}" ]; then
+      echo "$failed"
+    else
+      echo "$connect"
+
+      # Check HTTPS
+      echo -n "\033[1;34m${now} [info]: https=\033[0m"
+      httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
+      if [ -z "${httpsResp}" ]; then
+        echo "$failed"
+      else
+        echo "$connect"
+
+        # Check UDP
+        echo -n "\033[1;34m${now} [info]: udp=\033[0m"
+        currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
+        if echo "${currentTime}" | grep -qi 'LI:'; then
+          echo "$connect"
+        else
+          echo "$failed"
+        fi
+      fi
+    fi
   fi
-  [ -t 1 ] && echo -e "\033[1;31m\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
 
 # Check if a binary is running by checking the pid file
@@ -149,12 +145,12 @@ update_subgeo() {
       ;;
   esac
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
-    log debug "Update geo $(date +"%Y-%m-%d %I.%M %p")"
+    log debug "Update geo $(date +"%F %R")"
     flag=false
   fi
   if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${clash_config}" "${subscription_url}"; then
-    flag=true
     log debug "Downloading ${clash_config}"
+    flag=true
   fi
   if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
     restart_box
@@ -163,32 +159,39 @@ update_subgeo() {
 
 # Function for detecting ports used by a process
 port_detection() {
-  # Use 'command' function to check if 'ss' is available
+  # Gunakan fungsi 'command' untuk memeriksa ketersediaan 'ss'
   if command -v ss > /dev/null ; then
-    # Use 'awk' with a regular expression to match the process ID
+    # Gunakan 'awk' dengan regular expression untuk mencocokkan ID proses
     ports=$(ss -antup | busybox awk -v pid="$(busybox pidof "${bin_name}")" '$7 ~ pid {print $5}' | busybox awk -F ':' '{print $2}' | sort -u)
   else
-    # Log a warning message if 'ss' is not available
+    # Catat pesan peringatan jika 'ss' tidak tersedia
     log debug "ss command not found, skipping port detection." >&2
     return
   fi
-  # Log the detected ports
-  logs debug "${bin_name} port detected: "
-  while read -r port ; do
-    sleep 0.5
-    logs port "${port}"
-  done <<< "${ports}"
-  # Add a newline to the output if running in a terminal
-  [ -t 1 ] && echo -e "\033[1;31m""\033[0m" || echo "" >> "${logs_file}" 2>&1
-}
 
-# kill bin
-kill_alive() {
-  for list in "${bin_list[@]}" ; do
-    if busybox pidof "${list}" >/dev/null ; then
-      busybox pkill -15 "${list}" >/dev/null 2>&1 || killall -15 "${list}" >/dev/null 2>&1
+  # Catat port yang terdeteksi
+  now=$(date +"%R")
+  if [ -t 1 ]; then
+    echo -n "\033[1;33m${now} [debug]: ${bin_name} port detected: \033[0m"
+  else
+    echo -n "${now} [debug]: ${bin_name} port detected: " | tee -a "${logs_file}" >> /dev/null 2>&1
+  fi
+
+  while read -r port; do
+    sleep 0.5
+    if [ -t 1 ]; then
+      echo -n "\033[1;33m${port} \033[0m"
+    else
+      echo -n "${port} " | tee -a "${logs_file}" >> /dev/null 2>&1
     fi
-  done
+  done <<< "${ports}"
+
+  # Tambahkan newline pada output jika dijalankan di terminal
+  if [ -t 1 ]; then
+    echo -e "\033[1;31m""\033[0m"
+  else
+    echo "" >> "${logs_file}" 2>&1
+  fi
 }
 
 update_kernel() {
@@ -214,7 +217,6 @@ update_kernel() {
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
       log debug "download ${download_link}"
       update_file "${data_dir}/${file_kernel}.tar.gz" "${download_link}"
-      # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
       ;;
     clash)
       if [ "${meta}" = "true" ]; then
@@ -225,7 +227,7 @@ update_kernel() {
         latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
         filename="clash.meta-${platform}-${arch}"
-        [ $(uname -m) != "aarch64" ] || filename+="-cgo"
+        # [ $(uname -m) != "aarch64" ] || filename+="-cgo"
         filename+="-${latest_version}"
         # download and update the file
         log debug "download ${download_link}/download/${tag}/${filename}.gz"
@@ -243,43 +245,24 @@ update_kernel() {
           update_file "${data_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         fi
       fi
-      # if the update_file command was successful, kill the alive process
-      # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
       ;;
-    xray)
+    xray|v2fly)
+      [ "${bin_name}" = "xray" ] && bin='Xray' || bin='v2ray'
+      api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/XTLS/Xray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+      latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
       case $(uname -m) in
-        "i386") download_file="Xray-linux-32.zip" ;;
-        "x86_64") download_file="Xray-linux-64.zip" ;;
-        "armv7l"|"armv8l") download_file="Xray-linux-arm32-v7a.zip" ;;
-        "aarch64") download_file="Xray-android-arm64-v8a.zip" ;;
+        "i386") download_file="$bin-linux-32.zip" ;;
+        "x86_64") download_file="$bin-linux-64.zip" ;;
+        "armv7l"|"armv8l") download_file="$bin-linux-arm32-v7a.zip" ;;
+        "aarch64") download_file="$bin-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
       # Do anything else below
-      download_link="https://github.com/XTLS/Xray-core/releases"
+      download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
-      # if the update_file command was successful, kill the alive process
-      # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
     ;;
-    v2fly)
-      # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/v2fly/v2ray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
-      case $(uname -m) in
-        "i386") download_file="v2ray-linux-32.zip" ;;
-        "x86_64") download_file="v2ray-linux-64.zip" ;;
-        "armv7l"|"armv8l") download_file="v2ray-linux-arm32-v7a.zip" ;;
-        "aarch64") download_file="v2ray-android-arm64-v8a.zip" ;;
-        *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-      esac
-      # Do anything else below
-      download_link="https://github.com/v2fly/v2ray-core/releases"
-      log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
-      update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
-      # if the update_file command was successful, kill the alive process
-      # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
-      ;;
     *)
       log error "kernel error."
       exit 1
@@ -289,33 +272,50 @@ update_kernel() {
   case "${bin_name}" in
     clash)
       gunzip_command=$(command -v gunzip >/dev/null 2>&1 && echo "gunzip" || echo "busybox gunzip")
-      if ${gunzip_command} "${data_dir}/${file_kernel}.gz" >&2 && mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
-        [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
+      if ${gunzip_command} "${data_dir}/${file_kernel}.gz" >&2 &&
+         mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
+        if [ -f "${pid_file}" ]; then
+          restart_box
+        else
+          log debug "${bin_name} does not need to be restarted."
+        fi
       else
-          log error "Failed to extract or move the kernel"
+        log error "Failed to extract or move the kernel."
       fi
     ;;
     sing-box)
       tar_command=$(command -v tar >/dev/null 2>&1 && echo "tar" || echo "busybox tar")
-      if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 && mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" && rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
-        [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
+      if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 &&
+         mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" &&
+         rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
+        if [ -f "${pid_file}" ]; then
+          restart_box
+        else
+          log debug "${bin_name} does not need to be restarted."
+        fi
       else
-        log warn "failed to extract ${data_dir}/${file_kernel}.tar.gz" && flag="false"
+        log warn "Failed to extract ${data_dir}/${file_kernel}.tar.gz."
+        flag="false"
       fi
     ;;
     v2fly|xray)
       [ "${bin_name}" = "xray" ] && bin='xray' || bin='v2ray'
       unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "busybox unzip")
-      if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2 ; then
+
+      if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2; then
         if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
-          [ -f "${pid_file}" ] && restart_box || log debug "${bin_name} does not need to be restarted"
+          if [ -f "${pid_file}" ]; then
+            restart_box
+          else
+            log debug "${bin_name} does not need to be restarted."
+          fi
         else
-          log error "failed to move the kernel"
+          log error "Failed to move the kernel."
         fi
       else
-        log warn "failed to extract ${data_dir}/${file_kernel}.zip"
+        log warn "Failed to extract ${data_dir}/${file_kernel}.zip."
       fi
-    ;;
+      ;;
     *)
       log error "kernel error."
       exit 1
@@ -329,23 +329,26 @@ update_kernel() {
 
 # Function to limit cgroup memory
 cgroup_limit() {
-  # Check if cgroup_memory_limit is set
+  # Periksa apakah cgroup_memory_limit telah diatur.
   if [ -z "${cgroup_memory_limit}" ]; then
     log warn "cgroup_memory_limit is not set"
     return 1
   fi
-  # Check if cgroup_memory_path is set and exists
+  
+  # Periksa apakah cgroup_memory_path diatur dan ada.
   if [ -z "${cgroup_memory_path}" ]; then
     local cgroup_memory_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
+    
     if [ -z "${cgroup_memory_path}" ]; then
-      log warn "cgroup_memory_path is not set and cannot be found"
+      log warn "cgroup_memory_path is not set and could not be found"
       return 1
     fi
   elif [ ! -d "${cgroup_memory_path}" ]; then
     log warn "${cgroup_memory_path} does not exist"
     return 1
   fi
-  # Check if pid_file is set and exists
+  
+  # Periksa apakah pid_file diatur dan ada.
   if [ -z "${pid_file}" ]; then
     log warn "pid_file is not set"
     return 1
@@ -353,25 +356,30 @@ cgroup_limit() {
     log warn "${pid_file} does not exist"
     return 1
   fi
-  # Create cgroup directory and move process to cgroup
-  local bin_name=$(basename "$0")
+  
+  # Buat direktori cgroup dan pindahkan proses ke cgroup.
+  local bin_name=${bin_name}
+  # local bin_name=$(basename "$0")
   mkdir -p "${cgroup_memory_path}/${bin_name}"
   local pid=$(cat "${pid_file}")
+  
   echo "${pid}" > "${cgroup_memory_path}/${bin_name}/cgroup.procs" \
     && log info "Moved process ${pid} to ${cgroup_memory_path}/${bin_name}/cgroup.procs"
-  # Set memory limit for cgroup
+  
+  # Tetapkan batas memori untuk cgroup.
   echo "${cgroup_memory_limit}" > "${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes" \
     && log info "Set memory limit to ${cgroup_memory_limit} for ${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes"
+  
   return 0
 }
 
 update_dashboard() {
-  if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
+  if [[ "${bin_name}" == "sing-box" || "${bin_name}" == "clash" ]]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
-    url="https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
-    dir_name="Yacd-meta-gh-pages"
-    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" 2>&1
+    url="https://github.com/CHIZI-0618/yacd/archive/gh-pages.zip"
+    dir_name="yacd-gh-pages"
+    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download ${url}"; exit 1; }
     unzip -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
     mv -f "${data_dir}/${bin_name}/dashboard/${dir_name}" "${data_dir}/${bin_name}/dashboard/dist"
     rm -f "${file_dashboard}"
@@ -410,7 +418,7 @@ reload() {
 
 case "$1" in
   testing)
-    testing
+    check_connection_with_mlbox
     ;;
   keepdns)
     keep_dns
