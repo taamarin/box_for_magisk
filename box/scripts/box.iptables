@@ -269,8 +269,8 @@ start_tproxy() {
   # Bypass other if
   # Notice: Some interface is named with r_ / oem / nm_ / qcom_
   # It might need more complicated solution.
-  ${iptables} -t mangle -I BOX_EXTERNAL -i rmnet_data+ -j RETURN
-  ${iptables} -t mangle -I BOX_EXTERNAL -i ccmni+ -j RETURN
+  # ${iptables} -t mangle -I BOX_EXTERNAL -i rmnet_data+ -j RETURN
+  # ${iptables} -t mangle -I BOX_EXTERNAL -i ccmni+ -j RETURN
 
   # Bypass intranet
   # Add rules for intranet subnets

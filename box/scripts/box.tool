@@ -9,52 +9,29 @@ meta=true # option to download Clash kernel clash-premium{false} or clash-meta{t
 dev=true # for clash-premium,
 singbox_releases=false # option to download Singbox kernel beta or release
 
-# log on terminal
-logs() {
-  now=$(date +"%I.%M %P")
-  if [ -t 1 ]; then
-    case $1 in
-      info) echo -n "\033[1;34m${now} [info]: $2\033[0m";;
-      port) echo -n "\033[1;33m$2 \033[0m";;
-      testing) echo -n "\033[1;34m$2\033[0m";;
-      success) echo -n "\033[1;32m$2 \033[0m";;
-      failed) echo -n "\033[1;31m$2 \033[0m";;
-      *) echo -n "\033[1;35m${now} [$1]: $2\033[0m";;
-    esac
-  else
-    case $1 in
-      info) echo -n "${now} [info]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      port) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      testing) echo -n "$2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-      success) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      failed) echo -n "$2 " | tee -a ${logs_file} >> /dev/null 2>&1;;
-      *) echo -n "${now} [$1]: $2" | tee -a ${logs_file} >> /dev/null 2>&1;;
-    esac
-  fi
-}
-
 # Check internet connection with mlbox
-testing() {
+check_connection_with_mlbox() {
   # check DNS
-  logs info "dns="
+  now=$(date +"%R")
+  echo -n "\033[1;34m${now} [info]: dns=\033[0m"
   for network in $(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}'); do
     ntpip=${network}
     break
   done
-  [ ! -z "${ntpip}" ] && logs success "done" || logs failed "failed"
+  [ ! -z "${ntpip}" ] && echo "\033[1;32m"done"\033[0m" || echo "\033[1;33m"failed"\033[0m"
   # check HTTP
   if [ -n "${ntpip}" ]; then
-    logs testing "http="
+    echo -n "\033[1;34m${now} [info]: http=\033[0m"
     httpIP=$(busybox wget -qO- http://182.254.116.116/d?dn=reddit.com\&clientip=1 | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
-    [ -n "${httpIP}" ] && ( httpIP="${httpIP#*\|}"; logs success "done" ) || logs failed "failed"
+    [ -n "${httpIP}" ] && ( httpIP="${httpIP#*\|}"; echo "\033[1;32m"done"\033[0m" ) || echo "\033[1;33m"failed"\033[0m"
     # check HTTPS
-    logs testing "https="
+    echo -n "\033[1;34m${now} [info]: https=\033[0m"
     httpsResp=$(busybox wget -qO- --timeout=5 "https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-    [ -n "${httpsResp}" ] && logs success "done" || logs failed "failed"
+    [ -n "${httpsResp}" ] && echo "\033[1;32m"done"\033[0m" || echo "\033[1;33m"failed"\033[0m"
     # check UDP
-    logs testing "udp="
+    echo -n "\033[1;34m${now} [info]: udp=\033[0m"
     currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
-    echo "${currentTime}" | grep -qi 'LI:' && logs success "done" || logs failed "failed"
+    echo "${currentTime}" | grep -qi 'LI:' && echo "\033[1;32m"done"\033[0m" || echo "\033[1;33m"failed"\033[0m"
   fi
   [ -t 1 ] && echo -e "\033[1;31m\033[0m" || echo "" | tee -a ${logs_file} >> /dev/null 2>&1
 }
@@ -149,12 +126,12 @@ update_subgeo() {
       ;;
   esac
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
-    log debug "Update geo $(date +"%Y-%m-%d %I.%M %p")"
+    log debug "Update geo $(date +"%F %R")"
     flag=false
   fi
   if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${clash_config}" "${subscription_url}"; then
-    flag=true
     log debug "Downloading ${clash_config}"
+    flag=true
   fi
   if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
     restart_box
@@ -173,10 +150,11 @@ port_detection() {
     return
   fi
   # Log the detected ports
-  logs debug "${bin_name} port detected: "
+  now=$(date +"%R")
+  [ -t 1 ] && echo -n "\033[1;33m${now} [debug]: ${bin_name} port detected: \033[0m" || echo -n "${now} [debug]: ${bin_name} port detected: " | tee -a ${logs_file} >> /dev/null 2>&1
   while read -r port ; do
     sleep 0.5
-    logs port "${port}"
+    [ -t 1 ] && echo -n "\033[1;33m${port} \033[0m" || echo -n "${port} " | tee -a ${logs_file} >> /dev/null 2>&1
   done <<< "${ports}"
   # Add a newline to the output if running in a terminal
   [ -t 1 ] && echo -e "\033[1;31m""\033[0m" || echo "" >> "${logs_file}" 2>&1
@@ -246,40 +224,25 @@ update_kernel() {
       # if the update_file command was successful, kill the alive process
       # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
       ;;
-    xray)
+    xray|v2fly)
+      [ "${bin_name}" = "xray" ] && bin='Xray' || bin='v2ray'
+      api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/XTLS/Xray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+      latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
       case $(uname -m) in
-        "i386") download_file="Xray-linux-32.zip" ;;
-        "x86_64") download_file="Xray-linux-64.zip" ;;
-        "armv7l"|"armv8l") download_file="Xray-linux-arm32-v7a.zip" ;;
-        "aarch64") download_file="Xray-android-arm64-v8a.zip" ;;
+        "i386") download_file="$bin-linux-32.zip" ;;
+        "x86_64") download_file="$bin-linux-64.zip" ;;
+        "armv7l"|"armv8l") download_file="$bin-linux-arm32-v7a.zip" ;;
+        "aarch64") download_file="$bin-android-arm64-v8a.zip" ;;
         *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
       esac
       # Do anything else below
-      download_link="https://github.com/XTLS/Xray-core/releases"
+      download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
       # if the update_file command was successful, kill the alive process
       # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
     ;;
-    v2fly)
-      # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- https://api.github.com/repos/v2fly/v2ray-core/releases | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
-      case $(uname -m) in
-        "i386") download_file="v2ray-linux-32.zip" ;;
-        "x86_64") download_file="v2ray-linux-64.zip" ;;
-        "armv7l"|"armv8l") download_file="v2ray-linux-arm32-v7a.zip" ;;
-        "aarch64") download_file="v2ray-android-arm64-v8a.zip" ;;
-        *) log error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
-      esac
-      # Do anything else below
-      download_link="https://github.com/v2fly/v2ray-core/releases"
-      log debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
-      update_file "${data_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}"
-      # if the update_file command was successful, kill the alive process
-      # [ "$?" = "0" ] && kill_alive > /dev/null 2>&1
-      ;;
     *)
       log error "kernel error."
       exit 1
@@ -369,8 +332,8 @@ update_dashboard() {
   if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
-    url="https://github.com/MetaCubeX/Yacd-meta/archive/refs/heads/gh-pages.zip"
-    dir_name="Yacd-meta-gh-pages"
+    url="https://github.com/CHIZI-0618/yacd/archive/gh-pages.zip"
+    dir_name="yacd-gh-pages"
     busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" 2>&1
     unzip -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
     mv -f "${data_dir}/${bin_name}/dashboard/${dir_name}" "${data_dir}/${bin_name}/dashboard/dist"
@@ -410,7 +373,7 @@ reload() {
 
 case "$1" in
   testing)
-    testing
+    check_connection_with_mlbox
     ;;
   keepdns)
     keep_dns
