@@ -173,7 +173,7 @@ start_redirect() {
     # check proxy mode
     if [ "${proxy_mode}" = "blacklist" ]; then
       # check if uid list is empty
-      if [ "$(cat "${uid_list[@]}")" = "" ]; then
+      if [ -z "$(cat "${uid_list[@]}")" ] ; then
         # Route Everything
         ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
         log info "Transparent proxy for all apps."
@@ -183,7 +183,7 @@ start_redirect() {
         while read -r appid; do
           # add iptables rules for returning packets
           ${iptables} -t nat -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
-        done < "${uid_list[*]}"
+        done < "${uid_list[@]}"
         
         # close the file handle for the UID list
         # exec <&-
@@ -193,7 +193,7 @@ start_redirect() {
         log info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
       fi
     elif [ "${proxy_mode}" = "whitelist" ]; then
-      if [ "$(cat "${uid_list[@]}")" = "" ]; then
+      if [ -z "$(cat "${uid_list[@]}")" ] ; then
         # Route Everything
         ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
         log info "Transparent proxy for all apps."
@@ -203,7 +203,7 @@ start_redirect() {
         while read -r appid; do
           # add iptables rules for TCP traffic
           ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j REDIRECT --to-ports "${redir_port}"
-        done < "${uid_list[*]}"
+        done < "${uid_list[@]}"
 
         # close the file handle for the UID list
         # exec <&-
@@ -367,7 +367,7 @@ start_tproxy() {
   # ${iptables} -t mangle -A BOX_LOCAL -m owner ! --uid 0-99999999 -j DROP
 
   if [ "${proxy_mode}" = "blacklist" ]; then
-    if [ "$(cat ${uid_list[@]})" = "" ]; then
+    if [ -z "$(cat "${uid_list[@]}")" ] ; then
       # Route Everything
       ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
       ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
@@ -377,7 +377,7 @@ start_tproxy() {
 
       while read -r appid; do
         ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
-      done < "${uid_list[*]}"
+      done < "${uid_list[@]}"
 
       # close the file handle for the UID list
       # exec <&-
@@ -389,7 +389,7 @@ start_tproxy() {
     fi
 
   elif [ "${proxy_mode}" = "whitelist" ]; then
-    if [ "$(cat "${uid_list[@]}")" = "" ]; then
+    if [ -z "$(cat "${uid_list[@]}")" ] ; then
       # Route Everything
       ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
       ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
@@ -400,7 +400,7 @@ start_tproxy() {
       while read -r appid; do
         ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
-      done < "${uid_list[*]}"
+      done < "${uid_list[@]}"
 
       # close the file handle for the UID list
       # exec <&-

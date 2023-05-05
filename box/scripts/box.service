@@ -158,8 +158,8 @@ prepare_singbox() {
 }
 
 prepare_clash() {
-  ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
-  sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" "${settings}"
+  # ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
+  sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
 
   clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
