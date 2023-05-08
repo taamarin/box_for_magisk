@@ -38,13 +38,13 @@ fi
 }
 
 network_port() {
-  if [ "${network_mode}" = "tproxy" ] && [ "${proxy_mode}" != "tun" ]; then
+  if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
     sleep 0.5
     netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
   fi
-  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     sleep 0.5
-    ifconfig | grep -q "${tun_device}" || log error "tun_device: '${tun_device}' not found"
+    ifconfig | grep -q "${tun_device}" || log warn "tun_device: '${tun_device}' not found"
   fi
 }
 
@@ -184,10 +184,10 @@ start_redirect() {
           # add iptables rules for returning packets
           ${iptables} -t nat -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
         done < "${uid_list[@]}"
-        
+
         # close the file handle for the UID list
         # exec <&-
-        
+
         # Allow !app
         ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
         log info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
@@ -715,6 +715,7 @@ if [ "${proxy_mode}" != "tun" ]; then
 else
   case "$1" in
     enable)
+      log info "use TUN: TCP + UDP"
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log info "proxy_mode: ${proxy_mode}, disable transparent proxy."
       #ipv4
@@ -730,12 +731,12 @@ else
         forward -D
       } >> /dev/null 2>&1
       iptables="iptables -w 64"
-      forward -I && log info "use TUN: TCP + UDP" || { log info "use TUN: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
+      forward -I && log info "create iptables tun rules done." || { log error "create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
       if [ "${ipv6}" = "true" ]; then
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "use TUN IPV6: TCP + UDP" || { log info "use TUN IPV6: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "create ip6tables tun rules done." || { log error "create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
@@ -745,6 +746,7 @@ else
       log info "${bin_name} connected."
       ;;
     renew)
+      log info "use TUN: TCP + UDP"
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."
       #ipv4
@@ -761,18 +763,17 @@ else
       } >> /dev/null 2>&1
       log warn "clean up tun rules done."
       iptables="iptables -w 64"
-      forward -I && log info "use TUN: TCP + UDP" || log info "use TUN: TCP + UDP failed."
+      forward -I && log info "create iptables tun rules done." || { log error "create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
       if [ "${ipv6}" = "true" ]; then
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "use TUN IPV6: TCP + UDP" || { log info "use TUN IPV6: TCP + UDP failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "create ip6tables tun rules done." || { log error "create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
       fi
       network_port
-      log info "create iptables tun rules done."
       log info "restart iptables tun rules done."
       log info "${bin_name} connected."
       ;;

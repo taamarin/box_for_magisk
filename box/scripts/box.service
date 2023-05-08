@@ -62,35 +62,42 @@ still_alive() {
 }
 
 check_permission() {
-  if which ${bin_name} | grep -q "/system/bin/" ; then
+  if [ "${box_user_group}" = "root:net_admin" ]; then
+    # Set ownership and permission of kernel directory
+    chown ${box_user_group} ${bin_path}
+    chmod 6755 ${bin_path}
+    chmod 0644 "${data_dir}/${bin_name}"/*
+    # Set ownership of data directory
+    chown -R ${box_user_group} ${data_dir}
+    nohup="nohup busybox setuidgid ${box_user_group}"
+    log info "Use the kernel located in '${bin_path}'."
+  elif which ${bin_name} | grep -q "/system/bin/"; then
     box_user=$(echo ${box_user_group} | busybox awk -F ':' '{print $1}')
     box_group=$(echo ${box_user_group} | busybox awk -F ':' '{print $2}')
     box_user_id=$(id -u ${box_user})
     box_group_id=$(id -g ${box_group})
     # Check if box_user and box_group exist
-    [ ${box_user_id} ] && [ ${box_group_id} ] || ( log error "${box_user_group} error, use root:net_admin instead." && box_user_group="root:net_admin" )
+    if [[ ${box_user_id} && ${box_group_id} ]]; then
       bin_path=$(which ${bin_name})
       # Set ownership and permission of kernel directory
       chown ${box_user_group} ${bin_path}
-      chmod 0700 ${bin_path}
+      chmod 6755 ${bin_path}
       chmod 0644 "${data_dir}/${bin_name}"/*
       # Check if user is not root and group is not net_admin
-      if [ "${box_user_id}" != "0" ] || [ "${box_group_id}" != "3005" ]; then
+      if [[ "${box_user_id}" != "0" || "${box_group_id}" != "3005" ]]; then
         # Set capability of kernel directory
-        setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' ${bin_path} || (box_user_group="root:net_admin" && log error "setcap authorization failed, you may need libcap package.")
+        if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}"; then
+          box_user_group="root:net_admin"
+          log error "setcap authorization failed, you may need libcap package."
+        fi
       fi
       # Set ownership of data directory
       chown -R ${box_user_group} ${data_dir}
-      log info "Using kernel directory ${bin_name} in ${bin_path}."
-  elif [ -f ${bin_path} ]; then
-    # Set ownership and permission of kernel directory
-    chown ${box_user_group} ${bin_path}
-    chmod 0700 ${bin_path}
-    chmod 0644 "${data_dir}/${bin_name}"/*
-    # Set ownership of data directory
-    chown -R ${box_user_group} ${data_dir}
-    log info "Use the kernel located in '${bin_path}'."
+      nohup="nohup"
+      log info "Using kernel directory ${bin_name} in ${bin_path}"
+    fi
   else
+    sed -i "s/box_user_group=.*/box_user_group=\"root:net_admin\"/g" ${settings}
     log error "Kernel '${bin_name}' is missing."
     log error "Please download the '${bin_name}' kernel and place it in the ${bin_kernel}/ directory."
     exit 1
@@ -102,7 +109,7 @@ check_in_bin() {
     log error "Error: '${bin_path}' not found or not executable."
     exit 1
   fi
-  if [ ! -f "${bin_path}" ] || [ ! -x "${bin_path}" ]; then
+  if [[ ! -f "${bin_path}" || ! -x "${bin_path}" ]]; then
     log error "Error: '${bin_path}' is not a valid file or cannot be executed."
     exit 1
   fi
@@ -159,7 +166,8 @@ prepare_singbox() {
 
 prepare_clash() {
   # ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
-  sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
+  # sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
+  # sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" ${settings}
 
   clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
@@ -176,7 +184,7 @@ prepare_clash() {
     echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
   fi
 
-  if [ "${network_mode}" = "mixed" ] || [ "${proxy_mode}" = "tun" ]; then
+  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
     if [ -z "${clash_tun_status}" ]; then
 echo -e "\n
@@ -213,7 +221,7 @@ run_box() {
     sing-box)
       prepare_singbox
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1 ; then
-        nohup busybox setuidgid ${box_user_group} ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
+        "${nohup}" ${bin_path} run -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "Configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -226,7 +234,7 @@ run_box() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}-report.log" 2>&1; then
-        nohup busybox setuidgid ${box_user_group} ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
+        "${nohup}" ${bin_path} -d "${data_dir}/${bin_name}" -f "${clash_config}" > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -245,7 +253,7 @@ run_box() {
       export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if ${bin_path} -test > "${run_path}/${bin_name}-report.log" 2>&1; then
-        nohup busybox setuidgid ${box_user_group} ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
+        "${nohup}" ${bin_path} > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > "${pid_file}"
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -264,7 +272,7 @@ run_box() {
       export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
       if (${bin_path} test > "${run_path}/${bin_name}-report.log" 2>&1) ; then
-        nohup busybox setuidgid ${box_user_group} ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
+        "${nohup}" ${bin_path} run > "${run_path}/${bin_name}.log" 2>&1 &
         echo -n $! > ${pid_file}
       else
         log error "configuration failed, please check the ${run_path}/${bin_name}-report.log file."
@@ -478,6 +486,7 @@ stop_box() {
     # Check whether the binary has stopped
     if ! busybox pidof "${bin_name}" >/dev/null 2>&1; then
       log warn "done"
+      rm -f "${pid_file}"
     fi
   fi
 }
@@ -502,7 +511,6 @@ case "$1" in
       clash) log debug "$(${bin_path} -v)";;
       *) log debug "$(${bin_path} version)";;
     esac
-    
     # Memeriksa apakah layanan sudah berjalan atau belum
     if [ $(busybox pidof ${bin_name}) ]; then
       bin_usage
