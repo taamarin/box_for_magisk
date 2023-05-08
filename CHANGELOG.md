@@ -1,3 +1,7 @@
+#### ⟳ Changelog v0.8.1
++ add intranet ip range: 172.16.0.0/12 https://github.com/taamarin/box_for_magisk/issues/18
++ adjust: permission /system/bin/$bin_name (bug in magisk 26+ can't rw /system/bin/$bin_name)
+
 #### ⟳ Changelog v0.8
 + adjust: blacklist / whitelist
 + adjust: scripts for CLASH TUN
