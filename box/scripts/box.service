@@ -62,7 +62,7 @@ still_alive() {
 }
 
 check_permission() {
-  if [ "${box_user_group}" = "root:net_admin" ]; then
+  if [[ "${box_user_group}" = "root:net_admin" && -f ${bin_path} ]] ; then
     # Set ownership and permission of kernel directory
     chown ${box_user_group} ${bin_path}
     chmod 6755 ${bin_path}
