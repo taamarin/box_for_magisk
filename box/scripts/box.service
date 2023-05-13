@@ -171,7 +171,7 @@ prepare_clash() {
 
   clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
-    echo -e "\nexternal-ui: ./dashboard/dist" >> "${clash_config}"
+    echo -e "\nexternal-ui: ./dashboard" >> "${clash_config}"
   fi
 
   clash_tproxy_port=$(busybox awk '/tproxy-port: /{print $1}' "${clash_config}")

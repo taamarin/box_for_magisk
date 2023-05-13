@@ -374,19 +374,20 @@ cgroup_limit() {
 }
 
 update_dashboard() {
-  if [[ "${bin_name}" == "sing-box" || "${bin_name}" == "clash" ]]; then
+  if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
-    rm -rf "${data_dir}/${bin_name}/dashboard/dist"
-    if [ ! -d "${data_dir}/${bin_name}/dashboard" ];then
-      log info "dashboard folder not exist,create it"
+    rm -rf "${data_dir}/${bin_name}/dashboard"
+    if [ ! -d "${data_dir}/${bin_name}/dashboard" ]; then
+      log info "dashboard folder not exist, creating it"
       mkdir "${data_dir}/${bin_name}/dashboard"
     fi
-    url="https://github.com/CHIZI-0618/yacd/archive/gh-pages.zip"
-    dir_name="yacd-gh-pages"
-    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download ${url}"; exit 1; }
+    url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
+    dir_name="Yacd-meta-gh-pages"
+    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download $url"; exit 1; }
     unzip -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
-    mv -f "${data_dir}/${bin_name}/dashboard/${dir_name}" "${data_dir}/${bin_name}/dashboard/dist"
+    mv -f "${data_dir}/${bin_name}/dashboard/$dir_name"/* "${data_dir}/${bin_name}/dashboard"
     rm -f "${file_dashboard}"
+    rm -r "${data_dir}/${bin_name}/dashboard/${dir_name}"
   else
     log debug "${bin_name} does not support dashboards"
   fi
