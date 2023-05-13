@@ -271,7 +271,12 @@ update_kernel() {
 
   case "${bin_name}" in
     clash)
-      gunzip_command=$(command -v gunzip >/dev/null 2>&1 && echo "gunzip" || echo "busybox gunzip")
+      gunzip_command="$(command -v gunzip >/dev/null 2>&1 ; echo $?)"
+      if [ $gunzip_command -eq 0 ]; then
+        gunzip_command="gunzip"
+      else
+        gunzip_command="busybox gunzip"
+      fi
       if ${gunzip_command} "${data_dir}/${file_kernel}.gz" >&2 &&
          mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
         if [ -f "${pid_file}" ]; then
@@ -284,7 +289,12 @@ update_kernel() {
       fi
     ;;
     sing-box)
-      tar_command=$(command -v tar >/dev/null 2>&1 && echo "tar" || echo "busybox tar")
+      tar_command="$(command -v tar >/dev/null 2>&1 ; echo $?)"
+      if [ $unzip_command -eq 0 ]; then
+        unzip_command="tar"
+      else
+        unzip_command="busybox tar"
+      fi
       if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 &&
          mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" &&
          rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
@@ -300,7 +310,12 @@ update_kernel() {
     ;;
     v2fly|xray)
       [ "${bin_name}" = "xray" ] && bin='xray' || bin='v2ray'
-      unzip_command=$(command -v unzip >/dev/null 2>&1 && echo "unzip" || echo "busybox unzip")
+      unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
+      if [ $unzip_command -eq 0 ]; then
+        unzip_command="unzip"
+      else
+        unzip_command="busybox unzip"
+      fi
 
       if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2; then
         if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
@@ -384,7 +399,13 @@ update_dashboard() {
     url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
     dir_name="Yacd-meta-gh-pages"
     busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download $url"; exit 1; }
-    unzip -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
+    unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
+    if [ $unzip_command -eq 0 ]; then
+      unzip_command="unzip"
+    else
+      unzip_command="busybox unzip"
+    fi
+    ${unzip_command} -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
     mv -f "${data_dir}/${bin_name}/dashboard/$dir_name"/* "${data_dir}/${bin_name}/dashboard"
     rm -f "${file_dashboard}"
     rm -r "${data_dir}/${bin_name}/dashboard/${dir_name}"
