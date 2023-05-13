@@ -377,7 +377,7 @@ update_dashboard() {
   if [[ "${bin_name}" == "sing-box" || "${bin_name}" == "clash" ]]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
-    if [ -d "${data_dir}/${bin_name}/dashboard" ];then
+    if [ ! -d "${data_dir}/${bin_name}/dashboard" ];then
       log info "dashboard folder not exist,create it"
       mkdir "${data_dir}/${bin_name}/dashboard"
     fi
