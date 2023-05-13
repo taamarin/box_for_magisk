@@ -377,6 +377,10 @@ update_dashboard() {
   if [[ "${bin_name}" == "sing-box" || "${bin_name}" == "clash" ]]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard/dist"
+    if [ -d "${data_dir}/${bin_name}/dashboard" ];then
+      log info "dashboard folder not exist,create it"
+      mkdir "${data_dir}/${bin_name}/dashboard"
+    fi
     url="https://github.com/CHIZI-0618/yacd/archive/gh-pages.zip"
     dir_name="yacd-gh-pages"
     busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download ${url}"; exit 1; }
