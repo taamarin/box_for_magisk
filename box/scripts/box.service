@@ -21,7 +21,7 @@ delete_logs() {
 }
 
 crontab_geo() {
-  if [ "${auto_update_geox}" != "false" ] || [ "${auto_update_subscription}" != "false" ]; then
+  if [[ "${auto_update_geox}" != "false" || "${auto_update_subscription}" != "false" ]]; then
     echo "${update_interval} ${scripts_dir}/box.tool subgeo" >> "${run_path}/root"
     log debug "Interval crontab geo and subscription (${update_interval})."
     log debug "${bin_name} geox (${auto_update_geox})."
@@ -62,7 +62,7 @@ still_alive() {
 }
 
 check_permission() {
-  if [[ "${box_user_group}" = "root:net_admin" && -f ${bin_path} ]] ; then
+  if [[ "${box_user_group}" = "root:net_admin" || "${box_user_group}" = "0:3005" ]] && [ -f "${bin_path}" ]; then
     # Set ownership and permission of kernel directory
     chown ${box_user_group} ${bin_path}
     chmod 6755 ${bin_path}
@@ -108,31 +108,40 @@ check_in_bin() {
   if ! command -v "${bin_path}" >/dev/null 2>&1; then
     log error "Error: '${bin_path}' not found or not executable."
     exit 1
-  fi
-  if [[ ! -f "${bin_path}" || ! -x "${bin_path}" ]]; then
-    log error "Error: '${bin_path}' is not a valid file or cannot be executed."
+  elif [ ! -x "${bin_path}" ]; then
+    log error "Error: '${bin_path}' is not executable."
+    exit 1
+  elif [ ! -f "${bin_path}" ]; then
+    log error "Error: '${bin_path}' is not a regular file."
     exit 1
   fi
+
   case "${bin_name}" in
     clash)
       if ! "${bin_path}" -v >/dev/null 2>&1; then
         log error "Error: '${bin_name}' version information not available."
         exit 1
+      else
+        version_output="$(${bin_path} -v)"
+        log info "${version_output}"
       fi
-      log info "$(${bin_path} -v)";;
+      ;;
     *)
       if ! "${bin_path}" version >/dev/null 2>&1; then
         log error "Error: '${bin_name}' version information not available."
         exit 1
+      else
+        version_output="$(${bin_path} version)"
+        log info "${version_output}"
       fi
-      log info "$(${bin_path} version)";;
+      ;;
   esac
 }
 
 create_tun() {
   # Enable IP forwarding
-  if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1; then
-    log warn "Cannot enable IP forwarding."
+  if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || ! sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1; then
+    echo "Cannot enable IP forwarding."
   fi
 
   # Creates a symlink for /dev/tun if it doesn't already exist
@@ -171,33 +180,31 @@ prepare_clash() {
 
   clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
-    echo -e "\nexternal-ui: ./dashboard" >> "${clash_config}"
+    printf "\nexternal-ui: ./dashboard" >> "${clash_config}"
   fi
 
   clash_tproxy_port=$(busybox awk '/tproxy-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_tproxy_port}" ]; then
-    echo -e "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
+    printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
   fi
 
   clash_redir_port=$(busybox awk '/redir-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_redir_port}" ]; then
-    echo -e "\nredir-port: ${redir_port}" >> "${clash_config}"
+    printf "\nredir-port: ${redir_port}" >> "${clash_config}"
   fi
 
   if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
     if [ -z "${clash_tun_status}" ]; then
-echo -e "\n
-tun:
-  enable: true
-  mtu: 9000
-  device: utun
-  stack: system # gvisor / system
-  dns-hijack:
-    - any:53
-  auto-route: true
-  auto-detect-interface: true
-" >> "${clash_config}"
+      printf '%s\n' '' 'tun:' \
+        '  enable: true' \
+        '  mtu: 9000' \
+        '  device: utun' \
+        '  stack: system # gvisor / system' \
+        '  dns-hijack:' \
+        '    - any:53' \
+        '  auto-route: true' \
+        '  auto-detect-interface: true' >> "${clash_config}"
     fi
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
@@ -290,17 +297,17 @@ run_box() {
 }
 
 cgroup_limit() {
-if [ "${cgroup_memory}" = "true" ]; then
-  if ${scripts_dir}/box.tool cgroup; then
-    log info "cgroup limit: ${cgroup_memory_limit}."
+  if [ "${cgroup_memory}" = "true" ]; then
+    if ${scripts_dir}/box.tool cgroup; then
+      log info "cgroup limit: ${cgroup_memory_limit}."
+    else
+      log warn "Failed to enable cgroup for ${bin_name}."
+      log warn "Cgroups is turned off"
+      sed -i -E "/cgroup_memory/ s/(true)/false/" "${settings}"
+    fi
   else
-    log warn "Failed to enable cgroup for ${bin_name}."
-    log warn "Cgroups is turned off"
-    sed -i -E "/cgroup_memory/ s/(true)/false/" "${settings}"
+    log info "${bin_name} cgroup: disabled."
   fi
-else
-  log info "${bin_name} cgroup: disabled."
-fi
 }
 
 # Function to display the usage of a binary
@@ -423,17 +430,16 @@ start_box() {
   else
     case "${bin_name}" in
       "xray"|"sing-box"|"clash"|"v2fly") log info "Good day" ;;
-      *) log error "bin_name: '${bin_name}<unknown>' not defined"; exit 1 ;;
+      *) log error "bin_name: '${bin_name} <unknown>' not defined"; exit 1 ;;
     esac
   fi
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
   check_permission
   check_in_bin
   delete_logs
-  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-    create_tun
-  fi
-  run_box && sleep 1
+  create_tun
+  run_box
+  sleep 1
   # Execute crontab_alive if crontab_sec is not equal to "false"
   if [ "${crontab_sec}" != "false" ]; then
     crontab_alive
