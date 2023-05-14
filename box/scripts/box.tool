@@ -291,9 +291,9 @@ update_kernel() {
     sing-box)
       tar_command="$(command -v tar >/dev/null 2>&1 ; echo $?)"
       if [ $unzip_command -eq 0 ]; then
-        unzip_command="tar"
+        tar_command="tar"
       else
-        unzip_command="busybox tar"
+        tar_command="busybox tar"
       fi
       if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 &&
          mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" &&
@@ -474,6 +474,7 @@ case "$1" in
       bin_name="${list}"
       update_kernel
       update_subgeo
+      update_dashboard
     done
     ;;
   *)
