@@ -148,9 +148,32 @@ update_subgeo() {
     log debug "Update geo $(date +"%F %R")"
     flag=false
   fi
-  if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${clash_config}" "${subscription_url}"; then
+  enhanced=false
+  update_file_name="${clash_config}"
+  yq_command="$(command -v yq >/dev/null 2>&1 ; echo $?)"
+  wc_command="$(command -v wc >/dev/null 2>&1 ; echo $?)"
+  if [ $yq_command -eq 0 ] && [ $wc_command -eq 0 ]; then
+    enhanced=true
+    update_file_name="${update_file_name}.subscription"
+  fi
+  if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${update_file_name}" "${subscription_url}"; then
     log debug "Downloading ${clash_config}"
-    flag=true
+    # If there is a yq command, extract the proxies information from yml and output it to the clash_domestic_config file
+    if [ "${enhanced}" = "true" ]; then
+      if [ $(cat ${update_file_name} | yq '.proxies' | wc -l) -gt 1 ];then
+        yq '.proxies' ${update_file_name} > ${clash_domestic_config}
+        yq -i '{"proxies": .}' ${clash_domestic_config}
+        log info "subscription success"
+        if [ -f "${update_file_name}.bak" ]; then
+          rm ${update_file_name}.bak
+        fi
+        flag=true
+      else
+        log error "subscription failed"
+      fi
+    else
+      flag=true
+    fi
   fi
   if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
     restart_box
@@ -278,7 +301,7 @@ update_kernel() {
         gunzip_command="busybox gunzip"
       fi
       if ${gunzip_command} "${data_dir}/${file_kernel}.gz" >&2 &&
-         mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
+        mv "${data_dir}/${file_kernel}" "${bin_kernel}/${bin_name}"; then
         if [ -f "${pid_file}" ]; then
           restart_box
         else
@@ -296,8 +319,8 @@ update_kernel() {
         tar_command="busybox tar"
       fi
       if ${tar_command} -xf "${data_dir}/${file_kernel}.tar.gz" -C "${data_dir}/bin" >&2 &&
-         mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" &&
-         rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
+        mv "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_kernel}/${bin_name}" &&
+        rm -r "${data_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
         if [ -f "${pid_file}" ]; then
           restart_box
         else
