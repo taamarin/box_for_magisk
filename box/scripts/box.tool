@@ -124,24 +124,25 @@ update_file() {
 # Check and update geoip and geosite
 update_subgeo() {
   log info "daily updates"
+  geodata_mode=$(awk '/geodata-mode:*./{print $2}' "${clash_config}")
   case "${bin_name}" in
     clash)
-      geoip_file="${data_dir}/clash/$(if [ "${meta}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [ "${meta}" = "false" ]; then echo "Dreamacro/maxmind-geoip/raw/release/Country.mmdb"; else echo "Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"; fi)"
+      geoip_file="${data_dir}/clash/$(if [ "${geodata_mode}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
+      geoip_url="https://github.com/$(if [ "${geodata_mode}" = "false" ]; then echo "MetaCubeX/meta-rules-dat/raw/release/country.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip.dat"; fi)"
       geosite_file="${data_dir}/clash/GeoSite.dat"
-      geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+      geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
     sing-box)
       geoip_file="${data_dir}/sing-box/geoip.db"
-      geoip_url="https://github.com/CHIZI-0618/v2ray-rules-dat/raw/release/geoip.db"
+      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip.db"
       geosite_file="${data_dir}/sing-box/geosite.db"
-      geosite_url="https://github.com/CHIZI-0618/v2ray-rules-dat/raw/release/geosite.db"
+      geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.db"
       ;;
     *)
       geoip_file="${data_dir}/${bin_name}/geoip.dat"
-      geoip_url="https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat"
+      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip.dat"
       geosite_file="${data_dir}/${bin_name}/geosite.dat"
-      geosite_url="https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+      geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
   esac
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
