@@ -253,9 +253,11 @@ run_box() {
     xray)
       # set network_mode variable value to "tproxy"
       sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
-      if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
-        log error "file ${data_dir}/${bin_name}/*.json not found"
-        exit 1
+      json_files=( "${data_dir}/${bin_name}"/*.json )
+      toml_files=( "${data_dir}/${bin_name}"/*.toml )
+      if [[ ${#json_files[@]} -eq 0 || ${#toml_files[@]} -eq 0 ]]; then
+          log error "File ${data_dir}/${bin_name}/*.json/*.toml not found"
+          exit 1
       fi
       export XRAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export XRAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
@@ -272,9 +274,11 @@ run_box() {
     v2fly)
       # set network_mode variable value to "tproxy"
       sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
-      if [ ! -f "${data_dir}/${bin_name}"/*.json ]; then
-        log error "file ${data_dir}/${bin_name}/*.json not found"
-        exit 1
+      json_files=( "${data_dir}/${bin_name}"/*.json )
+      toml_files=( "${data_dir}/${bin_name}"/*.toml )
+      if [[ ${#json_files[@]} -eq 0 || ${#toml_files[@]} -eq 0 ]]; then
+          log error "File ${data_dir}/${bin_name}/*.json/*.toml not found"
+          exit 1
       fi
       export V2RAY_LOCATION_ASSET="${data_dir}/${bin_name}"
       export V2RAY_LOCATION_CONFDIR="${data_dir}/${bin_name}"
