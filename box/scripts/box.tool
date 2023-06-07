@@ -313,7 +313,7 @@ update_kernel() {
     ;;
     sing-box)
       tar_command="$(command -v tar >/dev/null 2>&1 ; echo $?)"
-      if [ $unzip_command -eq 0 ]; then
+      if [ $tar_command -eq 0 ]; then
         tar_command="tar"
       else
         tar_command="busybox tar"
