@@ -183,17 +183,17 @@ update_subgeo() {
 
 # Function for detecting ports used by a process
 port_detection() {
-  # Gunakan fungsi 'command' untuk memeriksa ketersediaan 'ss'
+  # Use 'command' function to check availability of 'ss'
   if command -v ss > /dev/null ; then
-    # Gunakan 'awk' dengan regular expression untuk mencocokkan ID proses
+    # Use 'awk' with a regular expression to match the process ID
     ports=$(ss -antup | busybox awk -v pid="$(busybox pidof "${bin_name}")" '$7 ~ pid {print $5}' | busybox awk -F ':' '{print $2}' | sort -u)
   else
-    # Catat pesan peringatan jika 'ss' tidak tersedia
+    # Note the warning message if 'ss' is not available
     log debug "ss command not found, skipping port detection." >&2
     return
   fi
 
-  # Catat port yang terdeteksi
+  # Make a note of the detected ports
   now=$(date +"%R")
   if [ -t 1 ]; then
     echo -n "\033[1;33m${now} [debug]: ${bin_name} port detected: \033[0m"
@@ -210,7 +210,7 @@ port_detection() {
     fi
   done <<< "${ports}"
 
-  # Tambahkan newline pada output jika dijalankan di terminal
+  # Add a newline to the output if running in terminal
   if [ -t 1 ]; then
     echo -e "\033[1;31m""\033[0m"
   else
@@ -250,9 +250,7 @@ update_kernel() {
         tag="Prerelease-Alpha"
         latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
-        filename="clash.meta-${platform}-${arch}"
-        # [ $(uname -m) != "aarch64" ] || filename+="-cgo"
-        filename+="-${latest_version}"
+        filename="clash.meta-${platform}-${arch}-${latest_version}"
         # download and update the file
         log debug "download ${download_link}/download/${tag}/${filename}.gz"
         update_file "${data_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz"
@@ -368,13 +366,13 @@ update_kernel() {
 
 # Function to limit cgroup memory
 cgroup_limit() {
-  # Periksa apakah cgroup_memory_limit telah diatur.
+  # Check if the cgroup memory limit has been set.
   if [ -z "${cgroup_memory_limit}" ]; then
     log warn "cgroup_memory_limit is not set"
     return 1
   fi
   
-  # Periksa apakah cgroup_memory_path diatur dan ada.
+  # Check if the cgroup memory path is set and exists.
   if [ -z "${cgroup_memory_path}" ]; then
     local cgroup_memory_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
     
@@ -387,7 +385,7 @@ cgroup_limit() {
     return 1
   fi
   
-  # Periksa apakah pid_file diatur dan ada.
+  # Check if pid_file is set and exists.
   if [ -z "${pid_file}" ]; then
     log warn "pid_file is not set"
     return 1
@@ -396,7 +394,7 @@ cgroup_limit() {
     return 1
   fi
   
-  # Buat direktori cgroup dan pindahkan proses ke cgroup.
+  # Create cgroup directory and move process to cgroup.
   local bin_name=${bin_name}
   # local bin_name=$(basename "$0")
   mkdir -p "${cgroup_memory_path}/${bin_name}"
@@ -405,7 +403,7 @@ cgroup_limit() {
   echo "${pid}" > "${cgroup_memory_path}/${bin_name}/cgroup.procs" \
     && log info "Moved process ${pid} to ${cgroup_memory_path}/${bin_name}/cgroup.procs"
   
-  # Tetapkan batas memori untuk cgroup.
+  # Set memory limit for cgroups.
   echo "${cgroup_memory_limit}" > "${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes" \
     && log info "Set memory limit to ${cgroup_memory_limit} for ${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes"
   

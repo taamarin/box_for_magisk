@@ -10,20 +10,25 @@ fwmark='0x69'
 pref='0x64'
 # disable / enable quic using iptables rules 
 quic="enable"
-# Inisialisasi variabel
-clash_fake_ip_range=""
-clash_dns_port=""
-tun_device=""
-
 # Looking for value from "fake-ip-range: / listen: / tun_device" block in YAML / JSON configuration file
 clash_fake_ip_range=$(busybox awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
 clash_enhanced_mode=$(busybox awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
 clash_dns_port=$(busybox awk -F ':' '/listen:/ { print $3;found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
 
-if [ "${bin_name}" = "clash" ]; then
-  tun_device=$(busybox awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
-elif [ "${bin_name}" = "sing-box" ]; then
-  tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
+if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+  case "${bin_name}" in
+    clash)
+      tun_device=$(busybox awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
+      log info "tun_device: $tun_device"
+      ;;
+    sing-box)
+      tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
+      log info "tun_device: $tun_device"
+      ;;
+    *)
+      :
+      ;;
+  esac
 fi
 
 probe_empty () {
@@ -40,7 +45,7 @@ fi
 network_port() {
   if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
     sleep 0.5
-    netstat -tnulp | grep -q "${tproxy_port}" || log error "tproxy_port: ${tproxy_port} out of sync with config"
+    netstat -tnulp | grep -q "${tproxy_port}" || log warn "tproxy_port: ${tproxy_port} out of sync with config"
   fi
   if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     sleep 0.5
@@ -744,7 +749,6 @@ else
         log warn "disable IPv6."
       fi
       network_port
-      log info "create iptables tun rules done."
       log info "${bin_name} connected."
       ;;
     renew)
