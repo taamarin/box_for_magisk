@@ -553,9 +553,9 @@ case "$1" in
     update_subgeo
     ;;
   all)  
+    update_yq
     for list in "${bin_list[@]}" ; do
       bin_name="${list}"
-      update_yq
       update_kernel
       update_subgeo
       update_dashboard
