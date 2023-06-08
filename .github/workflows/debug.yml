@@ -1,0 +1,31 @@
+name: debug
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get Version
+        id: get_version
+        run: |
+          echo "version=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
+          echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Asset
+        run: |
+          sudo mkdir -p /box_for_root
+          sudo cp -r --parents $(find ./ -type f ! -path './.git/*' ! -name 'CHANGELOG.md' ! -name 'update.json' ! -name 'build.sh' ! -path './.github/*' ! -path './docs/*')  /box_for_root/
+
+      - name: Upload Debug Asset => (box_for_magisk_${{ steps.get_version.outputs.version }}_$(date +%Y%m%d))
+        uses: actions/upload-artifact@v3
+        with:
+          name: "box_for_magisk_${{ steps.get_version.outputs.version }}_${{ steps.get_version.outputs.date }}"
+          path: /box_for_root/

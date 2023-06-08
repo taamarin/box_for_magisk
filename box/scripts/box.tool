@@ -12,6 +12,9 @@ dev=true
 # option to download Singbox kernel beta or release
 singbox_releases=false
 
+# whether use ghproxy to accelerate github download
+use_ghproxy=false
+
 # Check internet connection with mlbox
 check_connection_with_mlbox() {
   now=$(date +"%R")
@@ -105,6 +108,23 @@ update_file() {
   file_bak="${file}.bak"
   if [ -f "${file}" ]; then
     mv "${file}" "${file_bak}" || return 1
+  fi
+  # Enable ghproxy to accelerate download
+  if [[ "$use_ghproxy" == false ]] && ([[ "$update_url" == "https://github.com/"* ]] || [[ "$update_url" == "https://raw.githubusercontent.com/"* ]] || [[ "$update_url" == "https://gist.github.com/"* ]] || [[ "$update_url" == "https://gist.githubusercontent.com/"* ]]); then
+    echo "- It seems that you are downloading from GitHub."
+    echo "- Do you want to use the GitHub proxy service to download?"
+    echo "- [ Vol UP: Yes ]"
+    echo "- [ Vol DOWN: No ]"
+    while true; do
+      getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP && {
+        use_ghproxy=true
+        break
+      }
+      getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
+    done
+  fi
+  if [[ "$use_ghproxy" == true ]]; then
+    update_url="https://ghproxy.com/${update_url}"
   fi
   request="busybox wget"
   request+=" --no-check-certificate"
