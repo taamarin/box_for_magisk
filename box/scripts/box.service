@@ -464,6 +464,11 @@ start_box() {
   detected_port
   still_alive
   display_bin_pid
+  # Open the yacd in browser
+  if [ "${bin_name}" = "clash" ] && [ "${display_yacd_on_start}" = "true" ]; then
+    sleep 0.5
+    am start -a android.intent.action.VIEW -d http://127.0.0.1:9090/ui
+  fi
 }
 
 stop_box() {

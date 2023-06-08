@@ -139,7 +139,6 @@ update_yq() {
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
   esac
   download_link="https://github.com/mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"
-  log debug "${download_link}"
   update_file "${data_dir}/bin/yq" "${download_link}"
   chmod +x "${data_dir}/bin/yq"
 }
@@ -174,11 +173,12 @@ update_subgeo() {
   fi
   enhanced=false
   update_file_name="${clash_config}"
-  yq_command="$(command -v yq >/dev/null 2>&1 ; echo $?)"
+  yq_command=$(command -v yq >/dev/null 2>&1 ; echo $?)
   # If native yq dont exist
-  if [ "$yq_command" -eq 0 ]; then
+  if [ "$yq_command" -eq 1 ]; then
+    log debug "yq command found, start to download from github"
     [ -e "${data_dir}/bin/yq" ] || update_yq
-    yq_command="$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)"
+    yq_command=$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)
   fi
   wc_command=$(command -v wc >/dev/null 2>&1; echo $?)
   if [ "$yq_command" -eq 0 ] && [ "$wc_command" -eq 0 ]; then
@@ -197,6 +197,8 @@ update_subgeo() {
       if [ $(cat ${update_file_name} | ${yq} '.proxies' | wc -l) -gt 1 ];then
         ${yq} '.proxies' ${update_file_name} > ${clash_domestic_config}
         ${yq} -i '{"proxies": .}' ${clash_domestic_config}
+        # if yq & wc exist, update the file location
+        update_file_name="${update_file_name}.subscription"
         log info "subscription success"
         if [ -f "${update_file_name}.bak" ]; then
           rm ${update_file_name}.bak
