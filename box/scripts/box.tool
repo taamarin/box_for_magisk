@@ -167,33 +167,39 @@ update_subgeo() {
   esac
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
     log debug "Update geo $(date +"%F %R")"
-    flag=false
+    flag=false # if true, after the update is complete it will restart BFM
   fi
   enhanced=false
   update_file_name="${clash_config}"
-  yq_command="$(command -v yq >/dev/null 2>&1 ; echo $?)"
-  wc_command="$(command -v wc >/dev/null 2>&1 ; echo $?)"
-  if [ $yq_command -eq 0 ] && [ $wc_command -eq 0 ]; then
+  yq_command=$( { command -v yq >/dev/null 2>&1 && echo 0; } || { command -v /data/adb/box/bin/yq >/dev/null 2>&1 && echo 0; } )
+  wc_command=$(command -v wc >/dev/null 2>&1; echo $?)
+  if [ "$yq_command" -eq 0 ] && [ "$wc_command" -eq 0 ]; then
     enhanced=true
     update_file_name="${update_file_name}.subscription"
+    if [ -f /data/adb/box/bin/yq ]; then
+      chmod 0700 /data/adb/box/bin/yq
+      yq="/data/adb/box/bin/yq"
+    else
+      yq="yq"
+    fi
   fi
   if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${update_file_name}" "${subscription_url}"; then
     log debug "Downloading ${clash_config}"
     # If there is a yq command, extract the proxies information from yml and output it to the clash_domestic_config file
     if [ "${enhanced}" = "true" ]; then
-      if [ $(cat ${update_file_name} | yq '.proxies' | wc -l) -gt 1 ];then
-        yq '.proxies' ${update_file_name} > ${clash_domestic_config}
-        yq -i '{"proxies": .}' ${clash_domestic_config}
+      if [ $(cat ${update_file_name} | ${yq} '.proxies' | wc -l) -gt 1 ];then
+        ${yq} '.proxies' ${update_file_name} > ${clash_domestic_config}
+        ${yq} -i '{"proxies": .}' ${clash_domestic_config}
         log info "subscription success"
         if [ -f "${update_file_name}.bak" ]; then
           rm ${update_file_name}.bak
         fi
-        flag=true
+        flag=false # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
       else
         log error "subscription failed"
       fi
     else
-      flag=true
+      flag=true # if true, after the update is complete it will restart BFM
     fi
   fi
   if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
