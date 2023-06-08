@@ -13,7 +13,7 @@ dev=true
 singbox_releases=false
 
 # whether use ghproxy to accelerate github download
-use_ghproxy=false
+use_ghproxy=true
 
 # Check internet connection with mlbox
 check_connection_with_mlbox() {

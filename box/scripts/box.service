@@ -20,14 +20,14 @@ delete_logs() {
   find "${run_path}" -type f -name "*.log" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old logs"
 }
 
-crontab_geo() {
+crontab_geosub() {
   if [[ "${auto_update_geox}" != "false" || "${auto_update_subscription}" != "false" ]]; then
     echo "${update_interval_geox} ${scripts_dir}/box.tool geox" >> "${run_path}/root"
-    echo "${update_interval_subs} ${scripts_dir}/box.tool subs" >> "${run_path}/root"
     log debug "Interval crontab geox (${update_interval_geox})."
-    log debug "Interval crontab subscription (${update_interval_subs})."
     log debug "${bin_name} geox (${auto_update_geox})."
     if [ "${bin_name}" = "clash" ]; then
+      echo "${update_interval_subs} ${scripts_dir}/box.tool subs" >> "${run_path}/root"
+      log debug "Interval crontab subscription (${update_interval_subs})."
       log debug "${bin_name} subscription (${auto_update_subscription})."
     fi
   else
@@ -410,8 +410,8 @@ crontab_alive() {
     "xray"|"sing-box"|"v2ray") log info "config '${data_dir}/${bin_name}/*.json'";;
     *) log error "${bin_name}: <unknown>"; exit 1;;
   esac
-  # Executes the crontab_geo function
-  crontab_geo
+  # Executes the crontab_geosub function
+  crontab_geosub
 }
 
 start_box() {
