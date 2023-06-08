@@ -88,8 +88,8 @@ ui_print ""
 ui_print "-----------------------------------------------------------"
 ui_print "- do you want to download KERNEL and GEOX?"
 ui_print "- Make sure you have a good internet connection."
-ui_print "- Vol UP: to download GEOX and KERNEL."
-ui_print "- Vol DOWN: to ignore downloading GEOX and KERNEL."
+ui_print "- [ Vol UP: Yes ]"
+ui_print "- [ Vol DOWN: No ]"
 while true ; do
   getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
   sleep 1

@@ -7,8 +7,10 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # option to download Clash kernel clash-premium{false} or clash-meta{true}
 meta="true"
+
 # for clash-premium
-dev=true
+dev=false
+
 # option to download Singbox kernel beta or release
 singbox_releases=false
 
@@ -17,10 +19,10 @@ use_ghproxy=true
 
 # Check internet connection with mlbox
 check_connection_with_mlbox() {
+  # su -c /data/adb/box/scripts/box.tool testing
   now=$(date +"%R")
   connect="\033[1;32mconnect\033[0m"
   failed="\033[1;33mfailed\033[0m"
-
   # Check DNS
   echo -n "\033[1;34m${now} [info]: dns=\033[0m"
   ntpip=$(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}' | head -n 1)
@@ -28,7 +30,6 @@ check_connection_with_mlbox() {
     echo "$failed"
   else
     echo "$connect"
-
     # Check HTTP
     echo -n "\033[1;34m${now} [info]: http=\033[0m"
     httpIP=$(busybox wget -qO- "http://182.254.116.116/d?dn=reddit.com&clientip=1" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 | cut -d "|" -f 2)
@@ -36,7 +37,6 @@ check_connection_with_mlbox() {
       echo "$failed"
     else
       echo "$connect"
-
       # Check HTTPS
       echo -n "\033[1;34m${now} [info]: https=\033[0m"
       httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
@@ -44,7 +44,6 @@ check_connection_with_mlbox() {
         echo "$failed"
       else
         echo "$connect"
-
         # Check UDP
         echo -n "\033[1;34m${now} [info]: udp=\033[0m"
         currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
@@ -123,6 +122,7 @@ update_file() {
     if [ -f "${file_bak}" ]; then
       mv "${file_bak}" "${file}" || true
     fi
+    log error "Download ${request} failed"
     return 1
   }
   return 0
@@ -144,46 +144,63 @@ update_yq() {
 }
 
 # Check and update geoip and geosite
-update_subgeo() {
-  log info "daily updates"
+update_geox() {
+  # su -c /data/adb/box/scripts/box.tool geox
   geodata_mode=$(busybox awk '/geodata-mode:*./{print $2}' "${clash_config}")
   case "${bin_name}" in
     clash)
-      geoip_file="${data_dir}/clash/$(if [ "${geodata_mode}" = "false" ]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [ "${geodata_mode}" = "false" ]; then echo "MetaCubeX/meta-rules-dat/raw/release/country.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip.dat"; fi)"
+      geoip_file="${data_dir}/clash/$(if [[ "${meta}" == "false"  || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
+      geoip_url="https://github.com/$(if [[ "${meta}" == "false"  || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
       geosite_file="${data_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
     sing-box)
       geoip_file="${data_dir}/sing-box/geoip.db"
-      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip.db"
+      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip-lite"
       geosite_file="${data_dir}/sing-box/geosite.db"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.db"
       ;;
     *)
       geoip_file="${data_dir}/${bin_name}/geoip.dat"
-      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip.dat"
+      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"
       geosite_file="${data_dir}/${bin_name}/geosite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
   esac
-  if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
-    log debug "Update geo $(date +"%F %R")"
+  if [ "${auto_update_geox}" = "true" ] && ( log info "daily updates geox" && log debug "Downloading ${geoip_url}" ) && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
+    log debug "Update geox $(date +"%F %R")"
+    flag=true
     if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
-      ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-      secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-      busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" # >/dev/null 2>&1
+      if [ -t 1 ] || [ "${auto_update_subscription}" = "false" ] || [ -z "${subscription_url}" ]; then
+        ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
+        secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
+        if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
+          flag=false
+          log debug "restart by clash.meta api"
+        else
+          flag=true
+        fi
+      fi
     fi
-    flag=false # if true, after the update is complete it will restart BFM
   fi
+  if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
+    restart_box
+  fi
+  find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
+  find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
+  find "${data_dir}/${bin_name}" -type f -name "*.mmdb.bak" -delete
+}
+
+update_subs() {
+  # su -c /data/adb/box/scripts/box.tool subs
   if ! [ -z "${subscription_url}" ]; then
+    flag=true
     enhanced=false
     update_file_name="${clash_config}"
     yq_command=$(command -v yq >/dev/null 2>&1 ; echo $?)
     # If native yq dont exist
     if [ "$yq_command" -eq 1 ]; then
-      log debug "yq command found, start to download from github"
-      [ -e "${data_dir}/bin/yq" ] || update_yq
+      [ -e "${data_dir}/bin/yq" ] || ( log debug "yq command no found, start to download from github" && update_yq )
       yq_command=$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)
     fi
     wc_command=$(command -v wc >/dev/null 2>&1; echo $?)
@@ -196,39 +213,42 @@ update_subgeo() {
         yq="yq"
       fi
     fi
-    if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && update_file "${update_file_name}" "${subscription_url}"; then
-      log debug "Downloading ${clash_config}"
-      # If there is a yq command, extract the proxies information from yml and output it to the clash_domestic_config file
+    if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && ( log info "daily updates subs" && log debug "Downloading ${update_file_name}" ) && update_file "${update_file_name}" "${subscription_url}"; then
+      # If there is a yq command, extract the proxies information from yml and output it to the clash_provide_config file
       if [ "${enhanced}" = "true" ]; then
-        if [ $(cat ${update_file_name} | ${yq} '.proxies' | wc -l) -gt 1 ];then
-          ${yq} '.proxies' ${update_file_name} > ${clash_domestic_config}
-          ${yq} -i '{"proxies": .}' ${clash_domestic_config}
+        if [ $(cat ${update_file_name} | ${yq} '.proxies' | wc -l) -gt 1 ]; then
+          ${yq} '.proxies' ${update_file_name} > ${clash_provide_config}
+          ${yq} -i '{"proxies": .}' ${clash_provide_config}
           # if yq & wc exist, update the file location
           update_file_name="${update_file_name}.subscription"
           log info "subscription success"
+          log debug "Update subs $(date +"%F %R")"
           if [ -f "${update_file_name}.bak" ]; then
             rm ${update_file_name}.bak
           fi
-          if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
-            ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-            secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-            busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" # >/dev/null 2>&1
-            flag=false # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
-          else
-            flag=true
-          fi
         else
-          log error "subscription failed"
+          log error "update subscription failed"
         fi
-      else
-        flag=true # if true, after the update is complete it will restart BFM
       fi
+    else
+      [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && log error "update subscription failed"
+    fi
+    if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
+      log debug "restart by clash.meta api"
+      ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
+      secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
+      if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
+        log debug "restart by clash.meta api"
+        flag=false
+      else
+        flag=true
+      fi
+    fi
+    if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
+      restart_box
     fi
   else
     log warn "subscription url is empty..."
-  fi
-  if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
-    restart_box
   fi
 }
 
@@ -243,7 +263,6 @@ port_detection() {
     log debug "ss command not found, skipping port detection." >&2
     return
   fi
-
   # Make a note of the detected ports
   now=$(date +"%R")
   if [ -t 1 ]; then
@@ -251,7 +270,6 @@ port_detection() {
   else
     echo -n "${now} [debug]: ${bin_name} port detected: " | tee -a "${logs_file}" >> /dev/null 2>&1
   fi
-
   while read -r port; do
     sleep 0.5
     if [ -t 1 ]; then
@@ -260,7 +278,6 @@ port_detection() {
       echo -n "${port} " | tee -a "${logs_file}" >> /dev/null 2>&1
     fi
   done <<< "${ports}"
-
   # Add a newline to the output if running in terminal
   if [ -t 1 ]; then
     echo -e "\033[1;31m""\033[0m"
@@ -392,7 +409,6 @@ update_kernel() {
       else
         unzip_command="busybox unzip"
       fi
-
       if ${unzip_command} -o "${data_dir}/${file_kernel}.zip" "${bin}" -d "${bin_kernel}" >&2; then
         if mv "${bin_kernel}/${bin}" "${bin_kernel}/${bin_name}"; then
           if [ -f "${pid_file}" ]; then
@@ -425,11 +441,9 @@ cgroup_limit() {
     log warn "cgroup_memory_limit is not set"
     return 1
   fi
-  
   # Check if the cgroup memory path is set and exists.
   if [ -z "${cgroup_memory_path}" ]; then
     local cgroup_memory_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
-    
     if [ -z "${cgroup_memory_path}" ]; then
       log warn "cgroup_memory_path is not set and could not be found"
       return 1
@@ -438,7 +452,6 @@ cgroup_limit() {
     log warn "${cgroup_memory_path} does not exist"
     return 1
   fi
-  
   # Check if pid_file is set and exists.
   if [ -z "${pid_file}" ]; then
     log warn "pid_file is not set"
@@ -447,24 +460,21 @@ cgroup_limit() {
     log warn "${pid_file} does not exist"
     return 1
   fi
-  
   # Create cgroup directory and move process to cgroup.
   local bin_name=${bin_name}
   # local bin_name=$(basename "$0")
   mkdir -p "${cgroup_memory_path}/${bin_name}"
   local pid=$(cat "${pid_file}")
-  
   echo "${pid}" > "${cgroup_memory_path}/${bin_name}/cgroup.procs" \
     && log info "Moved process ${pid} to ${cgroup_memory_path}/${bin_name}/cgroup.procs"
-  
   # Set memory limit for cgroups.
   echo "${cgroup_memory_limit}" > "${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes" \
     && log info "Set memory limit to ${cgroup_memory_limit} for ${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes"
-  
   return 0
 }
 
 update_dashboard() {
+  # su -c /data/adb/box/scripts/box.tool upyacd
   if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard"
@@ -477,6 +487,7 @@ update_dashboard() {
       url="https://ghproxy.com/${url}"
     fi
     dir_name="Yacd-meta-gh-pages"
+    log debug "Download ${url}"
     busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download $url"; exit 1; }
     unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
     if [ $unzip_command -eq 0 ]; then
@@ -494,6 +505,7 @@ update_dashboard() {
 }
 
 reload() {
+  # su -c /data/adb/box/scripts/box.tool reload
   case "${bin_name}" in
     sing-box)
       if ${bin_path} check -D "${data_dir}/${bin_name}" --config-directory "${data_dir}/sing-box" > "${run_path}/${bin_name}-report.log" 2>&1; then
@@ -561,21 +573,22 @@ case "$1" in
     reload
     ;;
   geox)
-    auto_update_subscription="false"
-    update_subgeo
-    find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
-    find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
+    update_geox
     ;;
   subs)
-    auto_update_geox="false"
-    update_subgeo
+    update_subs
+    ;;
+  geosub)
+    update_geox
+    update_subs
     ;;
   all)  
     update_yq
     for list in "${bin_list[@]}" ; do
       bin_name="${list}"
       update_kernel
-      update_subgeo
+      update_geox
+      update_subs
       update_dashboard
     done
     ;;

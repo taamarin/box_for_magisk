@@ -22,12 +22,10 @@ delete_logs() {
 
 crontab_geosub() {
   if [[ "${auto_update_geox}" != "false" || "${auto_update_subscription}" != "false" ]]; then
-    echo "${update_interval_geox} ${scripts_dir}/box.tool geox" >> "${run_path}/root"
-    log debug "Interval crontab geox (${update_interval_geox})."
+    echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${run_path}/root"
+    log debug "Interval crontab geox and subs (${interva_update})."
     log debug "${bin_name} geox (${auto_update_geox})."
     if [ "${bin_name}" = "clash" ]; then
-      echo "${update_interval_subs} ${scripts_dir}/box.tool subs" >> "${run_path}/root"
-      log debug "Interval crontab subscription (${update_interval_subs})."
       log debug "${bin_name} subscription (${auto_update_subscription})."
     fi
   else
@@ -394,14 +392,14 @@ display_bin_pid() {
 
 crontab_alive() {
   # Start crond with the "-c" option and keep it in the background
-  nohup busybox crond -c "${run_path}" > /dev/null 2>&1 &
+  nohup busybox crond -c ${run_path} > /dev/null 2>&1 &
   # Delete the previous crontab and create a new crontab
-  busybox crontab -c "${run_path}" -r
+  busybox crontab -c ${run_path} -r
   touch "${run_path}/root"
-  chmod 0600 "${run_path}/root"
+  chmod 0755 "${run_path}/root"
   # Added a cron job to call box.tool keptns every minute
-  if [ "${intervaldns}" != "" ]; then
-    echo "${intervaldns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
+  if [ "${interval_dns}" != "" ]; then
+    echo "${interval_dns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
     log info "DNS remains open."
   fi
   # Displays a configuration message if bin_name is "clash|xray|sing-box|v2ray"
