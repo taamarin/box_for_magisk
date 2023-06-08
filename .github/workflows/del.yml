@@ -1,15 +1,15 @@
 name: Delete old workflow runs
-description: This workflow deletes old workflow runs to maintain a clean workflow history.
+
 on:
   workflow_dispatch:
-  
+
 jobs:
   delete_old_runs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/master'
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
