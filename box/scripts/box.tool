@@ -194,7 +194,7 @@ update_subgeo() {
         if [ -f "${update_file_name}.bak" ]; then
           rm ${update_file_name}.bak
         fi
-        flag=false # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
+        flag=true # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
       else
         log error "subscription failed"
       fi
@@ -509,13 +509,18 @@ case "$1" in
   port)
     port_detection
     ;;
-  reload)  
+  reload)
     reload
     ;;
-  subgeo)
+  geox)
+    auto_update_subscription="false"
     update_subgeo
     find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
     find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
+    ;;
+  subs)
+    auto_update_geox="false"
+    update_subgeo
     ;;
   all)  
     for list in "${bin_list[@]}" ; do
@@ -526,7 +531,7 @@ case "$1" in
     done
     ;;
   *)
-    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|cgroup|port|subgeo|all}"
+    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|cgroup|port|geox|subs|all}"
     exit 1
     ;;
 esac

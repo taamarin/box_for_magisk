@@ -22,8 +22,10 @@ delete_logs() {
 
 crontab_geo() {
   if [[ "${auto_update_geox}" != "false" || "${auto_update_subscription}" != "false" ]]; then
-    echo "${update_interval} ${scripts_dir}/box.tool subgeo" >> "${run_path}/root"
-    log debug "Interval crontab geo and subscription (${update_interval})."
+    echo "${update_interval_geox} ${scripts_dir}/box.tool geox" >> "${run_path}/root"
+    echo "${update_interval_subs} ${scripts_dir}/box.tool subs" >> "${run_path}/root"
+    log debug "Interval crontab geox (${update_interval_geox})."
+    log debug "Interval crontab subscription (${update_interval_subs})."
     log debug "${bin_name} geox (${auto_update_geox})."
     if [ "${bin_name}" = "clash" ]; then
       log debug "${bin_name} subscription (${auto_update_subscription})."
