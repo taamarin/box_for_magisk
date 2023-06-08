@@ -109,21 +109,8 @@ update_file() {
   if [ -f "${file}" ]; then
     mv "${file}" "${file_bak}" || return 1
   fi
-  # Enable ghproxy to accelerate download
-  if [[ "$use_ghproxy" == false ]] && ([[ "$update_url" == "https://github.com/"* ]] || [[ "$update_url" == "https://raw.githubusercontent.com/"* ]] || [[ "$update_url" == "https://gist.github.com/"* ]] || [[ "$update_url" == "https://gist.githubusercontent.com/"* ]]); then
-    echo "- It seems that you are downloading from GitHub."
-    echo "- Do you want to use the GitHub proxy service to download?"
-    echo "- [ Vol UP: Yes ]"
-    echo "- [ Vol DOWN: No ]"
-    while true; do
-      getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP && {
-        use_ghproxy=true
-        break
-      }
-      getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
-    done
-  fi
-  if [[ "$use_ghproxy" == true ]]; then
+  # Use ghproxy
+  if [[ "$use_ghproxy" == true ]] && ([[ "$update_url" == "https://github.com/"* ]] || [[ "$update_url" == "https://raw.githubusercontent.com/"* ]] || [[ "$update_url" == "https://gist.github.com/"* ]] || [[ "$update_url" == "https://gist.githubusercontent.com/"* ]]); then
     update_url="https://ghproxy.com/${update_url}"
   fi
   request="busybox wget"
@@ -139,6 +126,22 @@ update_file() {
     return 1
   }
   return 0
+}
+
+# Get latest yq
+update_yq() {
+  # su -c /data/adb/box/scripts/box.tool upyq
+  case $(uname -m) in
+    "aarch64") arch="arm64"; platform="linux" ;;
+    "armv7l"|"armv8l") arch="arm"; platform="linux" ;;
+    "i686") arch="386"; platform="linux" ;;
+    "x86_64") arch="amd64"; platform="linux" ;;
+    *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+  download_link="https://github.com/mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"
+  log debug "${download_link}"
+  update_file "${data_dir}/bin/yq" "${download_link}"
+  chmod +x "${data_dir}/bin/yq"
 }
 
 # Check and update geoip and geosite
@@ -171,14 +174,18 @@ update_subgeo() {
   fi
   enhanced=false
   update_file_name="${clash_config}"
-  yq_command=$( { command -v yq >/dev/null 2>&1 && echo 0; } || { command -v /data/adb/box/bin/yq >/dev/null 2>&1 && echo 0; } )
+  yq_command="$(command -v yq >/dev/null 2>&1 ; echo $?)"
+  # If native yq dont exist
+  if [ "$yq_command" -eq 0 ]; then
+    [ -e "${data_dir}/bin/yq" ] || update_yq
+    yq_command="$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)"
+  fi
   wc_command=$(command -v wc >/dev/null 2>&1; echo $?)
   if [ "$yq_command" -eq 0 ] && [ "$wc_command" -eq 0 ]; then
     enhanced=true
     update_file_name="${update_file_name}.subscription"
     if [ -f /data/adb/box/bin/yq ]; then
-      chmod 0700 /data/adb/box/bin/yq
-      yq="/data/adb/box/bin/yq"
+      yq="${data_dir}/bin/yq"
     else
       yq="yq"
     fi
@@ -272,6 +279,9 @@ update_kernel() {
       if [ "${meta}" = "true" ]; then
         # set download link and get the latest version
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
+        if [[ "$use_ghproxy" == true ]]; then
+          download_link="https://ghproxy.com/${download_link}"
+        fi
         # tag=$(busybox wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
         tag="Prerelease-Alpha"
         latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
@@ -445,6 +455,9 @@ update_dashboard() {
       mkdir "${data_dir}/${bin_name}/dashboard"
     fi
     url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
+    if [[ "$use_ghproxy" == true ]]; then
+      url="https://ghproxy.com/${url}"
+    fi
     dir_name="Yacd-meta-gh-pages"
     busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download $url"; exit 1; }
     unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
@@ -490,12 +503,29 @@ reload() {
   esac
 }
 
+# Enable ghproxy to accelerate download
+if [[ "$use_ghproxy" == false ]] ; then
+  echo "- It seems that you are downloading from GitHub."
+  echo "- Do you want to use the GitHub proxy service to download?"
+  echo "- [ Vol UP: Yes ]"
+  echo "- [ Vol DOWN: No ]"
+  while true; do
+    getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP && {
+      use_ghproxy=true
+      break
+    }
+    getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
+  done
+fi
 case "$1" in
   testing)
     check_connection_with_mlbox
     ;;
   keepdns)
     keep_dns
+    ;;
+  upyq)
+    update_yq
     ;;
   upyacd)
     update_dashboard
@@ -525,13 +555,14 @@ case "$1" in
   all)  
     for list in "${bin_list[@]}" ; do
       bin_name="${list}"
+      update_yq
       update_kernel
       update_subgeo
       update_dashboard
     done
     ;;
   *)
-    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|cgroup|port|geox|subs|all}"
+    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|upyq|cgroup|port|geox|subs|all}"
     exit 1
     ;;
 esac
