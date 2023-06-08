@@ -170,6 +170,11 @@ update_subgeo() {
   esac
   if [ "${auto_update_geox}" = "true" ] && log debug "Downloading ${geoip_url}" && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
     log debug "Update geo $(date +"%F %R")"
+    if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
+      ip_port=$(awk '/external-controller:/ {print $2}' "${clash_config}")
+      secret=$(awk '/secret:/ {print $2}' "${clash_config}")
+      busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" # >/dev/null 2>&1
+    fi
     flag=false # if true, after the update is complete it will restart BFM
   fi
   enhanced=false
@@ -201,7 +206,14 @@ update_subgeo() {
         if [ -f "${update_file_name}.bak" ]; then
           rm ${update_file_name}.bak
         fi
-        flag=true # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
+        if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
+          ip_port=$(awk '/external-controller:/ {print $2}' "${clash_config}")
+          secret=$(awk '/secret:/ {print $2}' "${clash_config}")
+          busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" # >/dev/null 2>&1
+          flag=false # if it's true, after the update is complete it will restart BFM, but to update proxy_provider you don't need to restart it, just reload it on the dashboard/yacd
+        else
+          flag=true
+        fi
       else
         log error "subscription failed"
       fi
