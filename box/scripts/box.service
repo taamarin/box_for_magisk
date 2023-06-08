@@ -467,7 +467,8 @@ start_box() {
   # Open the yacd in browser
   if [ "${bin_name}" = "clash" ] && [ "${display_yacd_on_start}" = "true" ]; then
     sleep 0.5
-    am start -a android.intent.action.VIEW -d http://127.0.0.1:9090/ui
+    ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
+    am start -a android.intent.action.VIEW -d "http://${ip_port}/ui"
   fi
 }
 
