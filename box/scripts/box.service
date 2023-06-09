@@ -453,15 +453,8 @@ start_box() {
   detected_port
   still_alive
   display_bin_pid
-  # Open the yacd in browser
-  if [ "${bin_name}" = "clash" ] && [ "${display_yacd_on_start}" = "true" ]; then
-    sleep 0.5
-    ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-    # permission denied if run through Magisk/KernelSu Manager
-    if [ -t 1 ]; then
-      am start -a android.intent.action.VIEW -d "http://${ip_port}/ui"
-    fi
-  fi
+  # open the yacd in browser
+  open_yacd
 }
 
 stop_box() {

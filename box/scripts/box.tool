@@ -84,7 +84,7 @@ update_yq() {
     "x86_64") arch="amd64"; platform="linux" ;;
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
   esac
-  # if you use yq build linux it will error (cmd: mkdir /tmp permission denied), when using cron job
+  # If you use yq_linux, an error will occur (cmd: mkdir /tmp permission denied) when using a cron job.
   download_link="https://github.com/$(if [ "${flag}" = "true" ]; then echo "memcyo/yq/releases/download/yq/yq"; else echo "mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"; fi)"
   log debug "Download ${download_link}"
   update_file "${data_dir}/bin/yq" "${download_link}"
@@ -400,7 +400,7 @@ cgroup_limit() {
 # Check and update yacd
 update_dashboard() {
   # su -c /data/adb/box/scripts/box.tool upyacd
-  if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
+  if [ "${bin_name}" = "clash" -o "${bin_name}" = "sing-box" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
     rm -rf "${data_dir}/${bin_name}/dashboard"
     if [ ! -d "${data_dir}/${bin_name}/dashboard" ]; then
@@ -413,19 +413,25 @@ update_dashboard() {
     fi
     dir_name="Yacd-meta-gh-pages"
     log debug "Download ${url}"
-    busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2 || { log error "Failed to download $url"; exit 1; }
-    unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
-    if [ $unzip_command -eq 0 ]; then
-      unzip_command="unzip"
+    if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
+      unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
+      if [ $unzip_command -eq 0 ]; then
+        unzip_command="unzip"
+      else
+        unzip_command="busybox unzip"
+      fi
+      $unzip_command -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
+      mv -f "${data_dir}/${bin_name}/dashboard/$dir_name"/* "${data_dir}/${bin_name}/dashboard/"
+      rm -f "${file_dashboard}"
+      rm -rf "${data_dir}/${bin_name}/dashboard/${dir_name}"
     else
-      unzip_command="busybox unzip"
+      log error "Failed to download $url" >&2
+      return 1
     fi
-    ${unzip_command} -o "${file_dashboard}" "${dir_name}/*" -d "${data_dir}/${bin_name}/dashboard" >&2
-    mv -f "${data_dir}/${bin_name}/dashboard/$dir_name"/* "${data_dir}/${bin_name}/dashboard"
-    rm -f "${file_dashboard}"
-    rm -r "${data_dir}/${bin_name}/dashboard/${dir_name}"
+    return 0
   else
     log debug "${bin_name} does not support dashboards"
+    return 1
   fi
 }
 
@@ -498,7 +504,10 @@ case "$1" in
     update_yq
     ;;
   upyacd)
-    update_dashboard
+    if update_dashboard; then
+      sleep 0.75
+      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
+    fi
     ;;
   upcore)
     update_kernel
@@ -517,6 +526,9 @@ case "$1" in
       if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
         restart_box
       fi
+    else
+      sleep 0.75
+      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
     fi
     ;;
   subs)
@@ -524,6 +536,9 @@ case "$1" in
       if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
         restart_box
       fi
+    else
+      sleep 0.75
+      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
     fi
     ;;
   geosub)
