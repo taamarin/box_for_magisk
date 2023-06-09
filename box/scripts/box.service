@@ -12,10 +12,8 @@ delete_logs() {
       mv "${run_path}/${bin}.log" "${run_path}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
     fi
   done
-
   # Delete other log files
   find "${run_path}" -type f \( -name "root" -o -name "*.yaml" -o -name "*.list" -o -name "*.inotify.log" -o -name "*-report.log" \) -exec rm -f {} \; || log warn "Error deleting other log files"
-
   # Delete logs that are three days old or older
   find "${run_path}" -type f -name "*.log" -mtime +2 -exec rm -f {} \; || log warn "Error deleting old logs"
 }
@@ -115,7 +113,6 @@ check_in_bin() {
     log error "Error: '${bin_path}' is not a regular file."
     exit 1
   fi
-
   case "${bin_name}" in
     clash)
       if ! "${bin_path}" -v >/dev/null 2>&1; then
@@ -143,7 +140,6 @@ create_tun() {
   if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || ! sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1; then
     echo "Cannot enable IP forwarding."
   fi
-
   # Creates a symlink for /dev/tun if it doesn't already exist
   if [ ! -c "/dev/net/tun" ]; then
     if ! mkdir -p /dev/net; then
@@ -373,7 +369,7 @@ bin_usage() {
 display_bin_pid() {
   # Checks if bin_name is defined
   if [ -z "${bin_name}" ]; then
-    log error "bin_name: '${bin_name}<unknown>' not defined"
+    log error "bin_name:${bin_name}<unknown> not defined"
     return 1
   fi
   # Look up the PID of bin_name
@@ -397,11 +393,6 @@ crontab_alive() {
   busybox crontab -c ${run_path} -r
   touch "${run_path}/root"
   chmod 0755 "${run_path}/root"
-  # Added a cron job to call box.tool keptns every minute
-  if [ "${interval_dns}" != "" ]; then
-    echo "${interval_dns} ${scripts_dir}/box.tool keepdns" >> "${run_path}/root"
-    log info "DNS remains open."
-  fi
   # Displays a configuration message if bin_name is "clash|xray|sing-box|v2ray"
   case "${bin_name}" in
     "clash") log info "config '${clash_config}'";;
@@ -466,7 +457,10 @@ start_box() {
   if [ "${bin_name}" = "clash" ] && [ "${display_yacd_on_start}" = "true" ]; then
     sleep 0.5
     ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-    am start -a android.intent.action.VIEW -d "http://${ip_port}/ui"
+    # permission denied if run through Magisk/KernelSu Manager
+    if [ -t 1 ]; then
+      am start -a android.intent.action.VIEW -d "http://${ip_port}/ui"
+    fi
   fi
 }
 
@@ -523,8 +517,8 @@ case "$1" in
     stop_box
     ;;
   restart)
-    stop_box
     ${scripts_dir}/box.iptables disable >> /dev/null 2>&1
+    stop_box
     sleep 1
     start_box
     ${scripts_dir}/box.iptables renew

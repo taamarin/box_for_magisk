@@ -4,7 +4,9 @@ scripts=$(realpath $0)
 scripts_dir=$(dirname ${scripts})
 source /data/adb/box/settings.ini
 
+# user agent
 user_agent="box_for_root"
+
 # option to download Clash kernel clash-premium{false} or clash-meta{true}
 meta="true"
 
@@ -17,54 +19,16 @@ singbox_releases=false
 # whether use ghproxy to accelerate github download
 use_ghproxy=true
 
-# Check internet connection with mlbox
-check_connection_with_mlbox() {
-  # su -c /data/adb/box/scripts/box.tool testing
-  now=$(date +"%R")
-  connect="\033[1;32mconnect\033[0m"
-  failed="\033[1;33mfailed\033[0m"
-  # Check DNS
-  echo -n "\033[1;34m${now} [info]: dns=\033[0m"
-  ntpip=$(${data_dir}/bin/mlbox -timeout=5 -dns="-qtype=A -domain=asia.pool.ntp.org" | grep -v 'timeout' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}' | head -n 1)
-  if [ -z "${ntpip}" ]; then
-    echo "$failed"
-  else
-    echo "$connect"
-    # Check HTTP
-    echo -n "\033[1;34m${now} [info]: http=\033[0m"
-    httpIP=$(busybox wget -qO- "http://182.254.116.116/d?dn=reddit.com&clientip=1" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 | cut -d "|" -f 2)
-    if [ -z "${httpIP}" ]; then
-      echo "$failed"
-    else
-      echo "$connect"
-      # Check HTTPS
-      echo -n "\033[1;34m${now} [info]: https=\033[0m"
-      httpsResp=$(${data_dir}/bin/mlbox -timeout=5 -http="https://api.infoip.io" 2>&1 | grep -Ev 'timeout|httpGetResponse' | grep -E '[1-9][0-9]{0,2}(\.[0-9]{1,3}){3}')
-      if [ -z "${httpsResp}" ]; then
-        echo "$failed"
-      else
-        echo "$connect"
-        # Check UDP
-        echo -n "\033[1;34m${now} [info]: udp=\033[0m"
-        currentTime=$(${data_dir}/bin/mlbox -timeout=7 -ntp="${ntpip}" | grep -v 'timeout')
-        if echo "${currentTime}" | grep -qi 'LI:'; then
-          echo "$connect"
-        else
-          echo "$failed"
-        fi
-      fi
-    fi
-  fi
-}
-
 # Check if a binary is running by checking the pid file
 probe_bin_alive() {
   if [ ! -f "${pid_file}" ]; then
-    return 1 # pid file not found, binary is not alive
+    log error "pid file not found, binary is not alive"
+    return 1
   fi
   sleep 0.5
   if ! busybox pidof "${bin_name}" >/dev/null; then
-    return 1 # binary is not alive
+    log error "binary is not alive"
+    return 1
   fi
   return 0 # binary is alive
 }
@@ -82,24 +46,6 @@ restart_box() {
   fi
 }
 
-# Set DNS manually, change net.ipv4.ip_forward and net.ipv6.conf.all.forwarding to 1
-keep_dns() {
-  local_dns1=$(getprop net.dns1)
-  local_dns2=$(getprop net.dns2)
-  if [ "${local_dns1}" != "${static_dns1}" ] || [ "${local_dns2}" != "${static_dns2}" ]; then
-    setprop net.dns1 "${static_dns1}"
-    setprop net.dns2 "${static_dns2}"
-  fi
-  if [ "$(sysctl net.ipv4.ip_forward)" != "1" ]; then
-    sysctl -w net.ipv4.ip_forward=1 > /dev/null
-  fi
-  if [ "$(sysctl net.ipv6.conf.all.forwarding)" != "1" ]; then
-    sysctl -w net.ipv6.conf.all.forwarding=1 > /dev/null
-  fi
-  unset local_dns1
-  unset local_dns2
-}
-
 # Updating files from URLs
 update_file() {
   file="$1"
@@ -109,7 +55,7 @@ update_file() {
     mv "${file}" "${file_bak}" || return 1
   fi
   # Use ghproxy
-  if [[ "$use_ghproxy" == true ]] && ([[ "$update_url" == "https://github.com/"* ]] || [[ "$update_url" == "https://raw.githubusercontent.com/"* ]] || [[ "$update_url" == "https://gist.github.com/"* ]] || [[ "$update_url" == "https://gist.githubusercontent.com/"* ]]); then
+  if [[ "$use_ghproxy" == true ]] && (echo "$update_url" | grep -Eq "^(https:\/\/github\.com\/|https:\/\/raw\.githubusercontent\.com\/|https:\/\/gist\.github\.com\/|https:\/\/gist\.githubusercontent\.com\/)"); then
     update_url="https://ghproxy.com/${update_url}"
   fi
   request="busybox wget"
@@ -132,13 +78,15 @@ update_file() {
 update_yq() {
   # su -c /data/adb/box/scripts/box.tool upyq
   case $(uname -m) in
-    "aarch64") arch="arm64"; platform="linux" ;;
+    "aarch64") arch="arm64"; platform="linux"; flag=true ;;
     "armv7l"|"armv8l") arch="arm"; platform="linux" ;;
     "i686") arch="386"; platform="linux" ;;
     "x86_64") arch="amd64"; platform="linux" ;;
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
   esac
-  download_link="https://github.com/mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"
+  # if you use yq build linux it will error (cmd: mkdir /tmp permission denied), when using cron job
+  download_link="https://github.com/$(if [ "${flag}" = "true" ]; then echo "memcyo/yq/releases/download/yq/yq"; else echo "mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"; fi)"
+  log debug "Download ${download_link}"
   update_file "${data_dir}/bin/yq" "${download_link}"
   chmod +x "${data_dir}/bin/yq"
 }
@@ -167,34 +115,21 @@ update_geox() {
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
   esac
-  if [ "${auto_update_geox}" = "true" ] && ( log info "daily updates geox" && log debug "Downloading ${geoip_url}" ) && update_file "${geoip_file}" "${geoip_url}" && log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; then
+  if [ "${auto_update_geox}" = "true" ] && { log info "daily updates geox" && log debug "Downloading ${geoip_url}"; } && update_file "${geoip_file}" "${geoip_url}" && { log debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; }; then
     log debug "Update geox $(date +"%F %R")"
-    flag=true
-    if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
-      if [ -t 1 ] || [ "${auto_update_subscription}" = "false" ] || [ -z "${subscription_url}" ]; then
-        ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-        secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-        if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
-          flag=false
-          log debug "restart by clash.meta api"
-        else
-          flag=true
-        fi
-      fi
-    fi
+    find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
+    find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
+    find "${data_dir}/${bin_name}" -type f -name "*.mmdb.bak" -delete
+    return 0
+  else
+   return 1
   fi
-  if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
-    restart_box
-  fi
-  find "${data_dir}/${bin_name}" -type f -name "*.db.bak" -delete
-  find "${data_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
-  find "${data_dir}/${bin_name}" -type f -name "*.mmdb.bak" -delete
 }
 
+# Check and update subscription
 update_subs() {
   # su -c /data/adb/box/scripts/box.tool subs
   if ! [ -z "${subscription_url}" ]; then
-    flag=true
     enhanced=false
     update_file_name="${clash_config}"
     yq_command=$(command -v yq >/dev/null 2>&1 ; echo $?)
@@ -213,7 +148,7 @@ update_subs() {
         yq="yq"
       fi
     fi
-    if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && ( log info "daily updates subs" && log debug "Downloading ${update_file_name}" ) && update_file "${update_file_name}" "${subscription_url}"; then
+    if [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && { log info "daily updates subs" && log debug "Downloading ${update_file_name}"; } && update_file "${update_file_name}" "${subscription_url}"; then
       # If there is a yq command, extract the proxies information from yml and output it to the clash_provide_config file
       if [ "${enhanced}" = "true" ]; then
         if [ $(cat ${update_file_name} | ${yq} '.proxies' | wc -l) -gt 1 ]; then
@@ -230,25 +165,14 @@ update_subs() {
           log error "update subscription failed"
         fi
       fi
+      return 0
     else
       [ "${bin_name}" = "clash" ] && [ "${auto_update_subscription}" = "true" ] && log error "update subscription failed"
-    fi
-    if [ -f "${pid_file}" ] && [ "${bin_name}" = "clash" ] && [ "${meta}" = "true" ]; then
-      log debug "restart by clash.meta api"
-      ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
-      secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-      if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
-        log debug "restart by clash.meta api"
-        flag=false
-      else
-        flag=true
-      fi
-    fi
-    if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
-      restart_box
+      return 1
     fi
   else
     log warn "subscription url is empty..."
+    return 1
   fi
 }
 
@@ -286,6 +210,7 @@ port_detection() {
   fi
 }
 
+# Check and update kernel
 update_kernel() {
   # su -c /data/adb/box/scripts/box.tool upcore
   case $(uname -m) in
@@ -398,7 +323,6 @@ update_kernel() {
         fi
       else
         log warn "Failed to extract ${data_dir}/${file_kernel}.tar.gz."
-        flag="false"
       fi
     ;;
     v2fly|xray)
@@ -473,6 +397,7 @@ cgroup_limit() {
   return 0
 }
 
+# Check and update yacd
 update_dashboard() {
   # su -c /data/adb/box/scripts/box.tool upyacd
   if [ "${bin_name}" = "sing-box" ] || [ "${bin_name}" = "clash" ]; then
@@ -504,6 +429,7 @@ update_dashboard() {
   fi
 }
 
+# Check config
 reload() {
   # su -c /data/adb/box/scripts/box.tool reload
   case "${bin_name}" in
@@ -519,7 +445,13 @@ reload() {
     clash)
       if ${bin_path} -t -d "${data_dir}/clash" -f "${clash_config}" > "${run_path}/${bin_name}-report.log" 2>&1; then
         log info "config.yaml passed"
-        log info "Open yacd-meta/configs and click 'Reload Configs'"
+        if [ -t 1 ] && [ "${meta}" = "true" ]; then
+          ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
+          secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
+          if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
+            log debug "restart by clash.meta api"
+          fi
+        fi
       else
         log error "config.yaml check failed"
         cat "${run_path}/${bin_name}-report.log" >&2
@@ -531,6 +463,19 @@ reload() {
       exit 1
       ;;
   esac
+}
+
+# clash meta api restart
+api_restart () {
+  ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
+  secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
+  if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" >/dev/null 2>&1 ); then
+    log debug "restart by clash.meta api"
+    return 0
+  else
+    flag=true
+    return 1
+  fi
 }
 
 # Enable ghproxy to accelerate download
@@ -547,13 +492,8 @@ if [[ "$use_ghproxy" == false ]] ; then
     getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
   done
 fi
+
 case "$1" in
-  testing)
-    check_connection_with_mlbox
-    ;;
-  keepdns)
-    keep_dns
-    ;;
   upyq)
     update_yq
     ;;
@@ -573,14 +513,28 @@ case "$1" in
     reload
     ;;
   geox)
-    update_geox
+    if update_geox && ! api_restart; then
+      if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
+        restart_box
+      fi
+    fi
     ;;
   subs)
-    update_subs
+    if update_subs && ! api_restart; then
+      if [ -f "${pid_file}" ] && [ "${flag}" = "true" ]; then
+        restart_box
+      fi
+    fi
     ;;
   geosub)
     update_geox
+    sleep 0.75
     update_subs
+    if ! api_restart; then
+      if [ -f "${pid_file}" ] && [ "${bin_name}" != "clash" ] || [ "${flag}" = "true" ]; then
+        restart_box
+      fi
+    fi
     ;;
   all)  
     update_yq
@@ -593,7 +547,7 @@ case "$1" in
     done
     ;;
   *)
-    echo "$0: usage: $0 {reload|testing|keepdns|connect|upyacd|upcore|upyq|cgroup|port|geox|subs|all}"
+    echo "$0: usage: $0 {reload|connect|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all}"
     exit 1
     ;;
 esac
