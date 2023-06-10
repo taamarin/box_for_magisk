@@ -215,11 +215,10 @@ prepare_clash() {
   clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
   if [ "${clash_tun_status}" != "true" ]; then
     sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
-    # sed -i -E "s/(redir-port: )[0-9]+/\1${redir_port}/" "${clash_config}"
   else
     [ "${proxy_mode}" != "tun" ] && sed -i 's/network_mode=.*/network_mode="mixed"/g' "${settings}"
     sed -i -E "s/(tproxy-port: )[0-9]+/\10/" "${clash_config}"
-    sed -i -E "s/(redir-port: )[0-9]+/\10/" "${clash_config}"
+    sed -i -E "s/(redir-port: )[0-9]+/\1${redir_port}/" "${clash_config}"
   fi
 }
 

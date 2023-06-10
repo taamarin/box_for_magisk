@@ -55,7 +55,7 @@ update_file() {
     mv "${file}" "${file_bak}" || return 1
   fi
   # Use ghproxy
-  if [[ "$use_ghproxy" == true ]] && (echo "$update_url" | grep -Eq "^(https:\/\/github\.com\/|https:\/\/raw\.githubusercontent\.com\/|https:\/\/gist\.github\.com\/|https:\/\/gist\.githubusercontent\.com\/)"); then
+  if [[ "$use_ghproxy" == true ]] && ([[ "$update_url" == "https://github.com/"* ]] || [[ "$update_url" == "https://raw.githubusercontent.com/"* ]] || [[ "$update_url" == "https://gist.github.com/"* ]] || [[ "$update_url" == "https://gist.githubusercontent.com/"* ]]); then
     update_url="https://ghproxy.com/${update_url}"
   fi
   request="busybox wget"
@@ -454,7 +454,7 @@ reload() {
         if [ -t 1 ] && [ "${meta}" = "true" ]; then
           ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
           secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-          if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" ); then
+          if busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart"; then
             log debug "restart by clash.meta api"
           fi
         fi
@@ -475,7 +475,7 @@ reload() {
 api_restart () {
   ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}")
   secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}")
-  if ( busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" >/dev/null 2>&1 ); then
+  if busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" >/dev/null 2>&1; then
     log debug "restart by clash.meta api"
     return 0
   else
@@ -506,7 +506,7 @@ case "$1" in
   upyacd)
     if update_dashboard; then
       sleep 0.75
-      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
+      busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
     fi
     ;;
   upcore)
@@ -528,7 +528,7 @@ case "$1" in
       fi
     else
       sleep 0.75
-      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
+      busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
     fi
     ;;
   subs)
@@ -538,7 +538,7 @@ case "$1" in
       fi
     else
       sleep 0.75
-      (busybox pidof "${bin_name}" >/dev/null 2>&1) && open_yacd
+      busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
     fi
     ;;
   geosub)
