@@ -3,6 +3,10 @@ name: debug
 on:
   workflow_dispatch:
   push:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
     branches:
       - master
 
@@ -16,16 +20,70 @@ jobs:
       - name: Get Version
         id: get_version
         run: |
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/&_$(date +%Y%m%d_%H%M)_debug/g"  module.prop
           echo "version=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-          echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Generate Asset
         run: |
           sudo mkdir -p /box_for_root
           sudo cp -r --parents $(find ./ -type f ! -path './.git/*' ! -name 'CHANGELOG.md' ! -name 'update.json' ! -name 'build.sh' ! -path './.github/*' ! -path './docs/*')  /box_for_root/
 
-      - name: Upload Debug Asset => (box_for_magisk_${{ steps.get_version.outputs.version }}_$(date +%Y%m%d))
+      - name: Upload Debug Asset => (box_for_magisk_${{ steps.get_version.outputs.version }})
         uses: actions/upload-artifact@v3
         with:
-          name: "box_for_magisk_${{ steps.get_version.outputs.version }}_${{ steps.get_version.outputs.date }}"
+          name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
           path: /box_for_root/
+          
+  upload:
+    name: Telegram Upload Release
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Get Version and Build
+        id: get_version
+        run: |
+          sed -i "s/v[0-9]\+\.[0-9]\+\.[0-9]\+/&_$(date +%Y%m%d_%H%M)_debug/g"  module.prop
+          sh build.sh
+ 
+      - name: Release
+        run: |
+          mkdir bfr
+          find -name "*.zip" -exec cp {} bfr \;
+          
+          function upload() {
+            for file in $@; do
+              echo ">> Uploading $file"
+              curl https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendDocument \
+                -X POST \
+                -F chat_id="${{ secrets.TELEGRAM_TO }}" \
+                -F document="@$file" \
+                --silent --show-error --fail >/dev/null &
+            done
+            for job in $(jobs -p); do
+              wait $job || exit 1
+            done
+          }
+          upload bfr/*
+
+  commit:
+    name: Commit GitHub
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: get commit url
+        id: commit_url
+        run: |
+          echo "::set-output name=commit::$(git log -1 --pretty=format:%s)"
+          # echo "::set-output name=url::https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+
+      - name: send commit to telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: "${{ steps.commit_url.outputs.commit }}"

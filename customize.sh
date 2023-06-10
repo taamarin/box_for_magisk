@@ -48,7 +48,7 @@ unzip -o "${ZIPFILE}" -x 'META-INF/*' -d "${MODPATH}" >&2
 
 if [ -d "/data/adb/box" ]; then
   ui_print "- Backup box"
-  latest=$(date '+%Y-%m-%d_%H-%M-%S')
+  latest=$(date '+%Y-%m-%d_%H-%M')
   mkdir -p "/data/adb/box/${latest}"
   mv /data/adb/box/* "/data/adb/box/${latest}/"
   mv $MODPATH/box/* /data/adb/box/
