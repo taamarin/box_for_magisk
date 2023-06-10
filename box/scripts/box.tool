@@ -78,14 +78,14 @@ update_file() {
 update_yq() {
   # su -c /data/adb/box/scripts/box.tool upyq
   case $(uname -m) in
-    "aarch64") arch="arm64"; platform="linux"; flag=true ;;
+    "aarch64") arch="arm64"; platform="android"; flag=true ;;
     "armv7l"|"armv8l") arch="arm"; platform="linux" ;;
     "i686") arch="386"; platform="linux" ;;
     "x86_64") arch="amd64"; platform="linux" ;;
     *) log warn "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
   esac
   # If you use yq_linux, an error will occur (cmd: mkdir /tmp permission denied) when using a cron job.
-  download_link="https://github.com/$(if [ "${flag}" = "true" ]; then echo "memcyo/yq/releases/download/yq/yq"; else echo "mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"; fi)"
+  download_link="https://github.com/$(if [ "${flag}" = "true" ]; then echo "taamarin/yq/releases/download/prerelease/yq_${platform}_${arch}"; else echo "mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"; fi)"
   log debug "Download ${download_link}"
   update_file "${data_dir}/bin/yq" "${download_link}"
   chmod +x "${data_dir}/bin/yq"
@@ -104,7 +104,7 @@ update_geox() {
       ;;
     sing-box)
       geoip_file="${data_dir}/sing-box/geoip.db"
-      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip-lite"
+      geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip-lite.db"
       geosite_file="${data_dir}/sing-box/geosite.db"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.db"
       ;;
@@ -551,10 +551,9 @@ case "$1" in
       fi
     fi
     ;;
-  all)  
+  all)
     update_yq
-    for list in "${bin_list[@]}" ; do
-      bin_name="${list}"
+    for bin_name in "${bin_list[@]}"; do
       update_kernel
       update_geox
       update_subs
@@ -562,7 +561,7 @@ case "$1" in
     done
     ;;
   *)
-    echo "$0: usage: $0 {reload|connect|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all}"
+    echo "$0: usage: $0 {reload|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all}"
     exit 1
     ;;
 esac
