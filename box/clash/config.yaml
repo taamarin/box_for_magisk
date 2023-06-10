@@ -4,81 +4,57 @@ mode: rule
 allow-lan: true
 unified-delay: true
 bind-address: '*'
-# info / warning / error / debug / silent
 log-level: silent
 ipv6: false
 geodata-mode: true
 geodata-loader: memconservative
-external-controller: 0.0.0.0:9090 
-# external-controller-tls: 0.0.0.0:9091 # RESTful API HTTPS device
+external-controller: 127.0.0.1:9090 
 # secret: "123456"
-external-ui: ./dashboard
-# tcp-concurrent: false
-# inbound-tfo: false
-# global-client-fingerprint: chrome
-# interface-name: "rmnet_data+"
+external-ui: /data/adb/box/clash/dashboard
+tcp-concurrent: false
+global-client-fingerprint: chrome
+# interface-name: ""
 # routing-mark: 233
 geox-url:
   mmdb: "https://raw.githubusercontent.com/Loyalsoldier/geoip/release/Country.mmdb"
   geoip: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geoip.dat"
   geosite: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/geosite.dat"
+
 find-process-mode: strict # always, strict, off
 
 profile:
   store-selected: true
   store-fake-ip: false
 
-# experimental:
-  # sniff-tls-sni: false
-  # udp-fallback-match: false
+sniffer:
+  enable: false
+  override-destination: false
+  sniff: # TLS 默认如果不配置 ports 默认嗅探 443
+    TLS:
+      ports: [443, 8443]
+    HTTP: # 需要嗅探的端口, 默认嗅探 80
+      ports: [80, 8080-8880]
+      override-destination: true # 可覆盖 sniffer.override-destination
 
-# sniffer:
-  # enable: false
-  # ## 对 redir-host 类型识别的流量进行强制嗅探
-  # ## 如：Tun、Redir 和 TProxy 并 DNS 为 redir-host 皆属于
-  # force-dns-mapping: true
-  # parse-pure-ip: true
-  # override-destination: true
-  # sniff:
-    # TLS:
-    # #  ports:[443, 8443]
-    # HTTP:
-      # ports: [80, 8080-8880]
-      # override-destination: true
-  # force-domain:
-    # - +.v2ex.com
-  # # skip-domain:
-    # # - +.google.com
-  # sniffing:
-    # - tls
-    # - http
-  # port-whitelist:
-    # - "80"
-    # - "443"
-
-# tun:
-  # enable: true
-  # # biarkan default utun
-  # device: utun
-  # mtu: 9000
-  # # gvisor / lwip / system
-  # stack: system
-  # dns-hijack:
-    # - any:53
-  # # bagi yg awam, kalau TUN on wajib true, only armv8/64
-  # auto-route: true
-  # auto-detect-interface: true
-  # # end
-  # inet4-address: 172.19.0.1/30
-  # inet6-address: [fdfe:dcba:9876::1/126]
-  # strict_route: false
-  # # include_android_user:
-  # # - 0
-  # # - 10
-  # # include_package:
-  # # - com.android.chrome
-  # # exclude_package:
-  # # - com.android.captiveportallogin
+tun:
+  enable: false
+  device: utun
+  mtu: 9000
+  stack: system # gvisor / lwip / system
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+  auto-route: true
+  auto-detect-interface: true
+  inet4-address: 172.19.0.1/30
+  inet6-address: [fdfe:dcba:9876::1/126]
+  # include_android_user:
+    # - 0
+    # - 10
+  # include_package:
+  # - com.android.chrome
+  # exclude_package:
+    # - com.whatsapp
 
 dns:
   enable: true
@@ -86,94 +62,87 @@ dns:
   prefer-h3: true
   default-nameserver:
     # cloudflare
-    - '1.1.1.1#BFM'
-    # google
-    - '8.8.8.8'
+    - '1.1.1.1#PROXY'
   listen: 0.0.0.0:1053
   use-hosts: true
-  # redir-host / fake-ip
   enhanced-mode: fake-ip
   fake-ip-range: 28.0.0.1/8
-  fake-ip-filter:
-    - '+.lan'
+  # fake-ip-filter:
+    # - '+.lan'
   nameserver:
-    # cloudflare
-    - '1.1.1.1'
-    - 'tls://1.0.0.1:853#BFM'
     # google
-    - '8.8.8.8#BFM'
-    - 'tls://8.8.4.4:853'
-  # proxy-server-nameserver:
-    # - '1.1.1.1'
+    - '8.8.8.8#PROXY'
+    - 'tls://8.8.4.4:853#PROXY'
+  proxy-server-nameserver:
+    - '1.1.1.1'
   # nameserver-policy: { "geosite:youtube": [1.1.1.1, 8.8.8.8] }
+  # fallback:
+    # - 'https://8.8.8.8/dns-query'
+    # - 'tcp://8.8.4.4'
+    # - 'quic://dns.adguard.com:784'
+  # fallback-filter:
+    # geoip: false
+    # geoip-code: 'ID'
+    # geosite:
+      # # - gfw
+    # ipcidr:
+      # # - 240.0.0.0/4
+    # domain:
+      # - '+.google.com'
+      # - '+.facebook.com'
+      # - '+.youtube.com'
+      # - '+.github.com'
 
-  fallback:
-    - 'https://8.8.8.8/dns-query'
-    - 'tcp://8.8.4.4'
-    - 'quic://dns.adguard.com:784'
-  fallback-filter:
-    geoip: false
-    geoip-code: '!ID'
-    geosite:
-      # - gfw
-    ipcidr:
-      # - 240.0.0.0/4
-    domain:
-      - '+.google.com'
-      - '+.facebook.com'
-      - '+.youtube.com'
-      - '+.github.com'
-
-hosts:
-  # block update system android
-  'ota.googlezip.net': 127.0.0.1
-  'ota-cache1.googlezip.net': 127.0.0.1
-  'ota-cache2.googlezip.net': 127.0.0.1
+# hosts:
+  # # block update system android
+  # 'ota.googlezip.net': 127.0.0.1
+  # 'ota-cache1.googlezip.net': 127.0.0.1
+  # 'ota-cache2.googlezip.net': 127.0.0.1
 
 proxies:
 proxy-groups:
-  - { name: 'BFM', type: select, use: ["@BFM"] }
-  - { name: 'block', type: select, proxies: ["REJECT", "BFM"] }
+
+  - name: "PROXY"
+    type: select
+    proxies:
+      - "FALLBACK"
+      - "URL-TEST"
+
+  - name: "FALLBACK"
+    type: fallback
+    use:
+      - "provide"
+
+  - name: "URL-TEST"
+    type: url-test
+    use:
+      - "provide"
+
 proxy-providers:
-  '@BFM':
+  "provide":
     type: file
     path: ./provide/domestic.yml
-    # filter: 'xxx'  # Mendukung ekspresi reguler untuk memfilter berdasarkan nama node
-    # exclude-filter: 'ctb' # Mendukung ekspresi reguler untuk dikecualikan berdasarkan nama node
+    # filter: 'xxx' # Supports regular expressions to filter by node name
+    # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
     # exclude-type: 'ss|http' # Tidak mendukung ekspresi reguler, dipisahkan dengan '|', dikecualikan menurut jenis node
     health-check:
       enable: true
       url: http://www.gstatic.com/generate_204
-      interval: 1200
-rules:
-  ## block ads
-  - DOMAIN-SUFFIX,googlesyndication.com,BFM
+      interval: 3600
 
-  ## block iklan
-  # - AND,((GEOSITE,category-ads-all),(NOT,((DOMAIN-SUFFIX,googlesyndication.com)))),REJECT
-  - GEOSITE,category-ads-all,block
+  # "provide-cloud":
+    # type: http
+    # url: "http://fool.azurewebsites.net/get?limit=1&format=clash&cc=SG&cdn=104.18.3.198&network=ws&arg=tfo,xudp,key:value&mode=cdn&pass=password"
+    # interval: 3600
+    # path: ./provide/cloud.yml
+    # # filter: 'xxx' # Supports regular expressions to filter by node name
+    # # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
+    # # exclude-type: 'ss|http' # Tidak mendukung ekspresi reguler, dipisahkan dengan '|', dikecualikan menurut jenis node
+    # health-check:
+      # enable: true
+      # url: http://www.gstatic.com/generate_204
+      # interval: 3600
 
-  ## rules telegram
-  # - GEOIP,telegram,BFM
-
-  ## direct FCM
-  # - AND,((NETWORK,TCP),(DST-PORT,5228-5230),(OR,((DOMAIN-KEYWORD,google)))),DIRECT
-
-  ## direct ntp
-  # - AND,((NETWORK,UDP),(DST-PORT,123)),DIRECT
-  # - DST-PORT,123/136/137-139,DIRECT,udp
-
-  ## block udp/quic YouTube
-  - AND,((NETWORK,udp),(OR,((DST-PORT,443),(GEOSITE,youtube)))),block
-  # - AND,((NETWORK,udp),(GEOSITE,youtube)),REJECT
-
-  ## rules inner, recommended untuk non kuota reguler
-  # - AND,((PROCESS-NAME,clash),(NOT,((IN-TYPE,inner)))),REJECT
-  - IN-TYPE,inner,BFM
-  ## final
-  - MATCH,BFM
-
-## rules clash premium
 # rule-providers:
   # block:
     # type: http
@@ -181,13 +150,47 @@ rules:
     # url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
     # path: ./ruleset/block.yaml
     # interval: 86400
+
+# clash.premium
 # script:
   # shortcuts:
-    # # quic: network == 'udp' and dst_port == 443
+    # quic: network == 'udp' and dst_port == 443
     # youshit: network == 'udp' and ('youtube' in host or 'googlevideo' in host)
-# rules:
-  # - DOMAIN-SUFFIX,googlesyndication.com,BFM
-  # - RULE-SET,block,block
-  # # - SCRIPT,quic,block
-  # - SCRIPT,youshit,block
-  # - MATCH,BFM
+
+rules:
+  ## block ads
+  # - DOMAIN-SUFFIX,googlesyndication.com,PROXY
+  # - AND,((GEOSITE,category-ads-all),(NOT,((DOMAIN-SUFFIX,googlesyndication.com)))),REJECT
+  # - GEOSITE,category-ads-all,REJECT
+  # - RULE-SET,block,REJECT
+  # - SCRIPT,quic,REJECT
+  # - SCRIPT,youshit,REJECT
+
+  ## direct FCM
+  # - AND,((NETWORK,TCP),(DST-PORT,5228-5230)),DIRECT
+  # - AND,((NETWORK,TCP),(DST-PORT,5228-5230),(OR,((DOMAIN-KEYWORD,google)))),DIRECT
+ 
+  ## block udp/quic YouTube
+  # - AND,((NETWORK,udp),(OR,((DST-PORT,443/80),(GEOSITE,youtube)))),REJECT
+  # - AND,((NETWORK,udp),(GEOSITE,youtube)),REJECT
+
+  # fix dnsleak
+  - IP-CIDR,127.0.0.1/32,REJECT,no-resolve
+  - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
+  - IP-CIDR,28.0.0.1/8,REJECT,no-resolve
+  - IP-CIDR6,::1/128,REJECT,no-resolve
+  
+  ## rules telegram
+  # - GEOIP,telegram,PROXY
+  # - GEOSITE,telegram,PROXY
+
+  ## direct ntp
+  # - AND,((NETWORK,UDP),(DST-PORT,123)),DIRECT
+  # - DST-PORT,123/136/137-139,DIRECT,udp
+
+  ## rules inner, recommended untuk non kuota reguler
+  # - AND,((PROCESS-NAME,clash),(NOT,((IN-TYPE,inner)))),REJECT
+  # - IN-TYPE,inner,PROXY
+
+  ## final
+  - MATCH,PROXY
