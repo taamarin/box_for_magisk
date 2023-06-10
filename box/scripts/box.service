@@ -392,11 +392,11 @@ crontab_alive() {
   busybox crontab -c ${run_path} -r
   touch "${run_path}/root"
   chmod 0755 "${run_path}/root"
-  # Displays a configuration message if bin_name is "clash|xray|sing-box|v2ray"
+  # Displays a configuration message if bin_name is "clash|xray|sing-box|v2fly"
   case "${bin_name}" in
     "clash") log info "config '${clash_config}'";;
-    "xray"|"sing-box"|"v2ray") log info "config '${data_dir}/${bin_name}/*.json'";;
-    *) log error "${bin_name}: <unknown>"; exit 1;;
+    "xray"|"sing-box"|"v2fly") log info "config '${data_dir}/${bin_name}/*.json'";;
+    *) log error "bin_name:${bin_name}<unknown>"; exit 1;;
   esac
   # Executes the crontab_geosub function
   crontab_geosub
@@ -431,7 +431,7 @@ start_box() {
   else
     case "${bin_name}" in
       "xray"|"sing-box"|"clash"|"v2fly") log info "Good day" ;;
-      *) log error "bin_name: '${bin_name} <unknown>' not defined"; exit 1 ;;
+      *) log error "bin_name:${bin_name}<unknown> not defined"; exit 1 ;;
     esac
   fi
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second

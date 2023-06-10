@@ -402,18 +402,19 @@ update_dashboard() {
   # su -c /data/adb/box/scripts/box.tool upyacd
   if [ "${bin_name}" = "clash" -o "${bin_name}" = "sing-box" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
-    rm -rf "${data_dir}/${bin_name}/dashboard"
-    if [ ! -d "${data_dir}/${bin_name}/dashboard" ]; then
-      log info "dashboard folder not exist, creating it"
-      mkdir "${data_dir}/${bin_name}/dashboard"
-    fi
-    url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
+    url="https://github.com/MetaCubeX/yacd-meta/archive/gh-pages.zip"
     if [[ "$use_ghproxy" == true ]]; then
       url="https://ghproxy.com/${url}"
     fi
-    dir_name="Yacd-meta-gh-pages"
+    dir_name="yacd-meta-gh-pages"
     log debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
+      if [ ! -d "${data_dir}/${bin_name}/dashboard" ]; then
+        log info "dashboard folder not exist, creating it"
+        mkdir "${data_dir}/${bin_name}/dashboard"
+      else
+        rm -rf "${data_dir}/${bin_name}/dashboard/"*
+      fi
       unzip_command="$(command -v unzip >/dev/null 2>&1 ; echo $?)"
       if [ $unzip_command -eq 0 ]; then
         unzip_command="unzip"
@@ -425,7 +426,7 @@ update_dashboard() {
       rm -f "${file_dashboard}"
       rm -rf "${data_dir}/${bin_name}/dashboard/${dir_name}"
     else
-      log error "Failed to download $url" >&2
+      log error "Failed to download dashboard" >&2
       return 1
     fi
     return 0
