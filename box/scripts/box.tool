@@ -135,7 +135,7 @@ update_subs() {
     yq_command=$(command -v yq >/dev/null 2>&1 ; echo $?)
     # If native yq dont exist
     if [ "$yq_command" -eq 1 ]; then
-      [ -e "${data_dir}/bin/yq" ] || ( log debug "yq command no found, start to download from github" && update_yq )
+      [ -e "${data_dir}/bin/yq" ] || ( log debug "yq command found, start to download from github" && update_yq )
       yq_command=$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)
     fi
     wc_command=$(command -v wc >/dev/null 2>&1; echo $?)
@@ -402,11 +402,11 @@ update_dashboard() {
   # su -c /data/adb/box/scripts/box.tool upyacd
   if [ "${bin_name}" = "clash" -o "${bin_name}" = "sing-box" ]; then
     file_dashboard="${data_dir}/${bin_name}/dashboard.zip"
-    url="https://github.com/MetaCubeX/yacd-meta/archive/gh-pages.zip"
+    url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
     if [[ "$use_ghproxy" == true ]]; then
       url="https://ghproxy.com/${url}"
     fi
-    dir_name="yacd-meta-gh-pages"
+    dir_name="Yacd-meta-gh-pages"
     log debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
       if [ ! -d "${data_dir}/${bin_name}/dashboard" ]; then
