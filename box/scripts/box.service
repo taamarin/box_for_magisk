@@ -441,8 +441,8 @@ start_box() {
   create_tun
   run_box
   sleep 1
-  # Execute crontab_alive if crontab_sec is not equal to "false"
-  if [ "${crontab_sec}" != "false" ]; then
+  # Execute crontab_alive if run_crontab is not equal to "false"
+  if [ "${run_crontab}" != "false" ]; then
     crontab_alive
   else
     log info "crontab: disabled."

@@ -486,19 +486,19 @@ api_restart () {
 }
 
 # Enable ghproxy to accelerate download
-if [[ "$use_ghproxy" == false ]] ; then
-  echo "- It seems that you are downloading from GitHub."
-  echo "- Do you want to use the GitHub proxy service to download?"
-  echo "- [ Vol UP: Yes ]"
-  echo "- [ Vol DOWN: No ]"
-  while true; do
-    getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP && {
-      use_ghproxy=true
-      break
-    }
-    getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
-  done
-fi
+# if [[ "$use_ghproxy" == false ]] ; then
+  # echo "- It seems that you are downloading from GitHub."
+  # echo "- Do you want to use the GitHub proxy service to download?"
+  # echo "- [ Vol UP: Yes ]"
+  # echo "- [ Vol DOWN: No ]"
+  # while true; do
+    # getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP && {
+      # use_ghproxy=true
+      # break
+    # }
+    # getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN && break
+  # done
+# fi
 
 case "$1" in
   upyq)
@@ -547,7 +547,7 @@ case "$1" in
     sleep 0.75
     update_subs
     if ! api_restart; then
-      if [ -f "${pid_file}" ] && [ "${bin_name}" != "clash" ] || [ "${flag}" = "true" ]; then
+      if [ -f "${pid_file}" ] && [ "${bin_name}" != "clash" ] && [ "${flag}" = "true" ]; then
         restart_box
       fi
     fi
