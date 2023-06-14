@@ -88,7 +88,7 @@ update_yq() {
   download_link="https://github.com/$(if [ "${flag}" = "true" ]; then echo "taamarin/yq/releases/download/prerelease/yq_${platform}_${arch}"; else echo "mikefarah/yq/releases/latest/download/yq_${platform}_${arch}"; fi)"
   log debug "Download ${download_link}"
   update_file "${data_dir}/bin/yq" "${download_link}"
-  chmod +x "${data_dir}/bin/yq"
+  chmod 0755 "${data_dir}/bin/yq"
 }
 
 # Check and update geoip and geosite
@@ -135,7 +135,8 @@ update_subs() {
     yq_command=$(command -v yq >/dev/null 2>&1 ; echo $?)
     # If native yq dont exist
     if [ "$yq_command" -eq 1 ]; then
-      [ -e "${data_dir}/bin/yq" ] || ( log debug "yq command found, start to download from github" && update_yq )
+      [ -e "${data_dir}/bin/yq" ] || ( log debug "yq file not found, start to download from github" && update_yq )
+      chmod 0755 ${data_dir}/bin/yq
       yq_command=$(command -v ${data_dir}/bin/yq >/dev/null 2>&1 ; echo $?)
     fi
     wc_command=$(command -v wc >/dev/null 2>&1; echo $?)

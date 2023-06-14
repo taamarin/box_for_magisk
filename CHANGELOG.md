@@ -1,3 +1,6 @@
+#### Changelog v0.9.1
++ fix Cron Job can't start/update `geosub`, if `use_ghproxy=false`
+
 #### Changelog v0.9.0
 + fix: Cron Job update Geox and Subs [click](https://github.com/taamarin/box_for_magisk/blob/bbeb8018aeadaa9d845f3e3d5d38a0446d694f34/box/settings.ini#L45-L56)
     + for manual
