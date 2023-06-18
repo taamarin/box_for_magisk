@@ -5,6 +5,12 @@ if [ -n "$(magisk -v | grep lite)" ]; then
   moddir="/data/adb/lite_modules/box_for_root"
 fi
 
+if [ -f "/data/adb/magisk/busybox" ]; then
+  busybox="/data/adb/magisk/busybox"
+elif [ -f "/data/adb/ksu/bin/busybox" ]; then
+  busybox="/data/adb/ksu/bin/busybox"
+fi
+
 scripts_dir="/data/adb/box/scripts"
 
 refresh_box() {
@@ -26,10 +32,10 @@ start_service() {
 
     for pid in $(pidof inotifyd); do
       if grep -q box.inotify /proc/${pid}/cmdline; then
-        kill ${pid}
+        kill -15 ${pid}
       fi
     done
-
+    sleep 0.3
     inotifyd "${scripts_dir}/box.inotify" "${moddir}" >> "/dev/null" 2>&1 &
   fi
 }

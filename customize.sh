@@ -86,8 +86,9 @@ chmod ugo+x /data/adb/box/scripts/*
 
 ui_print ""
 ui_print "-----------------------------------------------------------"
-ui_print "- do you want to download KERNEL and GEOX?"
+ui_print "- Do you want to download KERNEL and GEOX?"
 ui_print "- Make sure you have a good internet connection."
+ui_print "- size ±100MB."
 ui_print "- [ Vol UP: Yes ]"
 ui_print "- [ Vol DOWN: No ]"
 while true ; do
@@ -95,17 +96,17 @@ while true ; do
   sleep 1
   if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
     ui_print "- it will take a while...."
-    /data/adb/box/scripts/box.tool all && echo "- downloads are complete."
+    /data/adb/box/scripts/box.tool all && ui_print "- downloads are complete."
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-     ui_print "- ignore download GEOX and KERNEL"
+     ui_print "- skip download KERNEL and GEOX"
     break
   fi
 done
 
 for pid in $(${busybox} pidof inotifyd) ; do
   if grep -q box.inotify /proc/${pid}/cmdline ; then
-    kill ${pid}
+    kill -15 ${pid}
   fi
 done
 

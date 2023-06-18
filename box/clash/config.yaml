@@ -8,7 +8,7 @@ log-level: silent
 ipv6: false
 geodata-mode: true
 geodata-loader: memconservative
-external-controller: 127.0.0.1:9090 
+external-controller: 0.0.0.0:9090 
 # secret: "123456"
 external-ui: /data/adb/box/clash/dashboard
 tcp-concurrent: false
@@ -121,10 +121,10 @@ proxy-groups:
 proxy-providers:
   "provide":
     type: file
-    path: ./provide/domestic.yml
+    path: ./provide/subscription.yml
     # filter: 'xxx' # Supports regular expressions to filter by node name
     # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
-    # exclude-type: 'ss|http' # Tidak mendukung ekspresi reguler, dipisahkan dengan '|', dikecualikan menurut jenis node
+    # exclude-type: 'ss|http' # Does not support regular expressions, separated by '|', excluded by node type
     health-check:
       enable: true
       url: http://www.gstatic.com/generate_204

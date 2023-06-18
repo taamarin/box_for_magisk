@@ -1,13 +1,13 @@
 #!/system/bin/sh
 
-scripts=$(realpath $0)
-scripts_dir=$(dirname ${scripts})
+scripts=$(realpath "$0")
+scripts_dir=$(dirname "${scripts}")
 source /data/adb/box/settings.ini
 
 # Variabel yang digunakan
-table='0x69'
-fwmark='0x69'
-pref='0x64'
+table="223"
+fwmark="223"
+pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
 # Looking for value from "fake-ip-range: / listen: / tun_device" block in YAML / JSON configuration file
@@ -22,27 +22,30 @@ if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
       log info "tun_device: $tun_device"
       ;;
     sing-box)
-      tun_device=$(find "${data_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
+      tun_device=$(find "${box_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
       log info "tun_device: $tun_device"
       ;;
+    xray|v2fly)
+      log error "does not support proxy_mode: tun"
+      exit 1
+      ;;
     *)
-      :
+      log error "<${bin_name}> unknown binary."
+      exit 1
       ;;
   esac
 fi
 
-probe_empty () {
-if [ "${bin_name}" = "clash" ]; then
-  if [ "${clash_enhanced_mode}" = "fake-ip" ] ; then
-    if [ -z "${clash_fake_ip_range}" ] && [ -z "${clash_dns_port}" ]; then
-      log info "could not find value from 'listen/fake-ip-range' block in YAML configuration file."
-      exit 1
-    fi
-  fi
-fi
-}
+# if [ "${bin_name}" = "clash" ]; then
+  # if [ "${clash_enhanced_mode}" = "fake-ip" ] ; then
+    # if [ -z "${clash_fake_ip_range}" ] && [ -z "${clash_dns_port}" ]; then
+      # log info "could not find value from 'listen/fake-ip-range' block in YAML configuration file."
+      # exit 1
+    # fi
+  # fi
+# fi
 
-network_port() {
+box_sync_port() {
   if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
     sleep 0.5
     netstat -tnulp | grep -q "${tproxy_port}" || log warn "tproxy_port: ${tproxy_port} out of sync with config"
@@ -124,8 +127,9 @@ intranet6=(
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
   ${iptables} $1 FORWARD -i "${tun_device}" -j ACCEPT
-}
+} >> /dev/null 2>&1
 
+# box.redirect
 start_redirect() {
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     ${iptables} -t nat -N BOX_EXTERNAL
@@ -262,6 +266,7 @@ stop_redirect() {
   fi
 }
 
+# box.tproxy
 start_tproxy() {
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
@@ -478,6 +483,7 @@ start_tproxy() {
     fi
   fi
 }
+
 stop_tproxy() {
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     ip rule del fwmark "${fwmark}" table "${table}" pref "${pref}"
@@ -567,7 +573,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             ipv6_enable
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-            start_tproxy && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+            start_tproxy && log info "create ip(6)tables transparent proxy rules done." || { log error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -584,7 +590,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             ipv6_enable
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-            start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log info "create ip(6)tables transparent proxy rules done." || { log error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -603,7 +609,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             forward -I || forward -D >> /dev/null 2>&1
-            start_redirect && log info "create ip6tables transparent proxy rules done." || (log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
+            start_redirect && log info "create ip(6)tables transparent proxy rules done." || (log error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -614,8 +620,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      probe_empty
-      network_port
+      box_sync_port
       log info "${bin_name} connected."
       ;;
     renew)
@@ -645,7 +650,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             ipv6_enable
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-            start_tproxy && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+            start_tproxy && log info "create ip(6)tables transparent proxy rules done." || { log error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -662,7 +667,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             ipv6_enable
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-            start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log info "create ip(6)tables transparent proxy rules done." || { log error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -681,7 +686,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             iptables="ip6tables -w 64"
             intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             forward -I || forward -D >> /dev/null 2>&1
-            start_redirect && log info "create ip6tables transparent proxy rules done." || { log error "create ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log info "create ip(6)tables transparent proxy rules done." || { log error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
             log warn "disable IPv6."
@@ -692,31 +697,31 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      probe_empty
-      network_port
+      box_sync_port
       log info "restart iptables transparent proxy rules done."
       log info "${bin_name} connected."
       ;;
     disable)
       ipv6_enable
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      log warn "cleaning up iptables transparent proxy rules."
+      log warn "clean up iptables transparent proxy rules."
       #ipv4
       iptables="iptables -w 64" && {
         stop_tproxy
         stop_redirect
         forward -D
-      }
+      } >> /dev/null 2>&1
       #ipv6
       iptables="ip6tables -w 64" && {
         stop_tproxy
         stop_redirect
         forward -D
-      }
+      } >> /dev/null 2>&1
       log warn "clean up iptables transparent proxy rules done."
       ;;
     *)
-      echo "$0: usage: $0 {enable|disable|renew}"
+      echo "${red}$0 $1 no found${normal}"
+      echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}enable|disable|renew${normal}}"
       ;;
   esac
 else
@@ -743,12 +748,12 @@ else
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "create ip6tables tun rules done." || { log error "create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "create ip(6)tables tun rules done." || { log error "create ip(6)tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
       fi
-      network_port
+      box_sync_port
       log info "${bin_name} connected."
       ;;
     renew)
@@ -774,12 +779,12 @@ else
         log debug "use IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log info "create ip6tables tun rules done." || { log error "create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log info "create ip(6)tables tun rules done." || { log error "create ip(6)tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
         log warn "disable IPv6."
       fi
-      network_port
+      box_sync_port
       log info "restart iptables tun rules done."
       log info "${bin_name} connected."
       ;;
@@ -791,18 +796,19 @@ else
       iptables="iptables -w 64" && {
         stop_tproxy
         stop_redirect
+        forward -D
       } >> /dev/null 2>&1
-      iptables="iptables -w 64" && forward -D
       #ipv6
       iptables="ip6tables -w 64" && {
         stop_tproxy
         stop_redirect
+        forward -D
       } >> /dev/null 2>&1
-      iptables="ip6tables -w 64" && forward -D
       log warn "clean up tun rules done."
       ;;
     *)
-      echo "$0: usage: $0 {enable|disable|renew}"
+      echo "${red}$0 $1 no found${normal}"
+      echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}enable|disable|renew${normal}}"
       ;;
   esac
 fi

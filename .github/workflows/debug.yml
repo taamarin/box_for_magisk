@@ -33,10 +33,11 @@ jobs:
         with:
           name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
           path: /box_for_root/
-          
+
   upload:
     name: Telegram Upload Release
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.event.head_commit.message, '[telUp]') }}
     needs: [build]
     steps:
       - uses: actions/checkout@v3
@@ -70,6 +71,7 @@ jobs:
   commit:
     name: Commit GitHub
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.event.head_commit.message, '[telUp]') }}
     needs: [build]
     steps:
       - name: Checkout Repository
@@ -79,7 +81,6 @@ jobs:
         id: commit_url
         run: |
           echo "::set-output name=commit::$(git log -1 --pretty=format:%s)"
-          # echo "::set-output name=url::https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
 
       - name: send commit to telegram
         uses: appleboy/telegram-action@master

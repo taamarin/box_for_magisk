@@ -1,224 +1,98 @@
 {
-  "log": {
-    "disabled": false,
-    "timestamp": false,
-    "level": "error"
-  },
-  "dns": {
-    "servers": [
-      {
-        "tag": "cloudflare",
-        "address": "tls://1.1.1.1"
-      },
-      {
-        "tag": "rcode",
-        "address": "rcode://success"
-      }
-      // {
-        // "tag": "fakedns",
-        // "address": "fakeip"
-      // }
-    ],
-    "rules": [
-      {
-        "outbound": "any",
-        "domain_suffix": [
-          "googlesyndication.com"
+    "log": {
+        "disabled": false,
+        "timestamp": false,
+        "level": "panic"
+    },
+    "dns": {
+        "servers": [
+            {
+                "tag": "sing",
+                "address": "8.8.8.8",
+                "detour": "PROXY"
+            },
+            {
+                "tag": "rcode",
+                "address": "rcode://success"
+            }
         ],
-        "server": "cloudflare",
-        "disable_cache": true
-      },
-      {
-        "geosite": "category-ads-all",
-        "server": "rcode"
-      }
-      // {
-        // "query_type": [
-          // "A",
-          // "AAAA"
-        // ],
-        // "server": "fakedns"
-      // }
-    ],
-    "fakeip": {
-      "enabled": false,
-      "inet4_range": "198.18.0.0/15",
-      "inet6_range": "fc00::/18"
+        "rules": [
+            {
+                "outbound": "any",
+                "domain_suffix": [
+                    "googlesyndication.com"
+                ],
+                "domain": [
+                    "github.com"
+                ],
+                "server": "sing"
+            },
+            {
+                "geosite": "category-ads-all",
+                "server": "rcode"
+            }
+        ]
     },
-    "strategy": ""
-  },
-  "inbounds": [
-    {
-      "type": "tproxy",
-      "tag": "tproxy-in",
-      "listen": "::",
-      "listen_port": 9898,
-      "sniff": true
-    }
-  ],
-  "outbounds": [
-    {
-      "default": "NODE",
-      "outbounds": [
-        "NODE",
-        "🐉 1.htmlcdn.net",
-        "🐉 sg-contabo3.1server.co",
-        "🐉 sg.xmbb.net",
-        "🐉 runcloud-dmd.apasih.id",
-        "🐅 vpn.sumaterapride.live"
-      ],
-      "tag": "PROXY",
-      "type": "selector"
-    },
-    {
-      "interval": "1m",
-      "outbounds": [
-        "🐉 1.htmlcdn.net",
-        "🐉 sg-contabo3.1server.co",
-        "🐉 sg.xmbb.net",
-        "🐉 runcloud-dmd.apasih.id",
-        "🐅 vpn.sumaterapride.live"
-      ],
-      "tag": "NODE",
-      "type": "urltest",
-      "url": "http://www.gstatic.com/generate_204"
-    },
-    {
-      "tag": "direct",
-      "type": "direct"
-    },
-    {
-      "tag": "block",
-      "type": "block"
-    },
-    {
-      "tag": "dns-out",
-      "type": "dns"
-    },
-    {
-      "alter_id": 0,
-      "security": "auto",
-      "server": "104.18.3.198",
-      "server_port": 80,
-      "tag": "🐉 1.htmlcdn.net",
-      "transport": {
-        "headers": {
-          "Host": "1.htmlcdn.net"
-        },
-        "path": "/files",
-        "type": "ws"
-      },
-      "packet_encoding": "xudp",
-      "type": "vmess",
-      "uuid": "aaaaa-aaaaa"
-    },
-    {
-      "alter_id": 0,
-      "security": "auto",
-      "server": "104.18.3.198",
-      "server_port": 80,
-      "tag": "🐉 sg-contabo3.1server.co",
-      "transport": {
-        "headers": {
-          "Host": "sg-contabo3.1server.co"
-        },
-        "path": "/files",
-        "type": "ws"
-      },
-      "packet_encoding": "xudp",
-      "type": "vmess",
-      "uuid": "aaaaa-aaaaa"
-    },
-    {
-      "alter_id": 0,
-      "security": "auto",
-      "server": "104.18.3.198",
-      "server_port": 80,
-      "tag": "🐉 sg.xmbb.net",
-      "transport": {
-        "headers": {
-          "Host": "sg.xmbb.net"
-        },
-        "path": "/files",
-        "type": "ws"
-      },
-      "packet_encoding": "xudp",
-      "type": "vmess",
-      "uuid": "aaaaa-aaaaa"
-    },
-    {
-      "password": "aaaaa",
-      "server": "104.18.3.198",
-      "server_port": 443,
-      "tag": "🐉 runcloud-dmd.apasih.id",
-      "tls": {
-        "disable_sni": false,
-        "enabled": true,
-        "insecure": true,
-        "server_name": "runcloud-dmd.apasih.id",
-        "utls": {
-          "enabled": true,
-          "fingerprint": "chrome"
+    "inbounds": [
+        {
+            "type": "tproxy",
+            "tag": "tproxy-in",
+            "listen": "::",
+            "listen_port": 9898,
+            "sniff": true,
+            "sniff_override_destination": true
         }
-      },
-      "transport": {
-        "headers": {
-          "Host": "runcloud-dmd.apasih.id"
-        },
-        "path": "/buy-trojan-ws-pm-telegram-at-synricha",
-        "type": "ws"
-      },
-      "multiplex": {
-        "enabled": true,
-        "protocol": "h2mux",
-        "max_streams": 32
-      },
-      "type": "trojan"
-    },
-    {
-      "alter_id": 0,
-      "security": "auto",
-      "server": "104.18.3.198",
-      "server_port": 80,
-      "tag": "🐅 vpn.sumaterapride.live",
-      "transport": {
-        "headers": {
-          "Host": "vpn.sumaterapride.live"
-        },
-        "path": "/vmess",
-        "type": "ws"
-      },
-      "packet_encoding": "xudp",
-      "type": "vmess",
-      "uuid": "aaaaa-aaaaa"
-    }
-  ],
-  "route": {
-    "final": "PROXY",
-    "rules": [
-      {
-        "port": 53,
-        "outbound": "dns-out"
-      },
-      {
-        "domain_suffix": [
-          "googlesyndication.com"
-        ],
-        "outbound": "PROXY"
-      },
-      {
-        "geosite": "category-ads-all",
-        "outbound": "block"
-      }
     ],
-    "find_process": false,
-    "auto_detect_interface": false
-  },
-  "experimental": {
-    "clash_api": {
-      "external_controller": "127.0.0.1:9090",
-      "external_ui": "./dashboard",
-      "store_selected": false
+    "outbounds": [
+        {
+            "outbounds": [
+                "direct"
+            ],
+            "tag": "PROXY",
+            "type": "selector"
+        },
+        {
+            "tag": "direct",
+            "type": "direct"
+        },
+        {
+            "tag": "block",
+            "type": "block"
+        },
+        {
+            "tag": "dns-out",
+            "type": "dns"
+        }
+    ],
+    "route": {
+        "final": "PROXY",
+        "rules": [
+            {
+                "port": 53,
+                "outbound": "dns-out"
+            },
+            {
+                "domain_suffix": [
+                    "googlesyndication.com"
+                ],
+                "domain": [
+                    "github.com"
+                ],
+                "outbound": "PROXY"
+            },
+            {
+                "geosite": "category-ads-all",
+                "outbound": "block"
+            }
+        ],
+        "find_process": false,
+        "auto_detect_interface": true
+    },
+    "experimental": {
+        "clash_api": {
+            "external_controller": "127.0.0.1:9090",
+            "external_ui": "./dashboard",
+            "store_selected": false
+        }
     }
-  }
 }
