@@ -1,12 +1,12 @@
 # Box for Magisk
+
 [![id](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](docs/index_id.md) [![en](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](docs/index_en.md) [![cn](https://img.shields.io/badge/cn-blue.svg?style=for-the-badge)](docs/index_cn.md)
 
 <h1 align="center">
-  <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.png" alt="BOX" width="200">
+  <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.svg" alt="BOX" width="200">
   <br>BOX<br>
 </h1>
 <h4 align="center">Transparent Proxy for Android(root)</h4>
-
 
 <div align="center">
 
@@ -17,10 +17,10 @@
 
 This project is a [Magisk](https://github.com/topjohnwu/Magisk) module which includes `clash`, `sing-box`, `v2ray` and `xray` proxies.
 
-
 ## Tun (tcp + udp)
 
-```open and edit /data/adb/box/settings.ini```
+`open and edit /data/adb/box/settings.ini`
+
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
@@ -29,6 +29,7 @@ proxy_mode="tun" # change to tun
 ```
 
 **sing-box config.json**
+
 ```json
   "inbounds": [
     {
@@ -47,6 +48,7 @@ proxy_mode="tun" # change to tun
     }
   ],
 ```
+
 ```json
   "route": {
     "final": "PROXY",
@@ -56,11 +58,12 @@ proxy_mode="tun" # change to tun
         "outbound": "dns-out"
       },
     ],
-    "auto_detect_interface": true // set true, 
+    "auto_detect_interface": true // set true,
   }
 ```
 
 **clash config.yaml**
+
 ```yaml
 tun:
   enable: true
@@ -78,10 +81,10 @@ tun:
   inet6-address: [fdfe:dcba:9876::1/126]
 ```
 
-
 ## Mixed (redirec tcp + tun udp)
 
-```open and edit /data/adb/box/settings.ini```
+`open and edit /data/adb/box/settings.ini`
+
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
@@ -95,6 +98,7 @@ proxy_mode="blacklist"
 ```
 
 **sing-box config.json**
+
 ```json
   "inbounds": [
     {
@@ -120,6 +124,7 @@ proxy_mode="blacklist"
     }
   ]
 ```
+
 ```json
   "route": {
     "final": "PROXY",
@@ -129,11 +134,12 @@ proxy_mode="blacklist"
         "outbound": "dns-out"
       },
     ],
-    "auto_detect_interface": true // set true, 
+    "auto_detect_interface": true // set true,
   }
 ```
 
 **clash config.yaml**
+
 ```yaml
 redir-port: 9797
 
@@ -153,9 +159,10 @@ tun:
   inet6-address: [fdfe:dcba:9876::1/126]
 ```
 
-
 ## Tproxy (tcp + tun)
-```open and edit /data/adb/box/settings.ini```
+
+`open and edit /data/adb/box/settings.ini`
+
 ```shell
 # select the client to use : clash / sing-box / xray / v2fly
 bin_name="good day"
@@ -167,8 +174,9 @@ network_mode="tproxy" # change to tproxy
 # Proxy mode: blacklist / whitelist / tun (only tun auto-route)
 proxy_mode="blacklist"
 ```
- 
+
 **sing-box config.json**
+
 ```json
   "inbounds": [
     {
@@ -186,26 +194,27 @@ proxy_mode="blacklist"
 ```
 
 **clash config.yaml**
+
 ```yaml
 tproxy-port: 9898
-
 # tun:
-  # enable: false
-  # # biarkan default utun
-  # device: utun
-  # mtu: 9000
-  # # gvisor / lwip / system
-  # stack: system
-  # dns-hijack:
-    # - any:53
-  # auto-route: true
-  # auto-detect-interface: true
-  # # end
-  # inet4-address: 172.19.0.1/30
-  # inet6-address: [fdfe:dcba:9876::1/126]
+# enable: false
+# # biarkan default utun
+# device: utun
+# mtu: 9000
+# # gvisor / lwip / system
+# stack: system
+# dns-hijack:
+# - any:53
+# auto-route: true
+# auto-detect-interface: true
+# # end
+# inet4-address: 172.19.0.1/30
+# inet6-address: [fdfe:dcba:9876::1/126]
 ```
 
 **xray/v2ray config.json**
+
 ```json
   "inbounds": [
     {
@@ -235,6 +244,6 @@ tproxy-port: 9898
 
 #### make sure the ports in settings.ini and configuration are in sync.
 
-
 ## Credits
-  - [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)
+
+- [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk)

@@ -137,4 +137,4 @@ The `BFM` service script is /data/adb/box/scripts/box.service
 ```
 
 ## CHANGELOG
-[CHANGELOG](CHANGELOG.md)
+[CHANGELOG](../CHANGELOG.md)
