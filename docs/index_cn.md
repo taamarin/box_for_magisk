@@ -23,7 +23,7 @@
 
 内核对应的配置为 `${bin_name}`, 可以设置为( `clash` | `xray` | `v2ray` | `sing-box`).
 
-每个核心都在`/data/adb/box/bin/${bin_name}`目录中工作，核心名称由 `/data/adb/box//settings.ini` 文件中的 `bin_name` 确定。
+每个核心都在`/data/adb/box/bin/${bin_name}`目录中工作，核心名称由 `/data/adb/box/settings.ini` 文件中的 `bin_name` 确定。
 
 确保您已连接到互联网，并执行以下命令以更新内核文件：
 
@@ -64,7 +64,7 @@ su -c /data/adb/box/scripts/box.tool all
 - BFM 默认为所有 Android 用户的所有应用程序（APP）提供代理。
 - 如果您想让 BFM 代理所有应用程序（APP），除了某些应用程序，请打开文件/data/adb/box/settings.ini，将 proxy_mode 的值更改为 blacklist（默认），将要排除的应用程序添加到 packages_list，例如：packages_list=("com.termux" "org.telegram.messenger")
 - 如果您只想代理某些应用程序（APP），请使用 whitelist。
-- 当 proxy_mode 的值为 core/tun 时，透明代理将不起作用，仅启动相应的内核，用于支持 TUN，目前仅有 clash 和 sing-box 可用。
+- 当 proxy_mode 的值为 tun 时，透明代理将不起作用，仅启动相应的内核，用于支持 TUN，目前仅有 clash 和 sing-box 可用。
 - 如果使用 Clash，在 fake-ip 模式下，黑名单和白名单将无法生效。
 
 ### 更改代理模式
@@ -81,6 +81,17 @@ su -c /data/adb/box/scripts/box.tool all
 - 打开文件 /data/adb/box/settings.ini，修改 ignore_out_list 并添加 wlan+，这样透明代理将绕过 wlan，并且热点不会连接到代理。
 - 打开文件 /data/adb/box/settings.ini，修改 ap_list 并添加 wlan+。BFM 将代理热点（对于联发科设备，可能是 ap+ / wlan+）。
 - 使用终端中的 ifconfig 命令找出 AP 的名称。
+
+### 启用 Cron 作业以按计划自动更新 Geo 和 Subs
+
+- 打开文件 /data/adb/box/settings.ini，更改 run_crontab=true 的值，并设置 interval_update=“@daily”（默认），调整为你想要的。
+
+```shell
+  # 运行命令
+  su -c /data/adb/box/scripts/box.service cron
+```
+
+- 因此 Geox 和 Subs 将根据 interval_update 时间表自动更新。
 
 ## 启动和停止
 
@@ -156,7 +167,7 @@ su -c /data/adb/box/scripts/box.tool all
   su -c /data/adb/box/scripts/box.tool
   # usage: $0 {rconf|reload|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all}
   su -c /data/adb/box/scripts/box.service
-  # usage: $0 {start|stop|restart|usage}
+  # usage: $0 {start|stop|restart|usage|cron}
   su -c /data/adb/box/scripts/box.iptables
   # usage: $0 {enable|disable|renew}
 ```
