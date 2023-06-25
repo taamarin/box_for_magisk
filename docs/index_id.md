@@ -138,4 +138,4 @@ Jika Anda ingin mengontrol `BFM` sepenuhnya dengan menjalankan perintah, buat sa
 ```
 
 ## CHANGELOG
-[CHANGELOG](CHANGELOG.md)
+[CHANGELOG](../CHANGELOG.md)
