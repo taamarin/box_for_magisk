@@ -742,7 +742,6 @@ else
       misc_info
       log info "use TUN: TCP + UDP"
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      log info "proxy_mode: ${proxy_mode}, disable transparent proxy."
       #ipv4
       iptables="iptables -w 64" && {
         stop_tproxy

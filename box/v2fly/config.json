@@ -1,47 +1,59 @@
 {
-    "log": {
-        "access": "none",
-        "loglevel": "error",
-        "dnsLog": true
+    "dns": {
+        "queryStrategy": "UseIP",
+        "servers": [
+            "8.8.8.8"
+        ],
+        "tag": "dns",
+        "hosts": {}
     },
     "inbounds": [
         {
-            "tag": "proxy-in",
-            "port": 9898,
+            "port": 5335,
             "protocol": "dokodemo-door",
+            "tag": "proxy-in",
             "settings": {
-                "network": "tcp,udp",
-                "followRedirect": true
+                "followRedirect": true,
+                "network": "tcp,udp"
+            },
+            "sniffing": {
+                "destOverride": [
+                    "http",
+                    "tls"
+                ],
+                "enabled": true,
+                "routeOnly": false
             },
             "streamSettings": {
                 "sockopt": {
                     "tproxy": "tproxy"
                 }
-            },
-            "sniffing": {
-                "enabled": true,
-                "routeOnly": true,
-                "destOverride": [
-                    "http",
-                    "tls"
-                ]
             }
         }
     ],
+    "log": {
+        "access": "none",
+        "dnsLog": true,
+        "loglevel": "error"
+    },
     "outbounds": [
         {
-            "tag": "proxy",
             "protocol": "vmess",
+            "tag": "proxy",
+            "mux": {
+                "concurrency": 8,
+                "enabled": false
+            },
             "settings": {
                 "vnext": [
                     {
-                        "address": "server.com",
-                        "port": 80,
+                        "address": "104.18.3.198",
+                        "port": 443,
                         "users": [
                             {
                                 "alterId": 0,
-                                "id": "aaa-aaa-aaa",
-                                "level": 8,
+                                "encryption": "",
+                                "id": "",
                                 "security": "auto"
                             }
                         ]
@@ -50,70 +62,74 @@
             },
             "streamSettings": {
                 "network": "ws",
-                "security": "none",
+                "security": "tls",
                 "tlsSettings": {
-                    "allowInsecure": false,
-                    "serverName": "sni.com"
+                    "allowInsecure": true,
+                    "serverName": "u.taamarin.com"
                 },
                 "wsSettings": {
+                    "path": "/vmess",
                     "headers": {
-                        "Host": "host.com"
-                    },
-                    "path": "/sheynsw"
+                        "Host": "u.taamarin.com"
+                    }
                 }
-            },
-            "tcpSettings": null,
-            "sockopt": {
-                "domainStrategy": "UseIP"
-            },
-            "mux": {
-                "concurrency": 8,
-                "enabled": false
             }
         },
         {
-            "tag": "direct",
             "protocol": "freedom",
+            "tag": "direct",
             "settings": {
                 "domainStrategy": "UseIP"
             }
         },
         {
             "protocol": "blackhole",
+            "tag": "block",
             "settings": {
                 "response": {
                     "type": "http"
                 }
-            },
-            "tag": "block"
+            }
         },
         {
-            "tag": "dns-out",
             "protocol": "dns",
-            "settings": {
-                "address": "8.8.8.8"
-            }
+            "tag": "dns-out"
         }
     ],
-    "dns": {
-        "hosts": {},
-        "servers": [
-            "1.1.1.1"
-        ],
-        "tag": "dns",
-        "queryStrategy": "UseIP"
-    },
     "routing": {
-        "domainStrategy": "IPIfNonMatch",
         "domainMatcher": "mph",
+        "domainStrategy": "IPIfNonMatch",
         "rules": [
             {
-                "type": "field",
-                "port": 53,
                 "inboundTag": [
                     "proxy-in"
                 ],
-                "outboundTag": "dns-out"
+                "outboundTag": "dns-out",
+                "port": 53,
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "regexp:^.*googlesyndication.com$",
+                    "regexp:^.*adtival\\.network$"
+                ],
+                "outboundTag": "proxy",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:youtube"
+                ],
+                "network": "udp",
+                "outboundTag": "block",
+                "type": "field"
+            },
+            {
+                "domain": [
+                    "geosite:category-ads-all"
+                ],
+                "outboundTag": "block",
+                "type": "field"
             },
             {
                 "network": "tcp,udp",

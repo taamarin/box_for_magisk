@@ -281,29 +281,29 @@ box_run_bin() {
   case "${bin_name}" in
     sing-box)
       prepare_singbox
-      if ${bin_path} check -D "${box_dir}/sing-box" --config-directory "${box_dir}/sing-box" > "${box_run}/sing-box.log" 2>&1 ; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/sing-box" --config-directory "${box_dir}/sing-box" > "${box_run}/sing-box.log" 2>&1 || {
-          MESSAGE=$(cat "${box_run}/sing-box.log")
-          log error "$MESSAGE"
-        } & echo -n $! > "${box_pid}"
-      else
-        log error "Configuration failed, please check the ${box_run}/sing-box.log file."
-        MESSAGE=$(cat "${box_run}/sing-box.log")
-        log error "$MESSAGE"
+      nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+      PID=$!
+      echo -n $PID > "${box_pid}"
+      sleep 0.1
+
+      if ! busybox pidof "${bin_name}" >/dev/null; then
+        MESSAGE=$(cat "${box_run}/${bin_name}.log")
+        log error "Message: $MESSAGE"
+        log error "Configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
       fi
       ;;
     clash)
       prepare_clash
-      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/clash.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/clash.log" 2>&1 || {
-          MESSAGE=$(cat "${box_run}/clash.log")
-          log error "$MESSAGE"
-        } & echo -n $! > "${box_pid}"
-      else
-        log error "configuration failed, please check the ${box_run}/clash.log file."
-        MESSAGE=$(cat "${box_run}/clash.log")
-        log error "$MESSAGE"
+      nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1 &
+      PID=$!
+      echo -n $PID > "${box_pid}"
+      sleep 0.1
+
+      if ! busybox pidof "${bin_name}" >/dev/null; then
+        MESSAGE=$(cat "${box_run}/${bin_name}.log")
+        log error "Message: $MESSAGE"
+        log error "Configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
       fi
       ;;
@@ -311,22 +311,24 @@ box_run_bin() {
       # set network_mode variable value to "tproxy"
       sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
       [ "${proxy_mode}" = "tun" ] && sed -i 's/\(proxy_mode=\)\"[^\"]*\"/\1"blacklist"/g' ${settings}
+
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
         log error "configuration file not found: ${box_dir}/${bin_name}/config.toml or config.json"
         exit 1
       fi
+
       # run xray
-      export XRAY_LOCATION_ASSET="${box_dir}/xray"
-      if ${bin_path} -test -confdir "${box_dir}/xray" > "${box_run}/xray.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/xray" > "${box_run}/xray.log" 2>&1 || {
-          MESSAGE=$(cat "${box_run}/xray.log")
-          log error "$MESSAGE"
-        } & echo -n $! > "${box_pid}"
-      else
-        log error "configuration failed, please check the ${box_run}/xray.log file."
-        MESSAGE=$(cat "${box_run}/xray.log")
-        log error "$MESSAGE"
+      export XRAY_LOCATION_ASSET="${box_dir}/${bin_name}"
+      nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+      PID=$!
+      echo -n $PID > "${box_pid}"
+      sleep 0.1
+
+      if ! busybox pidof "${bin_name}" >/dev/null; then
+        MESSAGE=$(cat "${box_run}/${bin_name}.log")
+        log error "Message: $MESSAGE"
+        log error "Configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
       fi
       ;;
@@ -334,22 +336,24 @@ box_run_bin() {
       # set network_mode variable value to "tproxy"
       sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
       [ "${proxy_mode}" = "tun" ] && sed -i 's/\(proxy_mode=\)\"[^\"]*\"/\1"blacklist"/g' ${settings}
+
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
         log error "configuration file not found: ${box_dir}/${bin_name}/config.toml or config.json"
         exit 1
       fi
+
       # run v2ray
-      export V2RAY_LOCATION_ASSET="${box_dir}/v2fly"
-      if "${bin_path}" test -d "${box_dir}/v2fly" > "${box_run}/v2fly.log" 2>&1 ; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/v2fly" > "${box_run}/v2fly.log" 2>&1 || {
-          MESSAGE=$(cat "${box_run}/v2fly.log")
-          log error "$MESSAGE"
-        } & echo -n $! > "${box_pid}"
-      else
-        log error "configuration failed, please check the ${box_run}/v2fly.log file."
-        MESSAGE=$(cat "${box_run}/v2fly.log")
-        log error "$MESSAGE"
+      export V2RAY_LOCATION_ASSET="${box_dir}/${bin_name}"
+      nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+      PID=$!
+      echo -n $PID > "${box_pid}"
+      sleep 0.1
+
+      if ! busybox pidof "${bin_name}" >/dev/null; then
+        MESSAGE=$(cat "${box_run}/${bin_name}.log")
+        log error "Message: $MESSAGE"
+        log error "Configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
       fi
       ;;
@@ -536,15 +540,14 @@ stop_box() {
     if busybox pgrep "${bin}" >/dev/null; then
       # Use `busybox pkill` to kill the binary with signal 15, otherwise use `killall`.
       if busybox pkill -15 "${bin}" >/dev/null 2>&1; then
-        # Do nothing if busybox pkill is successful
-        :
+        : # Do nothing if busybox pkill is successful
       else
         killall -15 "${bin}" >/dev/null 2>&1 || kill -15 "$(busybox pidof "${bin}")" >/dev/null 2>&1
       fi
     fi
   done
-  sleep 0.5
   # Check if the binary has stopped
+  sleep 0.5
   if ! busybox pidof "${bin_name}" >/dev/null 2>&1; then
     # Delete the `box.pid` file if it exists
     if [ -f "${box_pid}" ]; then
@@ -553,25 +556,30 @@ stop_box() {
     log warn "${bin_name} service is stopped."
     log warn "${bin_name} disconnected."
   else
-    log error "failed to stop ${bin_name}"
-    log warn "force stop ${bin_name}."
-    for bin in "${bin_list[@]}"; do
-      # Use `busybox pkill` to kill the binary with signal 9, otherwise use `killall`.
-      if busybox pkill -9 "${bin}"; then
-        : # Do nothing if busybox pkill is successful
+    log warn "${bin_name} Not stopped; may still be shutting down or failed to shut down."
+    force_stop
+  fi
+}
+
+force_stop() {
+  # try forcing it to shut down.
+  log warn "try forcing it to shut down."
+  for bin in "${bin_list[@]}"; do
+    # Use `busybox pkill` to kill the binary with signal 9, otherwise use `killall`.
+    if busybox pkill -9 "${bin}"; then
+      : # Do nothing if busybox pkill is successful
+    else
+      if command -v killall >/dev/null 2>&1; then
+        killall -9 "${bin}" >/dev/null 2>&1 || true
       else
-        if command -v killall >/dev/null 2>&1; then
-          killall -9 "${bin}" >/dev/null 2>&1 || true
-        else
-          pkill -9 "${bin}" >/dev/null 2>&1 || true
-        fi
+        pkill -9 "${bin}" >/dev/null 2>&1 || true
       fi
-    done
-    sleep 1
-    if ! busybox pidof "${bin_name}" >/dev/null 2>&1; then
-      log warn "done"
-      rm -f "${box_pid}"
     fi
+  done
+  sleep 0.5
+  if ! busybox pidof "${bin_name}" >/dev/null 2>&1; then
+    log warn "done, YOU can sleep peacefully."
+    rm -f "${box_pid}"
   fi
 }
 
