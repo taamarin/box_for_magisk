@@ -10,48 +10,58 @@ fwmark="223"
 pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
-# Looking for value from "fake-ip-range: / listen: / tun_device" block in YAML / JSON configuration file
-clash_fake_ip_range=$(busybox awk '/fake-ip-range: / { print $2;found=1; exit } END{ if(!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
-clash_enhanced_mode=$(busybox awk '/enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
-clash_dns_port=$(busybox awk -F ':' '/listen:/ { print $3;found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
 
-if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+# Looking for value from "fake-ip-range: / listen: / enhanced-mode: / tun-device:" block in YAML / JSON configuration file
+case "${bin_name}" in
+  "clash")
+    clash_fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
+    clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
+    clash_dns_port=$(busybox awk '!/^ *#/ && /listen:/ { split($0, arr, ":"); print arr[3]; found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
+    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+      tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
+    fi
+    ;;
+  "sing-box")
+    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+      tun_device=$(find "${box_dir}/sing-box/" -type f -name "*.json" -exec grep -o '"interface_name": "[^"]*' {} \; | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
+      if [ -z "$tun_device" ]; then
+        tun_device="tun0"
+      fi
+    fi
+    ;;
+  "xray" | "v2fly")
+    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+      log error "$bin_name does not support proxy_mode: tun or network_mode: mixed"
+      exit 1
+    fi
+    ;;
+  *)
+    log error "<${bin_name}> unknown binary."
+    exit 1
+    ;;
+esac
+
+misc_info() {
   case "${bin_name}" in
     clash)
-      tun_device=$(busybox awk '/device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
-      log info "tun_device: $tun_device"
+      log debug "enhanced-mode: $clash_enhanced_mode, fake-ip-range: $clash_fake_ip_range, listen-port: $clash_dns_port"
       ;;
-    sing-box)
-      tun_device=$(find "${box_dir}/sing-box/" -type f -name "*.json" -exec busybox awk -F'"' '/interface_name/{ if ($4 != "tun0") {print $4; found=1; exit} } END{ if(!found) print "tun0" }' {} \; 2>/dev/null | head -n 1)
-      log info "tun_device: $tun_device"
+    clash|sing-box)
+      if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+        log info "tun_device: $tun_device"
+      fi
       ;;
-    xray|v2fly)
-      log error "does not support proxy_mode: tun"
-      exit 1
-      ;;
-    *)
-      log error "<${bin_name}> unknown binary."
-      exit 1
+    *) 
+      true 
       ;;
   esac
-fi
-
-# if [ "${bin_name}" = "clash" ]; then
-  # if [ "${clash_enhanced_mode}" = "fake-ip" ] ; then
-    # if [ -z "${clash_fake_ip_range}" ] && [ -z "${clash_dns_port}" ]; then
-      # log info "could not find value from 'listen/fake-ip-range' block in YAML configuration file."
-      # exit 1
-    # fi
-  # fi
-# fi
+}
 
 box_sync_port() {
+  sleep 0.5
   if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
-    sleep 0.5
     netstat -tnulp | grep -q "${tproxy_port}" || log warn "tproxy_port: ${tproxy_port} out of sync with config"
-  fi
-  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-    sleep 0.5
+  elif [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     ifconfig | grep -q "${tun_device}" || log warn "tun_device: '${tun_device}' not found"
   fi
 }
@@ -546,6 +556,7 @@ stop_tproxy() {
 if [ "${proxy_mode}" != "tun" ]; then
   case "$1" in
     enable)
+      misc_info
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       #ipv4
       iptables="iptables -w 64" && {
@@ -624,6 +635,7 @@ if [ "${proxy_mode}" != "tun" ]; then
       log info "${bin_name} connected."
       ;;
     renew)
+      misc_info
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up iptables transparent proxy rules."
       iptables="iptables -w 64" && {
@@ -727,6 +739,7 @@ if [ "${proxy_mode}" != "tun" ]; then
 else
   case "$1" in
     enable)
+      misc_info
       log info "use TUN: TCP + UDP"
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log info "proxy_mode: ${proxy_mode}, disable transparent proxy."
@@ -757,6 +770,7 @@ else
       log info "${bin_name} connected."
       ;;
     renew)
+      misc_info
       log info "use TUN: TCP + UDP"
       probe_user_group || log error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log warn "cleaning up tun rules."

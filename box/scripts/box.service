@@ -213,24 +213,30 @@ prepare_clash() {
   # sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
   # sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" ${settings}
 
+  # write external_controller, if not in $clash_config
+  clash_external_controller=$(busybox awk '!/^ *#/ && /external-controller: /{print $1}' "${clash_config}")
+  if [ -z "${clash_external_controller}" ]; then
+    printf "\nexternal-controller: 0.0.0.0:9090" >> "${clash_config}"
+  fi
+
   # write external_ui, if not in $clash_config
-  clash_external_ui=$(busybox awk '/external-ui: /{print $1}' "${clash_config}")
+  clash_external_ui=$(busybox awk '!/^ *#/ && /external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
     printf "\nexternal-ui: ./dashboard" >> "${clash_config}"
   fi
   # write tproxy-port, if not in $clash_config
-  clash_tproxy_port=$(busybox awk '/tproxy-port: /{print $1}' "${clash_config}")
+  clash_tproxy_port=$(busybox awk '!/^ *#/ && /tproxy-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_tproxy_port}" ]; then
     printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
   fi
   # write redir-port, if not in $clash_config
-  clash_redir_port=$(busybox awk '/redir-port: /{print $1}' "${clash_config}")
+  clash_redir_port=$(busybox awk '!/^ *#/ && /redir-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_redir_port}" ]; then
     printf "\nredir-port: ${redir_port}" >> "${clash_config}"
   fi
 
   if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-    clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
+    clash_tun_status=$(busybox awk '!/^ *#/ && /tun:/ { getline; split($0, arr, ": "); print arr[2]; found=1; exit } END{ if (!found) print "" }' "${clash_config}" 2>/dev/null)
     # write TUN settings, if not in $clash_config
     if [ -z "${clash_tun_status}" ]; then
       printf '%s\n' '' 'tun:' \

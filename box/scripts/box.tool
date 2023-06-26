@@ -94,7 +94,8 @@ update_yq() {
 # Check and update geoip and geosite
 update_geox() {
   # su -c /data/adb/box/scripts/box.tool geox
-  geodata_mode=$(busybox awk '/geodata-mode:*./{print $2}' "${clash_config}")
+  geodata_mode=$(busybox awk '!/^ *#/ && /geodata-mode:*./{print $2}' "${clash_config}")
+  [ -z "${geodata_mode}" ] && geodata_mode=false
   case "${bin_name}" in
     clash)
       geoip_file="${box_dir}/clash/$(if [[ "${meta}" == "false"  || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
