@@ -218,7 +218,6 @@ prepare_clash() {
   if [ -z "${clash_external_controller}" ]; then
     printf "\nexternal-controller: 0.0.0.0:9090" >> "${clash_config}"
   fi
-
   # write external_ui, if not in $clash_config
   clash_external_ui=$(busybox awk '!/^ *#/ && /external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
@@ -513,6 +512,7 @@ start_box() {
   if [ -n "${bin_pid}" ]; then
     # If so, prints a message and calls the box_bin_status function
     log info "${bin_name} service is running. (PID: ${bin_pid})."
+    log info "proxy_mode: $proxy_mode $(if [ "${proxy_mode}" != "tun" ]; then echo / network_mode: $network_mode; fi)"
     box_bin_status
   else
     # Otherwise, it prints a message and returns status 1
@@ -595,6 +595,7 @@ case "$1" in
         clash) echo "${yellow}$("${bin_path}" -v)${normal}";;
         *) echo "${yellow}$("${bin_path}" version)${normal}";;
       esac
+      log info "proxy_mode: $proxy_mode $(if [ "${proxy_mode}" != "tun" ]; then echo / network_mode: $network_mode; fi)"
       box_bin_status
     else
       log warn "${bin_name} service is stopped."
