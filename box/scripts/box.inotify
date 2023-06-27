@@ -7,7 +7,7 @@ service_path="/data/adb/box/scripts/box.service"
 iptables_path="/data/adb/box/scripts/box.iptables"
 data_box="/data/adb/box"
 run_path="/data/adb/box/run"
-now=$(date +"%R")
+now=$(date +"%I:%M %p")
 
 events=$1
 monitor_dir=$2
