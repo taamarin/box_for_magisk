@@ -14,6 +14,7 @@ quic="enable"
 # Looking for value from "fake-ip-range: / listen: / enhanced-mode: / tun-device:" block in YAML / JSON configuration file
 case "${bin_name}" in
   "clash")
+    clash_mode=$(busybox awk '!/^ *#/ && /mode: / { print $2;found=1; exit } END{ if(!found) print "rules" }' "${clash_config}" 2>/dev/null)
     clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
     fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
     clash_dns_port=$(busybox awk '!/^ *#/ && /listen:/ { split($0, arr, ":"); print arr[3]; found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
@@ -46,15 +47,15 @@ esac
 misc_info() {
   case "${bin_name}" in
     clash)
-      log Debug "enhanced-mode: $clash_enhanced_mode, fake-ip-range: $fake_ip_range, listen-port: $clash_dns_port"
+      log Debug "enhanced-mode: $clash_enhanced_mode, fake-ip-range: $fake_ip_range, listen-port: $clash_dns_port, mode: $clash_mode"
       ;;
     clash|sing-box)
       if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
         log Info "tun_device: $tun_device"
       fi
-      [ -n "${fake_ip_range}" ] && {
+      if [ -n "${fake_ip_range}" ] && [ "${bin_name}" = "sing-box" ]; then
         log Debug "fakeip inet4(6)_range: ${fake_ip_range}, ${fake_ip6_range}"
-        }
+      fi
       ;;
     *) 
       true 
