@@ -203,52 +203,56 @@ start_redirect() {
   # check if iptables is not ip6tables
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     # check proxy mode
-    if [ "${proxy_mode}" = "blacklist" ]; then
-      # check if uid list is empty
-      if [ -z "$(cat "${uid_list[@]}")" ] ; then
-        # Route Everything
+    case "${proxy_mode}" in
+      blacklist)
+        # check if uid list is empty
+        if [ -z "$(cat "${uid_list[@]}")" ] ; then
+          # Route Everything
+          ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
+          log Info "Transparent proxy for all apps."
+        else
+          # Bypass apps
+          # loop through the UID list
+          while read -r appid; do
+            # add iptables rules for returning packets
+            ${iptables} -t nat -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
+          done < "${uid_list[@]}"
+
+          # close the file handle for the UID list
+          # exec <&-
+
+          # Allow !app
+          ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
+          log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
+        fi
+        ;;
+      whitelist)
+        if [ -z "$(cat "${uid_list[@]}")" ] ; then
+          # Route Everything
+          ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
+          log Info "Transparent proxy for all apps."
+        else
+          # Route apps to Box
+          # loop through the UID list
+          while read -r appid; do
+            # add iptables rules for TCP traffic
+            ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j REDIRECT --to-ports "${redir_port}"
+          done < "${uid_list[@]}"
+
+          # close the file handle for the UID list
+          # exec <&-
+
+          ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j REDIRECT --to-ports "${redir_port}"
+          ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j REDIRECT --to-ports "${redir_port}"
+          log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
+        fi
+        ;;
+      *)
+        log Warning "proxy-mode: ${proxy_mode} < error."
         ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
         log Info "Transparent proxy for all apps."
-      else
-        # Bypass apps
-        # loop through the UID list
-        while read -r appid; do
-          # add iptables rules for returning packets
-          ${iptables} -t nat -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
-        done < "${uid_list[@]}"
-
-        # close the file handle for the UID list
-        # exec <&-
-
-        # Allow !app
-        ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
-        log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
-      fi
-    elif [ "${proxy_mode}" = "whitelist" ]; then
-      if [ -z "$(cat "${uid_list[@]}")" ] ; then
-        # Route Everything
-        ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
-        log Info "Transparent proxy for all apps."
-      else
-        # Route apps to Box
-        # loop through the UID list
-        while read -r appid; do
-          # add iptables rules for TCP traffic
-          ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j REDIRECT --to-ports "${redir_port}"
-        done < "${uid_list[@]}"
-
-        # close the file handle for the UID list
-        # exec <&-
-
-        ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j REDIRECT --to-ports "${redir_port}"
-        ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j REDIRECT --to-ports "${redir_port}"
-        log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
-      fi
-    else
-      log Warning "proxy-mode: ${proxy_mode} < error."
-      ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
-      log Info "Transparent proxy for all apps."
-    fi
+        ;;
+    esac
   fi
 
   if [ "${iptables}" != "ip6tables -w 64" ]; then
@@ -401,60 +405,64 @@ start_tproxy() {
   # Disable kernel
   # ${iptables} -t mangle -A BOX_LOCAL -m owner ! --uid 0-99999999 -j DROP
 
-  if [ "${proxy_mode}" = "blacklist" ]; then
-    if [ -z "$(cat "${uid_list[@]}")" ] ; then
-      # Route Everything
+  # check proxy mode
+  case "${proxy_mode}" in
+    blacklist)
+      if [ -z "$(cat "${uid_list[@]}")" ] ; then
+        # Route Everything
+        ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
+      else
+
+        # Bypass apps
+        while read -r appid; do
+          ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
+        done < "${uid_list[@]}"
+
+        # close the file handle for the UID list
+        # exec <&-
+
+        # Allow !app
+        ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
+      fi
+      ;;
+    whitelist)
+      if [ -z "$(cat "${uid_list[@]}")" ] ; then
+        # Route Everything
+        ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
+      else
+        # Route apps to Box
+        # loop through uid list and add iptables rule
+        while read -r appid; do
+          ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
+          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
+        done < "${uid_list[@]}"
+
+        # close the file handle for the UID list
+        # exec <&-
+
+        ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
+        # Route dnsmasq to Box
+        ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
+        # Route DNS request to Box
+        [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark "${fwmark}"
+        [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
+      fi
+      ;;
+    *)
+      log Debug "proxy-mode: ${proxy_mode} < error"
       ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
       ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
       [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
-    else
-      # Bypass apps
-
-      while read -r appid; do
-        ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
-      done < "${uid_list[@]}"
-
-      # close the file handle for the UID list
-      # exec <&-
-
-      # Allow !app
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-      [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
-    fi
-
-  elif [ "${proxy_mode}" = "whitelist" ]; then
-    if [ -z "$(cat "${uid_list[@]}")" ] ; then
-      # Route Everything
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-      [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
-    else
-      # Route apps to Box
-      # loop through uid list and add iptables rule
-      while read -r appid; do
-        ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
-      done < "${uid_list[@]}"
-
-      # close the file handle for the UID list
-      # exec <&-
-
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
-      # Route dnsmasq to Box
-      ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
-      # Route DNS request to Box
-      [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark "${fwmark}"
-      [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
-    fi
-  else
-    log Debug "proxy-mode: ${proxy_mode} < error"
-    ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-    ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-    [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
-  fi
+      ;;
+    esac
 
   ${iptables} -t mangle -I OUTPUT -j BOX_LOCAL
 

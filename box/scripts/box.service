@@ -281,6 +281,21 @@ prepare_clash() {
     # sync redir port
     sed -i -E "s/(redir-port: )[0-9]+/\1${redir_port}/" "${clash_config}"
   fi
+
+  clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2 }' "${clash_config}" 2>/dev/null)
+  if [ -z "${clash_enhanced_mode}" ]; then
+    # Add enhanced-mode: fake-ip
+    sed -i '/dns:/ {n; /enable:.*/ {a\  enhanced-mode: fake-ip
+    }}' "$clash_config"
+    log Debug "enhanced-mode: fake-ip add success"
+  fi
+  if [ "${proxy_mode}" != "tun" ]; then
+    if [ -n "${packages_list}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
+      log Debug "${proxy_mode} only works in enhanced-mode: redir-host(clash.meta)"
+      log Debug"auto replace fake-ip > redir-host"
+      sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
+    fi
+  fi
 }
 
 temp_clash_config_file() {
@@ -478,19 +493,21 @@ start_box() {
   fi
 
   # Update iptables if bin_name is still running
-  PIDS=("clash" "xray" "sing-box" "v2fly")
+  # PIDS=("clash" "xray" "sing-box" "v2fly")
+  PIDS=("${bin_list[@]}")
   PID=""
   i=0
+
   while [ -z "$PID" ] && [ "$i" -lt "${#PIDS[@]}" ]; do
     PID=$(busybox pidof "${PIDS[$i]}")
     i=$((i+1))
   done
 
   if [ -n "$PID" ]; then
-    pid_name="/data/adb/box/run/pid_name.txt"
+    pid_name="${box_dir}/run/pid_name.txt"
     ps -p $PID -o comm= > "${pid_name}"
     sed -i '/^[[:space:]]*$/d' "${pid_name}"
-    log Debug "$(<"${pid_name}") (PID: $PID) service is still running, auto restart BOX."
+    log Debug "$(<"${pid_name}")(PID: $PID) service is still running, auto restart BOX."
     rm -f "${pid_name}"
     stop_box
     start_box && "${scripts_dir}/box.iptables" renew
