@@ -289,9 +289,10 @@ prepare_clash() {
     }}' "$clash_config"
     log Debug "enhanced-mode: fake-ip add success"
   fi
+
   if [ "${proxy_mode}" != "tun" ]; then
-    if [ -n "${packages_list}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
-      log Debug "${proxy_mode} only works in enhanced-mode: redir-host(clash.meta)"
+    if [ -n "${packages_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
+      log Debug "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
       log Debug"auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi
@@ -299,7 +300,7 @@ prepare_clash() {
 }
 
 temp_clash_config_file() {
-  clash_template="/data/adb/box/clash/template"
+  clash_template="${box_dir}/clash/template"
   temp_clash_config_file="${clash_config}"
 
   if [ -f "${clash_template}" ]; then
@@ -437,8 +438,8 @@ box_bin_status() {
     return 1
   fi
 
-  log Info "${bin_name}($PID) service is running."
-  log Info "proxy_mode: ${proxy_mode}, $(if [ "${proxy_mode}" != "tun" ]; then echo network_mode: ${network_mode}; fi)"
+  log Info "${bin_name} service is running."
+  log Info "ProxyMode: ${proxy_mode}, $(if [ "${proxy_mode}" != "tun" ]; then echo NetworkMode: ${network_mode}; fi)"
 
   # Get the memory usage of the binary
   rss=$(grep VmRSS /proc/$PID/status | busybox awk '{ print $2 }')

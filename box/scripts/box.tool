@@ -7,7 +7,7 @@ source /data/adb/box/settings.ini
 # user agent
 user_agent="box_for_root"
 # option to download Clash kernel clash-premium{false} or clash-meta{true}
-meta="true"
+meta="false"
 # for clash-premium
 dev=false
 # option to download Singbox kernel beta or release
@@ -203,21 +203,21 @@ update_subs() {
                 # remove outbound with type: direct/block/dns/selector/urltest
                 "${yq_cmd}" 'del(.outbounds[] | select(.type == "direct" or .type == "block" or .type == "dns" or .type == "selector" or .type == "urltest"))' -i --output-format=json "${sing_provide_config}"
 
-                # create new outbounds with type: selector, tag: ❀✿❀ in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "❀✿❀", "type": "selector", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
+                # create new outbounds with type: selector, tag: singbox in ${sing_provide_config}
+                "${yq_cmd}" '.outbounds += [{"tag": "singbox", "type": "selector", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
 
-                # create new outbounds with type: urltest, tag: ❀✿❀[urltest] in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "❀✿❀[urltest]", "type": "urltest", "url": "https://www.gstatic.com/generate_204", "interval": "3m", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
+                # create new outbounds with type: urltest, tag: singbox[urltest] in ${sing_provide_config}
+                "${yq_cmd}" '.outbounds += [{"tag": "singbox[urltest]", "type": "urltest", "url": "https://www.gstatic.com/generate_204", "interval": "3m", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
 
-                # renew outbounds with tag: ❀✿❀ in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "❀✿❀"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "❀✿❀"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["❀✿❀"]' -i --output-format=json "${sing_config}"
+                # renew outbounds with tag: singbox in main ${sing_config} dan ${sing_provide_config}
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox"))' -i --output-format=json "${sing_provide_config}"
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox"))' -i --output-format=json "${sing_config}"
+                "${yq_cmd}" '.outbounds[0].outbounds += ["singbox"]' -i --output-format=json "${sing_config}"
 
-                # renew outbounds with tag: ❀✿❀[urltest] in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "❀✿❀[urltest]"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "❀✿❀[urltest]"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["❀✿❀[urltest]"]' -i --output-format=json "${sing_config}"
+                # renew outbounds with tag: singbox[urltest] in main ${sing_config} dan ${sing_provide_config}
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox[urltest]"))' -i --output-format=json "${sing_provide_config}"
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox[urltest]"))' -i --output-format=json "${sing_config}"
+                "${yq_cmd}" '.outbounds[0].outbounds += ["singbox[urltest]"]' -i --output-format=json "${sing_config}"
 
                 log Info "subscription success"
                 log Info "Update subscription $(date +"%F %R")"
@@ -520,30 +520,27 @@ cgroup_limit() {
 }
 
 # Check config
-rconf() {
+reload_config() {
   # su -c /data/adb/box/scripts/box.tool rconf
   case "${bin_name}" in
     sing-box)
-      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" > "${box_run}/${bin_name}.err.log" 2>&1; then
+      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" > "${box_run}/${bin_name}_report.log" 2>&1; then
         log Info "${sing_config} passed"
-        reload
       else
         log Debug "${sing_config}"
-        log Error "$(<"${box_run}/${bin_name}.err.log")" >&2
-        exit 1
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
       fi
       ;;
     clash)
-      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}.err.log" 2>&1; then
+      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}_report.log" 2>&1; then
         log Info "${clash_config} passed"
-        if [ -t 1 ] && [ "${meta}" = "true" ]; then
-          reload
-        fi
       else
-        info debug "${clash_config}"
-        log Error "$(<"${box_run}/${bin_name}.err.log")" >&2
-        exit 1
+        log debug "${clash_config}"
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
       fi
+      ;;
+    xray|v2fly)
+      true
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -553,12 +550,12 @@ rconf() {
 }
 
 # reload bin
-reload() {
-  # su -c /data/adb/box/scripts/box.tool reload
+reload_bin() {
+  # su -c /data/adb/box/scripts/box.tool rbin
   case "${bin_name}" in
     sing-box)
       if kill -SIGHUP "$(busybox pidof sing-box)" >/dev/null 2>&1; then
-        log Debug "Restart with -SIGHUP done"
+        log Debug "RESTART with -SIGHUP done"
         return 0
       else
         flag=true
@@ -569,7 +566,7 @@ reload() {
       ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}") >/dev/null 2>&1
       secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}") >/dev/null 2>&1
       if busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" >/dev/null 2>&1; then
-        log Debug "Restart with clash.meta api done"
+        log Debug "RESTART with clash-meta API done"
         return 0
       else
         flag=true
@@ -602,13 +599,13 @@ case "$1" in
     port_detection
     ;;
   rconf)
-    rconf
+    reload_config
     ;;
-  reload)
-    reload
+  rbin)
+    reload_bin
     ;;
   geox)
-    if update_geox && ! reload; then
+    if update_geox && ! reload_bin; then
       if [ -f "${box_pid}" ] && [ "${flag}" = "true" ]; then
         restart_box
       fi
@@ -616,7 +613,7 @@ case "$1" in
     busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
     ;;
   subs)
-    if update_subs && ! reload; then
+    if update_subs && ! reload_bin; then
       if [ -f "${box_pid}" ] && [ "${flag}" = "true" ]; then
         restart_box 
       fi
@@ -626,7 +623,7 @@ case "$1" in
   geosub)
     update_geox
     update_subs
-    if ! reload; then
+    if ! reload_bin; then
       if [ -f "${box_pid}" ] && [ "${bin_name}" != "clash" ] && [ "${flag}" = "true" ]; then
         restart_box
       fi
@@ -643,6 +640,6 @@ case "$1" in
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}rconf|reload|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}rconf|rbin|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all${normal}}"
     ;;
 esac

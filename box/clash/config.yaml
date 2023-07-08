@@ -10,7 +10,7 @@ tproxy-port: 9898
 # 此项拥有默认值，默认为规则模式
 mode: rule
 allow-lan: true
-unified-delay: true
+# unified-delay: true
 bind-address: '*'
 
 # silent 静默，不输出
@@ -22,12 +22,12 @@ log-level: silent
 ipv6: false
 
 # 更改geoip使用文件,mmdb或者dat,true为dat
-geodata-mode: true
+# geodata-mode: true
 
 # 可选的加载模式如下
 # standard：标准加载器
 # memconservative：专为内存受限(小内存)设备优化的加载器(默认值)
-geodata-loader: memconservative
+# geodata-loader: memconservative
 
 external-controller: 0.0.0.0:9090 
 # secret: "123456"
@@ -55,7 +55,7 @@ external-ui: /data/adb/box/clash/dashboard
 # always 开启，强制匹配所有进程
 # strict 默认，由 Clash 判断是否开启
 # off 不匹配进程，推荐在路由器上使用此模式
-find-process-mode: strict
+# find-process-mode: strict
 
 profile:
   store-selected: true
@@ -63,27 +63,27 @@ profile:
   store-fake-ip: false
   # 储存 fakeip 映射表，域名再次发生连接时，使用原有映射地址
 
-sniffer:                           #【Meta专属】sniffer域名嗅探器
-  enable: false                    # 嗅探器开关
+# sniffer:                           #【Meta专属】sniffer域名嗅探器
+  # enable: false                    # 嗅探器开关
 
-                                   # 开启后对 redir-host 类型识别的流量进行强制嗅探
-                                   # 包含 Tun、Redir 和 TProxy 或 DNS 为 redir-host
-  # force-dns-mapping: false
-  # parse-pure-ip: false           # 对所有未获取到域名的流量进行强制嗅探
+                                   # # 开启后对 redir-host 类型识别的流量进行强制嗅探
+                                   # # 包含 Tun、Redir 和 TProxy 或 DNS 为 redir-host
+  # # force-dns-mapping: false
+  # # parse-pure-ip: false           # 对所有未获取到域名的流量进行强制嗅探
 
-  override-destination: false      # 是否使用嗅探结果作为实际访问,默认 true
-                                   # 全局配置,优先级低于 sniffer.sniff 实际配置
-  sniff: # TLS 默认如果不配置 ports 默认嗅探 443
-    TLS:
-      ports: [443, 8443]
-    HTTP: # 需要嗅探的端口, 默认嗅探 80
-      ports: [80, 8080-8880]
-      override-destination: true # 可覆盖 sniffer.override-destination
-  force-domain:
-    - +.v2ex.com
-  # 白名单,跳过嗅探结果
-  skip-domain:
-    - Mijia Cloud
+  # override-destination: false      # 是否使用嗅探结果作为实际访问,默认 true
+                                   # # 全局配置,优先级低于 sniffer.sniff 实际配置
+  # sniff: # TLS 默认如果不配置 ports 默认嗅探 443
+    # TLS:
+      # ports: [443, 8443]
+    # HTTP: # 需要嗅探的端口, 默认嗅探 80
+      # ports: [80, 8080-8880]
+      # override-destination: true # 可覆盖 sniffer.override-destination
+  # force-domain:
+    # - +.v2ex.com
+  # # 白名单,跳过嗅探结果
+  # skip-domain:
+    # - Mijia Cloud
 
 tun:
   enable: false
@@ -95,8 +95,6 @@ tun:
     - tcp://any:53
   auto-route: true
   auto-detect-interface: true
-  inet4-address: 172.19.0.1/30
-  inet6-address: [fdfe:dcba:9876::1/126]
   # include_android_user:
     # - 0
     # - 10
@@ -113,7 +111,7 @@ dns:
 
   # 可选值 true/false
   # 是否开启 DOH 的 http/3
-  prefer-h3: false
+  # prefer-h3: false
 
   # 默认 dns, 用于解析 DNS 服务器 的域名
   # 必须为 ip, 可为加密 dns
@@ -284,11 +282,11 @@ rules:
   # - AND,((NETWORK,udp),(OR,((DST-PORT,443/80),(GEOSITE,youtube)))),REJECT
   # - AND,((NETWORK,udp),(GEOSITE,youtube)),REJECT
 
-  # fix dnsleak
-  - IP-CIDR,127.0.0.1/32,REJECT,no-resolve
-  - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
-  - IP-CIDR,28.0.0.1/8,REJECT,no-resolve
-  - IP-CIDR6,::1/128,REJECT,no-resolve
+  # # fix dnsleak
+  # - IP-CIDR,127.0.0.1/32,REJECT,no-resolve
+  # - IP-CIDR,198.18.0.1/16,REJECT,no-resolve
+  # - IP-CIDR,28.0.0.1/8,REJECT,no-resolve
+  # - IP-CIDR6,::1/128,REJECT,no-resolve
   
   ## rules telegram
   # - GEOIP,telegram,PROXY
