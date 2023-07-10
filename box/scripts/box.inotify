@@ -3,15 +3,16 @@
 scripts=$(realpath "$0")
 scripts_dir=$(dirname "${scripts}")
 
-service_path="/data/adb/box/scripts/box.service"
-iptables_path="/data/adb/box/scripts/box.iptables"
+service_path="${scripts_dir}/box.service"
+iptables_path="${scripts_dir}/box.iptables"
 data_box="/data/adb/box"
 run_path="/data/adb/box/run"
+file_settings="/data/adb/box/settings.ini"
 now=$(date +"%I:%M %p")
 
-events=$1
-monitor_dir=$2
-monitor_file=$3
+events="$1"
+monitor_dir="$2"
+monitor_file="$3"
 
 service_control() {
   if [ "${monitor_file}" = "disable" ]; then
@@ -27,9 +28,9 @@ service_control() {
 
 
 mkdir -p "${run_path}"
-if [ -f "${data_box}/settings.ini" ]; then
+if [ -f "${file_settings}" ] && [ -r "${file_settings}" ] && [ -s "${file_settings}" ]; then
   service_control
 else
-  echo "${now} [error] file /data/adb/box/settings.ini file not found" > "${run_path}/error.inotify.log"
+  echo "${now} [error] file /data/adb/box/settings.ini file not found" > "${run_path}/inotify_report.log"
   exit 1
 fi

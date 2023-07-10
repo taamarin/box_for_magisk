@@ -481,15 +481,18 @@ box_bin_status() {
 start_box() {
   # Clear the log file and add the timestamp and delimiter
   echo -n "" > "${box_log}"
+  box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
   if [ -t 1 ]; then
     echo -e "${yellow}$(getprop persist.sys.timezone)${normal}"
     echo -e "${yellow}$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)${normal}"
     echo -e "${yellow}$(date)${normal}"
+    echo -e "${yellow}${box_version}${normal}"
     echo -e "${white}--------------------------------------------${normal}"
   else
     echo "$(getprop persist.sys.timezone)" | tee -a "${box_log}" > /dev/null 2>&1
     echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)" | tee -a "${box_log}" > /dev/null 2>&1
     echo "$(date)" | tee -a "${box_log}" > /dev/null 2>&1
+    echo "${box_version}" | tee -a "${box_log}" > /dev/null 2>&1
     echo "--------------------------------------------" | tee -a "${box_log}" > /dev/null 2>&1
   fi
 
