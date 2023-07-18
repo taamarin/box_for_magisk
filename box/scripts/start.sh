@@ -1,13 +1,13 @@
 #!/system/bin/sh
 
+scripts_dir="/data/adb/box/scripts"
+file_settings="/data/adb/box/settings.ini"
+
 moddir="/data/adb/modules/box_for_root"
 [ -n "$(magisk -v | grep lite)" ] && moddir="/data/adb/lite_modules/box_for_root"
 
 busybox="/data/adb/magisk/busybox"
 [ -f "/data/adb/ksu/bin/busybox" ] && busybox="/data/adb/ksu/bin/busybox"
-
-scripts_dir="/data/adb/box/scripts"
-file_settings="/data/adb/box/settings.ini"
 
 refresh_box() {
   if [ -f "/data/adb/box/run/box.pid" ]; then

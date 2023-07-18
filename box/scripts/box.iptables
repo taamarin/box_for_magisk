@@ -24,13 +24,13 @@ case "${bin_name}" in
     ;;
   "sing-box")
     if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-      tun_device=$(find "${box_dir}/sing-box/" -type f -name "*.json" -exec grep -o '"interface_name": "[^"]*' {} \; | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
+      tun_device=$(find "${box_dir}/sing-box/" -maxdepth 1 -type f -name "*.json" -exec grep -o '"interface_name": "[^"]*' {} + | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
       if [ -z "$tun_device" ]; then
         tun_device="tun0"
       fi
     fi
-    fake_ip_range=$(find ${box_dir}/sing-box/ -type f -name "*.json" -exec busybox awk -F'"' '/inet4_range/ {print $4}' {} \;)
-    fake_ip6_range=$(find ${box_dir}/sing-box/ -type f -name "*.json" -exec busybox awk -F'"' '/inet6_range/ {print $4}' {} \;)
+    fake_ip_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet4_range/ {print $4}' {} +)
+    fake_ip6_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet6_range/ {print $4}' {} +)
     ;;
   "xray" | "v2fly")
     if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
@@ -54,7 +54,7 @@ misc_info() {
         log Info "tun_device: $tun_device"
       fi
       if [ -n "${fake_ip_range}" ] && [ "${bin_name}" = "sing-box" ]; then
-        log Debug "fakeip inet4(6)_range: ${fake_ip_range}, ${fake_ip6_range}"
+        log Debug "fakeip inet(v4/v6)_range: ${fake_ip_range}, ${fake_ip6_range}"
       fi
       ;;
     *) 
@@ -139,12 +139,58 @@ intranet6=(
   ff00::/8
 )
 
+# monitor_local_ip() {
+  # if [ "${iptables}" != "ip6tables -w 64" ]; then
+    # local_ips=($(ip a | busybox awk '$1~/inet$/{print $2}'))
+  # else
+    # local_ips=($(ip -6 a | busybox awk '$1~/inet6$/{print $2}'))
+  # fi
+  # local_ip_number=${#local_ips[@]}
+  # rules_ips=($(${iptables} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | busybox awk '{print $9}'))
+  # rules_number=$(${iptables} -t mangle -L FILTER_LOCAL_IP | grep "ACCEPT" | wc -l)
+
+  # if [ ${local_ip_number} -ne ${rules_number} ] ; then
+    # for rules_subnet in "${rules_ips[@]}" ; do
+      # wait_count=0
+      # a_subnet=$(busybox ipcalc -n ${rules_subnet} | busybox awk -F '=' '{print $2}')
+      # for local_subnet in "${local_ips[@]}" ; do
+        # b_subnet=$(busybox ipcalc -n ${local_subnet} | busybox awk -F '=' '{print $2}')
+        # if [ "${a_subnet}" != "${b_subnet}" ] ; then
+          # wait_count=$((wait_count + 1))
+          # if [ ${wait_count} -ge ${local_ip_number} ] ; then
+            # ${iptables} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet} -j ACCEPT
+          # fi
+        # fi
+      # done
+    # done
+
+    # for subnets in "${local_ips[@]}" ; do
+      # if ! (${iptables} -t mangle -C FILTER_LOCAL_IP -d ${subnets} -j ACCEPT > /dev/null 2>&1) ; then
+        # ${iptables} -t mangle -I FILTER_LOCAL_IP -d ${subnets} -j ACCEPT
+      # fi
+    # done
+
+    # unset a_subnet
+    # unset b_subnet
+    # [ "${iptables}" != "ip6tables -w 64" ] && log Debug "the iptables rules for bypassing the local IP(4/6) have been updated."
+  # else
+    # [ "${iptables}" != "ip6tables -w 64" ] && log Debug "the local IP(4/6) remains unchanged, and no processing has been performed."
+    # return 1
+  # fi
+
+  # unset local_ips
+  # unset local_ip_number
+  # unset rules_ips
+  # unset rules_number
+  # unset wait_count
+# }
+
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
   ${iptables} $1 FORWARD -i "${tun_device}" -j ACCEPT
 } >> /dev/null 2>&1
 
-# box.redirect
+# box redirect
 start_redirect() {
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     ${iptables} -t nat -N BOX_EXTERNAL
@@ -293,7 +339,7 @@ stop_redirect() {
   fi
 }
 
-# box.tproxy
+# box tproxy
 start_tproxy() {
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
@@ -488,6 +534,12 @@ start_tproxy() {
     ${iptables} -A OUTPUT -d ::1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
   fi
 
+  # # Add filter local IP
+  # ${iptables} -t mangle -N FILTER_LOCAL_IP
+  # ${iptables} -t mangle -A PREROUTING -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -A OUTPUT -j FILTER_LOCAL_IP
+  # monitor_local_ip
+
   if [ "${iptables}" != "ip6tables -w 64" ]; then
     if [ "${bin_name}" = "clash" ]; then
       # Create and configure CLASH_DNS_EXTERNAL chain
@@ -543,6 +595,13 @@ stop_tproxy() {
 
   ${iptables} -t mangle -F DIVERT
   ${iptables} -t mangle -X DIVERT
+
+  # # flush filter local IP
+  # ${iptables} -t mangle -D OUTPUT -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -D PREROUTING -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -D FILTER_LOCAL_IP
+  # ${iptables} -t mangle -F FILTER_LOCAL_IP
+  # ${iptables} -t mangle -X FILTER_LOCAL_IP
 
   # flush QUIC
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
@@ -608,7 +667,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_tproxy && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -625,7 +684,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -643,7 +702,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             forward -I || forward -D >> /dev/null 2>&1
             start_redirect && log Info "create ip(6)tables transparent proxy rules done." || (log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
@@ -686,7 +745,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_tproxy && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -703,7 +762,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
@@ -721,7 +780,7 @@ if [ "${proxy_mode}" != "tun" ]; then
             log Debug "use IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            intranet6+=($(ip address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+            intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
             forward -I || forward -D >> /dev/null 2>&1
             start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else

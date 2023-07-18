@@ -111,9 +111,9 @@ update_geox() {
   esac
   if [ "${update_geo}" = "true" ] && { log Info "daily updates geox" && log Debug "Downloading ${geoip_url}"; } && update_file "${geoip_file}" "${geoip_url}" && { log Debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; }; then
 
-    find "${box_dir}/${bin_name}" -type f -name "*.db.bak" -delete
-    find "${box_dir}/${bin_name}" -type f -name "*.dat.bak" -delete
-    find "${box_dir}/${bin_name}" -type f -name "*.mmdb.bak" -delete
+    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.db.bak" -delete
+    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.dat.bak" -delete
+    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.mmdb.bak" -delete
     log Debug "Update geox $(date +%F %R)"
     return 0
   else
@@ -402,7 +402,7 @@ extra_kernel() {
       ;;
   esac
 
-  find "${box_dir}" -type f -name "${file_kernel}.*" -delete
+  find "${box_dir}" -maxdepth 1 -type f -name "${file_kernel}.*" -delete
   chown ${box_user_group} ${bin_path}
   chmod 6755 ${bin_path}
 }

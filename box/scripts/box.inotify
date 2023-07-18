@@ -26,7 +26,6 @@ service_control() {
   fi
 }
 
-
 mkdir -p "${run_path}"
 if [ -f "${file_settings}" ] && [ -r "${file_settings}" ] && [ -s "${file_settings}" ]; then
   service_control

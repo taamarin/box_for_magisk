@@ -10,12 +10,13 @@ box_check_logs() {
   for bin in "${bin_list[@]}"; do
     if [ -f "${box_run}/${bin}.log" ]; then
       mv "${box_run}/${bin}.log" "${box_run}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
+      # rm -f "${box_run}/${bin}.log"
     fi
   done
   # Delete other log files
-  find "${box_run}" -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} \;
+  find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
   # Delete logs that are three days old or older
-  find "${box_run}" -type f -name "*.log" -mtime +2 -exec rm -f {} \;
+  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mtime +2 -exec rm -f {} +
 }
 
 box_bin_alive() {
@@ -108,18 +109,8 @@ box_check_bin() {
     exit 1
   fi
   case "${bin_name}" in
-    clash)
-      if ! version_output=$("${bin_path}" -v) >/dev/null 2>&1; then
-        log Error "${bin_name} version information not available."
-        exit 1
-      fi
-      ;;
-    *)
-      if ! version_output=$("${bin_path}" version) >/dev/null 2>&1; then
-        log Error "${bin_name} version information not available."
-        exit 1
-      fi
-      ;;
+    clash) version_output=$("${bin_path}" -v) >/dev/null 2>&1 || return 1 ;;
+    *) version_output=$("${bin_path}" version) >/dev/null 2>&1 || return 1 ;;
   esac
   log Info "${version_output}"
 }
@@ -162,20 +153,20 @@ prepare_singbox() {
     fi
     # Checks if "type" is "tun" in configuration
     if grep -q '"type": "tun"' "${sing_config}"; then
-      log Info "type 'tun' already exists in ${sing_config}"
+      log Info "type (tun) already exists in ${sing_config}"
     else
       # Add "tun" configuration if missing
       "${yq_cmd}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": true,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
-      log Debug "'tun' configuration has been added to ${sing_config}"
+      log Debug "(tun) configuration has been added to ${sing_config}"
     fi
     if [ "${network_mode}" = "mixed" ]; then
       # Checks if "type" is "redirect" in configuration
       if grep -q '"type": "redirect"' "${sing_config}"; then
-        log Info "type 'redirect' already exists in ${sing_config}"
+        log Info "type (redirect) already exists in ${sing_config}"
       else
         # Add "redirect" configuration if missing
         "${yq_cmd}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": true}]' -i --output-format=json "${sing_config}"
-        log Debug "'redirect' configuration has been added to ${sing_config}"
+        log Debug "(redirect) configuration has been added to ${sing_config}"
       fi
     fi
     sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${box_dir}/sing-box/"*.json
@@ -189,11 +180,11 @@ prepare_singbox() {
     fi
     # Checks if "type" is "tproxy" in configuration
     if grep -q '"type": "tproxy"' "${sing_config}"; then
-      log Info "type 'tproxy' already exists in ${sing_config}"
+      log Info "type (tproxy) already exists in ${sing_config}"
     else
       # Add "tproxy" configuration if missing
       "${yq_cmd}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": true}]' -i --output-format=json "${sing_config}"
-      log Debug "'tproxy' configuration has been added to ${sing_config}"
+      log Debug "(tproxy) configuration has been added to ${sing_config}"
     fi
     # sync tproxy port sing-box, Looping through each JSON file in the directory
     for file in "${box_dir}/sing-box/"*.json; do
@@ -218,8 +209,8 @@ prepare_clash() {
   fi
 
   # ipv6=$(busybox awk '/ipv6:/ { print $2; found=1; exit } END{ if(!found) print "false" }' "${clash_config}" | head -n 1 2>/dev/null)
-  # sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
   # sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" ${settings}
+  # sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
 
   # write external_controller, if not in $clash_config
   clash_external_controller=$(busybox awk '!/^ *#/ && /external-controller: /{print $1}' "${clash_config}")
@@ -259,9 +250,9 @@ prepare_clash() {
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
         '  exclude-package: []' \ >> "${clash_config}"
-      log Debug "'tun' configuration has been added to ${sing_config}"
+      log Debug "(tun) configuration has been added to ${sing_config}"
     else
-      log Info  "type 'tun' already exists in ${clash_config}"
+      log Info  "type (tun) already exists in ${clash_config}"
     fi
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
@@ -293,7 +284,7 @@ prepare_clash() {
   if [ "${proxy_mode}" != "tun" ]; then
     if [ -n "${packages_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Debug "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
-      log Debug"auto replace fake-ip > redir-host"
+      log Debug "auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi
   fi
@@ -520,18 +511,16 @@ start_box() {
 
   # Checks if bin_name is defined
   case "${bin_name}" in
-    "xray" | "sing-box" | "clash" | "v2fly")
-      log Info "Good day 🐱"
-      ;;
-    *)
-      log Error "bin_name: <..${bin_name}..> unknown not defined."
-      exit 1
-      ;;
+    "xray" | "sing-box" | "clash" | "v2fly") log Info "Good day 🐱";;
+    *) log Error "bin_name: <..${bin_name}..> unknown not defined."; exit 1;;
   esac
 
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
   box_permission
-  box_check_bin
+  if ! box_check_bin; then
+    log Error "${bin_name} version information not available."
+    exit 1
+  fi
   box_check_logs
 
   # Enable IP forwarding
