@@ -204,20 +204,20 @@ update_subs() {
                 "${yq_cmd}" 'del(.outbounds[] | select(.type == "direct" or .type == "block" or .type == "dns" or .type == "selector" or .type == "urltest"))' -i --output-format=json "${sing_provide_config}"
 
                 # create new outbounds with type: selector, tag: singbox in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "singbox", "type": "selector", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
+                "${yq_cmd}" '.outbounds += [{"tag": "b0x", "type": "selector", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
 
-                # create new outbounds with type: urltest, tag: singbox[urltest] in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "singbox[urltest]", "type": "urltest", "url": "https://www.gstatic.com/generate_204", "interval": "3m", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
+                # create new outbounds with type: urltest, tag: b0x[urltest] in ${sing_provide_config}
+                "${yq_cmd}" '.outbounds += [{"tag": "b0x[urltest]", "type": "urltest", "url": "https://www.gstatic.com/generate_204", "interval": "3m", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
 
                 # renew outbounds with tag: singbox in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["singbox"]' -i --output-format=json "${sing_config}"
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x"))' -i --output-format=json "${sing_provide_config}"
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x"))' -i --output-format=json "${sing_config}"
+                "${yq_cmd}" '.outbounds[0].outbounds += ["b0x"]' -i --output-format=json "${sing_config}"
 
-                # renew outbounds with tag: singbox[urltest] in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox[urltest]"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "singbox[urltest]"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["singbox[urltest]"]' -i --output-format=json "${sing_config}"
+                # renew outbounds with tag: b0x[urltest] in main ${sing_config} dan ${sing_provide_config}
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x[urltest]"))' -i --output-format=json "${sing_provide_config}"
+                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x[urltest]"))' -i --output-format=json "${sing_config}"
+                "${yq_cmd}" '.outbounds[0].outbounds += ["b0x[urltest]"]' -i --output-format=json "${sing_config}"
 
                 log Info "subscription success"
                 log Info "Update subscription $(date +"%F %R")"
@@ -270,7 +270,7 @@ update_kernel() {
     "sing-box")
       url_down="https://github.com/SagerNet/sing-box/releases"
       if [ "${singbox_releases}" = "false" ]; then
-        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+-[a-z0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
+        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9].+-[a-z0-9]+' | head -1 | busybox awk -F'/' '{print $3}' | busybox awk -F'"' '{print $1}')
       else
         sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
       fi

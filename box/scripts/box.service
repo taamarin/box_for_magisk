@@ -31,7 +31,7 @@ box_bin_alive() {
     done
     "${scripts_dir}/box.iptables" disable >/dev/null 2>&1
     [ -f "${box_pid}" ] && rm -f "${box_pid}"
-    return 1
+    exit 1
   else
     return 0
   fi
@@ -316,7 +316,7 @@ box_run_bin() {
         nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
-        sleep 0.5
+        sleep 1
       else
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
@@ -329,7 +329,7 @@ box_run_bin() {
         nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
-        sleep 0.5
+        sleep 1
       else
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
@@ -360,7 +360,7 @@ box_run_bin() {
         nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
-        sleep 0.5
+        sleep 1
       else
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
@@ -390,7 +390,7 @@ box_run_bin() {
         nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
-        sleep 0.5
+        sleep 1
       else
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
