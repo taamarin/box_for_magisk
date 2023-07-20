@@ -19,7 +19,7 @@ jobs:
         id: get_version
         run: |
           echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
-      
+
       - name: Update update.json and module.prop
         run: |
           echo '{
