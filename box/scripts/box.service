@@ -156,16 +156,16 @@ prepare_singbox() {
       log Info "type (tun) already exists in ${sing_config}"
     else
       # Add "tun" configuration if missing
-      "${yq_cmd}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": true,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
+      "${yq_cmd}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
       log Debug "(tun) configuration has been added to ${sing_config}"
     fi
+    # Checks if "type" is "redirect" in configuration
     if [ "${network_mode}" = "mixed" ]; then
-      # Checks if "type" is "redirect" in configuration
       if grep -q '"type": "redirect"' "${sing_config}"; then
         log Info "type (redirect) already exists in ${sing_config}"
       else
         # Add "redirect" configuration if missing
-        "${yq_cmd}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": true}]' -i --output-format=json "${sing_config}"
+        "${yq_cmd}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
         log Debug "(redirect) configuration has been added to ${sing_config}"
       fi
     fi
@@ -183,7 +183,7 @@ prepare_singbox() {
       log Info "type (tproxy) already exists in ${sing_config}"
     else
       # Add "tproxy" configuration if missing
-      "${yq_cmd}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": true}]' -i --output-format=json "${sing_config}"
+      "${yq_cmd}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
       log Debug "(tproxy) configuration has been added to ${sing_config}"
     fi
     # sync tproxy port sing-box, Looping through each JSON file in the directory
