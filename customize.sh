@@ -94,6 +94,7 @@ while true ; do
     /data/adb/box/scripts/box.tool all
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
+    sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🙁 Module installed but you need to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
     ui_print "- skip download KERNEL and GEOX" && break
   fi
 done
