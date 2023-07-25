@@ -15,8 +15,8 @@ box_check_logs() {
   done
   # Delete other log files
   find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
-  # Delete logs that are three days old or older
-  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mtime +2 -exec rm -f {} +
+  # Delete logs 10 minutes ago or older
+  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mmin +10 -exec rm -f {} +
 }
 
 box_bin_alive() {
@@ -316,7 +316,7 @@ box_run_bin() {
     sing-box)
       prepare_singbox
       if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -329,7 +329,7 @@ box_run_bin() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -360,7 +360,7 @@ box_run_bin() {
       # run xray
       export XRAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} -test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -390,7 +390,7 @@ box_run_bin() {
       # run v2ray
       export V2RAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -474,6 +474,7 @@ box_bin_status() {
 
 start_box() {
   # Clear the log file and add the timestamp and delimiter
+  # cd /data/adb/box/bin; chmod 755 *
   echo -n "" > "${box_log}"
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
   if [ -t 1 ]; then
@@ -528,7 +529,7 @@ start_box() {
 
   # Enable IP forwarding
   if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || ! sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1; then
-    log Debug "Cannot enable IP forwarding."
+    log Debug "can't enable IP forwarding."
   fi
 
   # Execute the box_create_tun functions
@@ -537,7 +538,7 @@ start_box() {
   fi
 
   # Execute box_run_crontab if run_crontab is not equal to "false"
-  [ "${run_crontab}" != "false" ] && box_run_crontab || log Info "crontab disabled."
+  [ "${run_crontab}" = "true" ] && box_run_crontab || log Info "crontab disabled."
 
   # Execute the box_cgroup, box_run_bin, box_detected_port, box_bin_alive,box_bin_status functions
   box_run_bin
@@ -551,7 +552,6 @@ start_box() {
     count=$((count + 1))
   done
   box_bin_status
-
   # open the yacd in browser
   open_yacd
 }
@@ -570,7 +570,6 @@ stop_box() {
       fi
     fi
   done
-
   # Check if the binary has stopped
   sleep 0.5
   if ! busybox pidof "${bin_name}" >/dev/null 2>&1; then
