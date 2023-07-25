@@ -70,6 +70,7 @@ box_permission() {
     chown -R ${box_user_group} ${box_dir}
     log Info "Use the kernel located in '${bin_path}'."
   elif which ${bin_name} | grep -q "/system/bin/"; then
+    mount -o remount,rw /system/bin/$bin_name
     box_user=$(echo ${box_user_group} | busybox awk -F ':' '{print $1}')
     box_group=$(echo ${box_user_group} | busybox awk -F ':' '{print $2}')
     box_user_id=$(id -u ${box_user})
@@ -88,7 +89,9 @@ box_permission() {
     # Check if user is not root and group is not net_admin
     if [[ "${box_user_id}" != "0" || "${box_group_id}" != "3005" ]]; then
       # Set capability of kernel directory
-      if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}"; then log Error "setcap authorization failed, you may need libcap package."; fi
+      if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}"; then
+        log Error "setcap authorization failed, you may need libcap package."
+      fi
     fi
     # Set ownership of data directory
     box_user_group="root:net_admin"
