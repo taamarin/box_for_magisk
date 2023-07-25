@@ -5,9 +5,9 @@ scripts_dir=$(dirname "${scripts}")
 source /data/adb/box/settings.ini
 
 # Variabel yang digunakan
-table='0x69'
-fwmark='0x69'
-pref='0x64'
+table="223"
+fwmark="223"
+pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
 
@@ -140,8 +140,8 @@ intranet6=(
 )
 
 monitor_local_ip() {
-  [ "${iptables}" != "ip6tables -w 64" ] && ipv=4 || ipv=6
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  [ "${iptables}" = "iptables -w 64" ] && ipv=4 || ipv=6
+  if [ "${iptables}" = "iptables -w 64" ]; then
     local_ips=($(ip a | busybox awk '$1~/inet$/{print $2}'))
   else
     local_ips=($(ip -6 a | busybox awk '$1~/inet6$/{print $2}'))
@@ -194,14 +194,14 @@ forward() {
 
 # box redirect
 start_redirect() {
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -t nat -N BOX_EXTERNAL
     ${iptables} -t nat -F BOX_EXTERNAL
     ${iptables} -t nat -N BOX_LOCAL
     ${iptables} -t nat -F BOX_LOCAL
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     if [ "${bin_name}" = "clash" ]; then
       ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
       ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
@@ -249,7 +249,7 @@ start_redirect() {
   fi
 
   # check if iptables is not ip6tables
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     # check proxy mode
     case "${proxy_mode}" in
       blacklist)
@@ -303,11 +303,11 @@ start_redirect() {
     esac
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -t nat -I OUTPUT -j BOX_LOCAL
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${redir_port}" -j REJECT
   else
     ${iptables} -A OUTPUT -d ::1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${redir_port}" -j REJECT
@@ -315,12 +315,12 @@ start_redirect() {
 }
 
 stop_redirect() {
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -t nat -D PREROUTING -j BOX_EXTERNAL
     ${iptables} -t nat -D OUTPUT -j BOX_LOCAL
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${redir_port}" -j REJECT
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner 0:3005 -m tcp --dport "${redir_port}" -j REJECT
   else
@@ -328,7 +328,7 @@ stop_redirect() {
     ${iptables} -D OUTPUT -d ::1 -p tcp -m owner --uid-owner 0:3005 -m tcp --dport "${redir_port}" -j REJECT
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     if [ -n "${fake_ip_range}" ]; then
       ${iptables} -t nat -D BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
       ${iptables} -t nat -D BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
@@ -343,18 +343,17 @@ stop_redirect() {
 
 # box tproxy
 start_tproxy() {
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip route add local default dev lo table "${table}"
   else
     ip -6 rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip -6 route add local default dev lo table "${table}"
+    # ip -6 rule add unreachable pref "${pref}"
   fi
 
   # Create the BOX_EXTERNAL chain if it doesn't exist
   ${iptables} -t mangle -N BOX_EXTERNAL 2>/dev/null
-  # Set the default policy of the chain to RETURN
-  # ${iptables} -t mangle -P BOX_EXTERNAL RETURN
   ${iptables} -t mangle -F BOX_EXTERNAL
 
   # Bypass box itself
@@ -368,7 +367,7 @@ start_tproxy() {
 
   # Bypass intranet
   # Add rules for intranet subnets
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     for subnet in "${intranet[@]}"; do
       if [ "${bin_name}" = "clash" ]; then
         ${iptables} -t mangle -A BOX_EXTERNAL -d "${subnet}" -j RETURN
@@ -405,7 +404,7 @@ start_tproxy() {
       # add iptables rules for UDP traffic
       ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i "${ap}" -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${fwmark}"
     done
-    [ "${iptables}" != "ip6tables -w 64" ] && log Info "${ap_list[*]} transparent proxy."
+    [ "${iptables}" = "iptables -w 64" ] && log Info "${ap_list[*]} transparent proxy."
   fi
 
   ${iptables} -t mangle -I PREROUTING -j BOX_EXTERNAL
@@ -417,13 +416,13 @@ start_tproxy() {
     for ignore in ${ignore_out_list[@]} ; do
       ${iptables} -t mangle -I BOX_LOCAL -o "${ignore}" -j RETURN
     done
-    [ "${iptables}" != "ip6tables -w 64" ] && log Info "${ignore_out_list[*]} ignore transparent proxy."
+    [ "${iptables}" = "iptables -w 64" ] && log Info "${ignore_out_list[*]} ignore transparent proxy."
   fi
 
   # Bypass intranet Clash
   if [ "${bin_name}" = "clash" ]; then
     ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j RETURN
-    if [ "${iptables}" != "ip6tables -w 64" ]; then
+    if [ "${iptables}" = "iptables -w 64" ]; then
       for subnet in "${intranet[@]}"; do
         ${iptables} -t mangle -A BOX_LOCAL -d "${subnet}" -j RETURN
       done
@@ -433,7 +432,7 @@ start_tproxy() {
       done
     fi
   else
-    if [ "${iptables}" != "ip6tables -w 64" ]; then
+    if [ "${iptables}" = "iptables -w 64" ]; then
       for subnet in "${intranet[@]}"; do
         ${iptables} -t mangle -A BOX_LOCAL -d "${subnet}" -p udp ! --dport 53 -j RETURN
         ${iptables} -t mangle -A BOX_LOCAL -d "${subnet}" ! -p udp -j RETURN
@@ -448,8 +447,8 @@ start_tproxy() {
 
   # Bypass box itself
   ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -j RETURN
-
   # ${iptables} -t mangle -I BOX_LOCAL -m mark --mark ${routing_mark} -j RETURN
+
   # Disable kernel
   # ${iptables} -t mangle -A BOX_LOCAL -m owner ! --uid 0-99999999 -j DROP
 
@@ -460,7 +459,7 @@ start_tproxy() {
         # Route Everything
         ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "transparent proxy for all apps."
       else
 
         # Bypass apps
@@ -474,7 +473,7 @@ start_tproxy() {
         # Allow !app
         ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
       fi
       ;;
     whitelist)
@@ -482,7 +481,7 @@ start_tproxy() {
         # Route Everything
         ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "transparent proxy for all apps."
       else
         # Route apps to Box
         # loop through uid list and add iptables rule
@@ -501,14 +500,14 @@ start_tproxy() {
         ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
         # Route DNS request to Box
         [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" != "ip6tables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
       fi
       ;;
     *)
       log Debug "proxy-mode: ${proxy_mode} < error"
       ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
       ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-      [ "${iptables}" != "ip6tables -w 64" ] && log Info "transparent proxy for all apps."
+      [ "${iptables}" = "iptables -w 64" ] && log Info "transparent proxy for all apps."
       ;;
     esac
 
@@ -526,23 +525,23 @@ start_tproxy() {
     ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
     ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
     # ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
-    [ "${iptables}" != "ip6tables -w 64" ] && log Warning "disable QUIC"
+    [ "${iptables}" = "iptables -w 64" ] && log Warning "disable QUIC"
   fi
 
   # This rule blocks local access to tproxy-port to prevent traffic loopback.
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -A OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
   else
     ${iptables} -A OUTPUT -d ::1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
   fi
 
-  # Add filter local IP
+  # # Add filter local IP
   ${iptables} -t mangle -N FILTER_LOCAL_IP
   ${iptables} -t mangle -A PREROUTING -j FILTER_LOCAL_IP
   ${iptables} -t mangle -A OUTPUT -j FILTER_LOCAL_IP
   monitor_local_ip
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     if [ "${bin_name}" = "clash" ]; then
       # Create and configure CLASH_DNS_EXTERNAL chain
       ${iptables} -t nat -N CLASH_DNS_EXTERNAL
@@ -557,28 +556,27 @@ start_tproxy() {
       ${iptables} -t nat -A CLASH_DNS_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
       ${iptables} -t nat -I OUTPUT -j CLASH_DNS_LOCAL
     fi
-    # Fix ICMP (ping)
-    # This does not guarantee that the ping result is valid
-    # Just that it returns a result
-    # "--to-destination" can be set to a reachable address.
 
+    # Fix ICMP (ping), this does not guarantee that the ping result is valid (proxies such as clash do not support forwarding ICMP),
+    # just that it returns a result, "--to-destination" can be set to a reachable address.
     if [ -n "${fake_ip_range}" ]; then
       ${iptables} -t nat -I OUTPUT -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
       ${iptables} -t nat -I PREROUTING -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
     fi
-
   fi
 }
 
 stop_tproxy() {
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ip rule del fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip route del local default dev lo table "${table}"
     ip route flush table "${table}"
+    ip rule del pref "${pref}"
   else
     ip -6 rule del fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip -6 route del local default dev lo table "${table}"
     ip -6 route flush table "${table}"
+    ip -6 rule del pref "${pref}"
   fi
 
   ${iptables} -t mangle -D PREROUTING -j BOX_EXTERNAL
@@ -601,16 +599,15 @@ stop_tproxy() {
   # flush filter local IP
   ${iptables} -t mangle -D OUTPUT -j FILTER_LOCAL_IP
   ${iptables} -t mangle -D PREROUTING -j FILTER_LOCAL_IP
-  ${iptables} -t mangle -D FILTER_LOCAL_IP
   ${iptables} -t mangle -F FILTER_LOCAL_IP
   ${iptables} -t mangle -X FILTER_LOCAL_IP
 
   # flush QUIC
+  # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
-  # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner 0 --gid-owner 3005 -m tcp --dport "${tproxy_port}" -j REJECT
   else
@@ -618,24 +615,23 @@ stop_tproxy() {
     ${iptables} -D OUTPUT -d ::1 -p tcp -m owner --uid-owner 0 --gid-owner 3005 -m tcp --dport "${tproxy_port}" -j REJECT
   fi
 
-  if [ "${iptables}" != "ip6tables -w 64" ]; then
+  if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -t nat -D PREROUTING -j CLASH_DNS_EXTERNAL
-  
     ${iptables} -t nat -D OUTPUT -j CLASH_DNS_LOCAL
-  
+
     ${iptables} -t nat -F CLASH_DNS_EXTERNAL
     ${iptables} -t nat -X CLASH_DNS_EXTERNAL
-  
+
     ${iptables} -t nat -F CLASH_DNS_LOCAL
     ${iptables} -t nat -X CLASH_DNS_LOCAL
 
     if [ -n "${fake_ip_range}" ]; then
       ${iptables} -t nat -D OUTPUT -p icmp -d "${fake_ip_range}" -j DNAT --to-destination 127.0.0.1
       ${iptables} -t nat -D PREROUTING -p icmp -d "${fake_ip_range}" -j DNAT --to-destination 127.0.0.1
-    fi
 
-    # ${iptables} -t nat -D OUTPUT -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-    # ${iptables} -t nat -D PREROUTING -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      ${iptables} -t nat -D OUTPUT -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      ${iptables} -t nat -D PREROUTING -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    fi
   fi
 }
 
