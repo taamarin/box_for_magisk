@@ -12,7 +12,6 @@ box_check_logs() {
   for bin in "${bin_list[@]}"; do
     if [ -f "${box_run}/${bin}.log" ]; then
       mv "${box_run}/${bin}.log" "${box_run}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
-      # rm -f "${box_run}/${bin}.log"
     fi
   done
   # Delete other log files
@@ -61,49 +60,51 @@ box_run_crontab() {
   fi
 }
 
+box_ownership() {
+  # Set ownership and permission of kernel directory
+  chown ${box_user_group} ${bin_path}
+  chown -R ${box_user_group} ${box_dir}
+  chmod 6755 ${bin_path}
+  chmod -R 644 ${box_dir}/${bin_name}
+}
+
 box_permission() {
+  chmod 0700 ${box_dir}/bin/yq
+  chmod 0700 ${box_dir}/bin/curl
   if [[ "${box_user_group}" == @(root:net_admin|0:3005) && -f "${bin_path}" ]]; then
     # Set ownership and permission of kernel directory
-    chown ${box_user_group} ${bin_path}
-    chmod 6755 ${bin_path}
-    chmod 0644 "${box_dir}/${bin_name}"/*
-    chmod 0755 "${box_dir}/bin/yq"
-    # Set ownership of data directory
-    chown -R ${box_user_group} ${box_dir}
-    log Info "Use the kernel located in '${bin_path}'."
+    box_ownership
+    log Info "Using kernel in ${bin_path}."
   elif which ${bin_name} | grep -q "/system/bin/"; then
     mount -o remount,rw /system/bin/$bin_name
-    box_user=$(echo ${box_user_group} | busybox awk -F ':' '{print $1}')
-    box_group=$(echo ${box_user_group} | busybox awk -F ':' '{print $2}')
-    box_user_id=$(id -u ${box_user})
-    box_group_id=$(id -g ${box_group})
+    # Split box_user_group into user and group using IFS
+    IFS=':' read -r box_user box_group <<< "${box_user_group}"
     # Check if box_user and box_group exist
-    if ! [[ ${box_user_id} && ${box_group_id} ]]; then
-     log Error "${box_user_group} error, use root:net_admin instead."
-     box_user_group="root:net_admin"
+    if ! id -u "${box_user}" 2>/dev/null || ! id -g "${box_group}" 2>/dev/null; then
+      log Error "${box_user_group} error, use root:net_admin instead."
+      box_user_group="root:net_admin"
     fi
     bin_path=$(which ${bin_name})
     # Set ownership and permission of kernel directory
-    chown ${box_user_group} ${bin_path}
-    chmod 6755 ${bin_path}
-    chmod 0644 "${box_dir}/${bin_name}"/*
-    chmod 0755 "${box_dir}/bin/yq"
+    box_ownership
     # Check if user is not root and group is not net_admin
-    if [[ "${box_user_id}" != "0" || "${box_group_id}" != "3005" ]]; then
+    if [[ ${box_user_id} -ne 0 || ${box_group_id} -ne 3005 ]]; then
       # Set capability of kernel directory
-      if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}"; then
-        log Error "setcap authorization failed, you may need libcap package."
+      box_user_group="root:net_admin"
+      if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" 2>&1; then
+        log Warning "setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" authorization failed."
+        bin_path="${box_dir}/bin/${bin_name}"
+        # Set ownership and permission of kernel directory
+        box_ownership
       fi
     fi
-    # Set ownership of data directory
-    box_user_group="root:net_admin"
-    log Info "Using kernel directory ${bin_name} in ${bin_path}"
-    chown -R ${box_user_group} ${box_dir}
+    mount -o remount,ro /system/bin/$bin_name
+    log Info "Using kernel in ${bin_path}."
   else
     sed -i "s/box_user_group=.*/box_user_group=\"root:net_admin\"/g" ${settings}
     log Error "Kernel <${bin_name}> is missing."
     log Error "Please download the <${bin_name}> kernel and place it in the ${bin_dir}/ directory."
-    log Debug "or executed: su -c /data/adb/box/scripts/box.tool upcore ."
+    log Debug "exec: su -c /data/adb/box/scripts/box.tool upcore"
     exit 1
   fi
 }
@@ -288,8 +289,8 @@ prepare_clash() {
 
   if [ "${proxy_mode}" != "tun" ]; then
     if [ -n "${packages_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
-      log Debug "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
-      log Debug "auto replace fake-ip > redir-host"
+      log Warning "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
+      log Warning "auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi
   fi
@@ -462,8 +463,12 @@ box_bin_status() {
     log Info "${bin_name} CPU usage: not available"
   fi
 
+  # Check battery temperature
+  temperature_celsius=$(($(cat /sys/class/power_supply/battery/temp) / 10))
+  log Info "battery temperature: ${temperature_celsius}°C"
+
   # Get the running time of the binary
-  running_time=$(ps -p $PID -o etime | busybox awk 'NR==2{print $1}' 2> /dev/null)
+  running_time=$(busybox ps -o comm,etime | grep ${bin_name} | busybox awk '{print $2}')
   if [ -n "${running_time}" ]; then
     log Info "${bin_name} running time: ${running_time}"
   else
@@ -472,7 +477,7 @@ box_bin_status() {
 
   # Save the process ID to the pid file
   if [ -n "$PID" ]; then
-    sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ☑️ '${bin_name}' service is running ] /g' "$PROPFILE"
+    sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ♻️ '${bin_name}' service is running ] /g' "$PROPFILE"
     echo -n "$PID" > "${box_pid}"
   fi
 }
@@ -491,11 +496,13 @@ start_box() {
     echo -e "${yellow}${box_version}${normal}"
     echo -e "${white}--------------------------------------------${normal}"
   else
-    echo "$(getprop persist.sys.timezone)" | tee -a "${box_log}" > /dev/null 2>&1
-    echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)" | tee -a "${box_log}" > /dev/null 2>&1
-    echo "$(date)" | tee -a "${box_log}" > /dev/null 2>&1
-    echo "${box_version}" | tee -a "${box_log}" > /dev/null 2>&1
-    echo "--------------------------------------------" | tee -a "${box_log}" > /dev/null 2>&1
+    {
+      echo "$(getprop persist.sys.timezone)"
+      echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)"
+      echo "$(date)"
+      echo "${box_version}"
+      echo "--------------------------------------------"
+    } | tee -a "${box_log}" > /dev/null 2>&1
   fi
 
   # Update iptables if bin_name is still running
@@ -522,8 +529,13 @@ start_box() {
 
   # Checks if bin_name is defined
   case "${bin_name}" in
-    "xray" | "sing-box" | "clash" | "v2fly") log Info "Good day 🐱";;
-    *) log Error "bin_name: <..${bin_name}..> unknown not defined."; exit 1;;
+    xray|sing-box|clash|v2fly)
+      log Info "Good day 🐱"
+      ;;
+    *)
+      log Error "bin_name: <..${bin_name}..> unknown not defined."
+      exit 1
+      ;;
   esac
 
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
@@ -533,11 +545,6 @@ start_box() {
     exit 1
   fi
   box_check_logs
-
-  # Enable IP forwarding
-  if ! sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || ! sysctl -w net.ipv6.conf.all.forwarding=1 >/dev/null 2>&1; then
-    log Debug "can't enable IP forwarding."
-  fi
 
   # Execute the box_create_tun functions
   if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
@@ -591,7 +598,7 @@ stop_box() {
     log Warning "${bin_name} Not stopped; may still be shutting down or failed to shut down."
     force_stop
   fi
-  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🚫 '${bin_name}' service is stopped ] /g' "$PROPFILE"
+  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ⛔ '${bin_name}' service is stopped ] /g' "$PROPFILE"
 }
 
 stop_cron() {

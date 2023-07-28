@@ -74,7 +74,7 @@ box_sync_port() {
 find_packages_uid() {
   echo -n "" > "${uid_list}"
   for package in "${packages_list[@]}"; do
-      busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
+    busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
   done
 }
 
@@ -95,6 +95,9 @@ disable_ipv6() {
   sysctl -w net.ipv6.conf.all.disable_ipv6=1
   sysctl -w net.ipv6.conf.default.disable_ipv6=1
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=1
+  # Enable IP(4) forwarding
+  sysctl -w net.ipv4.ip_forward=1
+  sysctl -w net.ipv6.conf.all.forwarding=0
 } >> /dev/null 2>&1
 
 ipv6_enable() {
@@ -103,6 +106,9 @@ ipv6_enable() {
   sysctl -w net.ipv6.conf.all.disable_ipv6=0
   sysctl -w net.ipv6.conf.default.disable_ipv6=0
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=0
+  # Enable IP(6) forwarding
+  sysctl -w net.ipv4.ip_forward=1
+  sysctl -w net.ipv6.conf.all.forwarding=1
 } >> /dev/null 2>&1
 
 intranet=(
@@ -138,54 +144,6 @@ intranet6=(
   fe80::/10
   ff00::/8
 )
-
-monitor_local_ip() {
-  [ "${iptables}" = "iptables -w 64" ] && ipv=4 || ipv=6
-  if [ "${iptables}" = "iptables -w 64" ]; then
-    local_ips=($(ip a | busybox awk '$1~/inet$/{print $2}'))
-  else
-    local_ips=($(ip -6 a | busybox awk '$1~/inet6$/{print $2}'))
-  fi
-  local_ip_number=${#local_ips[@]}
-  rules_ips=($(${iptables} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | busybox awk '{print $9}'))
-  rules_number=$(${iptables} -t mangle -L FILTER_LOCAL_IP | grep "ACCEPT" | wc -l)
-
-  if [ ${local_ip_number} -ne ${rules_number} ] ; then
-    for rules_subnet in "${rules_ips[@]}" ; do
-      wait_count=0
-      a_subnet=$(busybox ipcalc -n ${rules_subnet} | busybox awk -F '=' '{print $2}')
-      for local_subnet in "${local_ips[@]}" ; do
-        b_subnet=$(busybox ipcalc -n ${local_subnet} | busybox awk -F '=' '{print $2}')
-        if [ "${a_subnet}" != "${b_subnet}" ] ; then
-          wait_count=$((wait_count + 1))
-          if [ ${wait_count} -ge ${local_ip_number} ] ; then
-            ${iptables} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet} -j ACCEPT
-          fi
-        fi
-      done
-    done
-
-    for subnets in "${local_ips[@]}" ; do
-      if ! (${iptables} -t mangle -C FILTER_LOCAL_IP -d ${subnets} -j ACCEPT > /dev/null 2>&1) ; then
-        ${iptables} -t mangle -I FILTER_LOCAL_IP -d ${subnets} -j ACCEPT
-      fi
-    done
-    log Debug "Filter Local IP($ipv) ${local_ips[*]}"
-
-    unset a_subnet
-    unset b_subnet
-    log Debug "iptables rules for bypassing the local IP($ipv) have been updated."
-  else
-    log Debug "local IP($ipv) remains unchanged, and no processing has been performed."
-    return 1
-  fi
-
-  unset local_ips
-  unset local_ip_number
-  unset rules_ips
-  unset rules_number
-  unset wait_count
-}
 
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
@@ -346,10 +304,10 @@ start_tproxy() {
   if [ "${iptables}" = "iptables -w 64" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip route add local default dev lo table "${table}"
+    # ip -6 rule add unreachable pref "${pref}"
   else
     ip -6 rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip -6 route add local default dev lo table "${table}"
-    # ip -6 rule add unreachable pref "${pref}"
   fi
 
   # Create the BOX_EXTERNAL chain if it doesn't exist
@@ -535,12 +493,6 @@ start_tproxy() {
     ${iptables} -A OUTPUT -d ::1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
   fi
 
-  # # Add filter local IP
-  ${iptables} -t mangle -N FILTER_LOCAL_IP
-  ${iptables} -t mangle -A PREROUTING -j FILTER_LOCAL_IP
-  ${iptables} -t mangle -A OUTPUT -j FILTER_LOCAL_IP
-  monitor_local_ip
-
   if [ "${iptables}" = "iptables -w 64" ]; then
     if [ "${bin_name}" = "clash" ]; then
       # Create and configure CLASH_DNS_EXTERNAL chain
@@ -595,12 +547,6 @@ stop_tproxy() {
 
   ${iptables} -t mangle -F DIVERT
   ${iptables} -t mangle -X DIVERT
-
-  # flush filter local IP
-  ${iptables} -t mangle -D OUTPUT -j FILTER_LOCAL_IP
-  ${iptables} -t mangle -D PREROUTING -j FILTER_LOCAL_IP
-  ${iptables} -t mangle -F FILTER_LOCAL_IP
-  ${iptables} -t mangle -X FILTER_LOCAL_IP
 
   # flush QUIC
   # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
