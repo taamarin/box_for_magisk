@@ -31,14 +31,13 @@ jobs:
 
           sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/${{ github.event.inputs.tag }}/g" module.prop
           sed -i "s/$(grep -oP 'versionCode=\K[^ ]+' module.prop)/$(date +%Y%m%d)/g" module.prop
-      
+
       - name: Commit and push changes
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.json module.prop
           git commit -m "${{ github.event.inputs.tag }}"
-          # git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git push -f origin "${{github.event.inputs.branch}}"
  
       - name: run build.sh
@@ -51,3 +50,19 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           files: box_for_root-v*.zip
           generate_release_notes: true
+
+      - name: Upload to telegram
+        env:
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CACHE_CHAT_ID: ${{ secrets.CACHE_CHAT_ID }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TITLE: ${{ github.event.inputs.tag }}
+        run: |
+          export VERSION=$(git rev-parse --short HEAD)
+          FILE=$(find ./box_for_root-v* -type f)
+          pip3 install python-telegram-bot
+          python3 docs/tubot.py $FILE
