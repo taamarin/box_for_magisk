@@ -21,12 +21,14 @@ jobs:
         id: get_tags
         run: |
           echo "tag=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-          echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "version=$(git rev-parse --short HEAD)_$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: update module.prop
         run: |
-          sed -i "s/version=.*/version=${{ steps.get_tags.outputs.tag }}_$(date +%Y%m%d_%H%M)_debug/g" module.prop
-          sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.date }}/g" module.prop
+          # sed -i "s/version=.*/version=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.tag }}_debug/g" module.prop
+          sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
+          sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
 
       - name: get version
         id: get_version
@@ -55,11 +57,13 @@ jobs:
         id: get_tags
         run: |
           echo "tag=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-          echo "date=$(date +%Y%m%d_%H%M)" >> "$GITHUB_OUTPUT"
+          echo "version=$(git rev-parse --short HEAD)_$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          echo "versionCode=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Get Version and Build
         run: |
-          sed -i "s/${{ steps.get_tags.outputs.tag }}/&_$(date +%Y%m%d_%H%M)_debug/g" module.prop
+          sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
+          sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
           sh build.sh
  
       - name: Release
@@ -76,9 +80,9 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_URL: ${{ github.event.head_commit.url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TITLE: BFM/R ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.date }}_debug
+          TITLE: B4R ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}_debug
         run: |
-          export VERSION=$(date +%m%d)
+          export VERSION=$(git rev-parse --short HEAD)
           FILE=$(find ./bfr/* -type f)
           pip3 install python-telegram-bot
           python3 docs/tubot.py $FILE

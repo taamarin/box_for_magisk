@@ -6,12 +6,6 @@ source /data/adb/box/settings.ini
 
 # user agent
 user_agent="box_for_root"
-# option to download Clash kernel clash-premium{false} or clash-meta{true}
-meta="false"
-# for clash-premium
-dev=false
-# option to download Singbox kernel beta or release
-singbox_releases=false
 # whether use ghproxy to accelerate github download
 use_ghproxy=true
 
@@ -91,8 +85,8 @@ update_geox() {
   [ -z "${geodata_mode}" ] && geodata_mode=false
   case "${bin_name}" in
     clash)
-      geoip_file="${box_dir}/clash/$(if [[ "${meta}" == "false"  || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [[ "${meta}" == "false"  || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
+      geoip_file="${box_dir}/clash/$(if [[ "${clash_option}" == "premium"  || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
+      geoip_url="https://github.com/$(if [[ "${clash_option}" == "premium"  || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
       geosite_file="${box_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
@@ -269,24 +263,19 @@ update_kernel() {
   case "${bin_name}" in
     "sing-box")
       url_down="https://github.com/SagerNet/sing-box/releases"
-      if [ "${singbox_releases}" = "false" ]; then
-        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9].+-[a-z0-9]+' | head -1 | busybox awk -F'/' '{print $3}' | busybox awk -F'"' '{print $1}')
-      else
-        sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
-      fi
+      sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
       sing_box_version=${sing_box_version_temp#v}
       download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
       update_file "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && extra_kernel
       ;;
     "clash")
-      if [ "${meta}" = "true" ]; then
+      if [ "${clash_option}" = "meta" ]; then
         # set download link and get the latest version
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
         if [ "$use_ghproxy" == true ]; then
           download_link="https://ghproxy.com/${download_link}"
         fi
-        # tag=$(busybox wget --no-check-certificate -qO- ${download_link} | grep -oE 'tag\/([^"]+)' | cut -d '/' -f 2 | head -1)
         tag="Prerelease-Alpha"
         latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
@@ -296,16 +285,10 @@ update_kernel() {
         update_file "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && extra_kernel
       # if meta flag is false, download clash premium/dev
       else
-        # if dev flag is true, download latest dev version
-        if [ "${dev}" != "false" ]; then
-          log Debug "download https://release.dreamacro.workers.dev/latest/clash-linux-${arch}-latest.gz"
-          update_file "${box_dir}/${file_kernel}.gz" "https://release.dreamacro.workers.dev/latest/clash-linux-${arch}-latest.gz" && extra_kernel
-        else
         # if dev flag is false, download latest premium version
-          filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
-          log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
-          update_file "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && extra_kernel
-        fi
+        filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+        log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
+        update_file "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && extra_kernel
       fi
       ;;
     "xray"|"v2fly")
@@ -336,13 +319,15 @@ update_kernel() {
 extra_kernel() {
   case "${bin_name}" in
     "clash")
-      if command -v gunzip >/dev/null 2>&1; then
-        gunzip_command="gunzip"
-      else
+      gunzip_command="gunzip"
+      if ! command -v gunzip >/dev/null 2>&1; then
         gunzip_command="busybox gunzip"
       fi
-      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 &&
-        mv "${box_dir}/${file_kernel}" "${bin_dir}/${bin_name}"; then
+
+      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/${bin_name}"; then
+        mkdir -p "${bin_dir}/xclash"
+        cp "${bin_dir}/${bin_name}" "${bin_dir}/xclash/clash_${clash_option}"
+
         if [ -f "${box_pid}" ]; then
           restart_box
         else
@@ -353,11 +338,11 @@ extra_kernel() {
       fi
       ;;
     "sing-box")
-      if command -v tar >/dev/null 2>&1; then
-        tar_command="tar"
-      else
+      tar_command="tar"
+      if ! command -v tar >/dev/null 2>&1; then
         tar_command="busybox tar"
       fi
+
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${box_dir}/bin" >&2 &&
         mv "${box_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}" &&
         rm -r "${box_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
@@ -367,7 +352,7 @@ extra_kernel() {
           log Debug "${bin_name} does not need to be restarted."
         fi
       else
-        log Warning "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
+        log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
       ;;
     "v2fly"|"xray")
@@ -375,11 +360,11 @@ extra_kernel() {
       if [ "${bin_name}" != "xray" ]; then
         bin="v2ray"
       fi
-      if command -v unzip >/dev/null 2>&1; then
-        unzip_command="unzip"
-      else
+      unzip_command="unzip"
+      if ! command -v unzip >/dev/null 2>&1; then
         unzip_command="busybox unzip"
       fi
+
       mkdir -p "${bin_dir}/update"
       if ${unzip_command} -o "${box_dir}/${file_kernel}.zip" "${bin}" -d "${bin_dir}/update" >&2; then
         if mv "${bin_dir}/update/${bin}" "${bin_dir}/${bin_name}"; then
@@ -392,7 +377,7 @@ extra_kernel() {
           log Error "Failed to move the kernel."
         fi
       else
-        log Warning "Failed to extract ${box_dir}/${file_kernel}.zip."
+        log Error "Failed to extract ${box_dir}/${file_kernel}.zip."
       fi
       rm -rf "${bin_dir}/update"
       ;;
@@ -410,7 +395,7 @@ extra_kernel() {
 # Check and update yacd
 update_dashboard() {
   # su -c /data/adb/box/scripts/box.tool upyacd
-  if [ "${bin_name}" = "clash" -o "${bin_name}" = "sing-box" ]; then
+  if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${bin_name}/dashboard.zip"
     url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then

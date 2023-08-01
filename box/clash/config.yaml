@@ -229,7 +229,7 @@ proxy-groups:
 proxy-providers:
   "provide":
     type: file
-    path: ./provide/subscription.yml
+    path: ./provide/subscription.yaml
     # filter: 'xxx' # Supports regular expressions to filter by node name
     # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
     # exclude-type: 'ss|http' # Does not support regular expressions, separated by '|', excluded by node type

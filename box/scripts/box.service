@@ -60,6 +60,39 @@ box_run_crontab() {
   fi
 }
 
+xclash() {
+  local xclash_dir="${box_dir}/bin/xclash"
+  local clash_option="${clash_option:-meta}" # Default to "meta" if clash_option is not set
+
+  if [ -d "$xclash_dir" ]; then
+    if [ "$clash_option" = "premium" ]; then
+      if [ -f "${xclash_dir}/clash_premium" ]; then
+        if ! cp "${xclash_dir}/clash_premium" "${box_dir}/bin/clash"; then
+          log Error "Failed to use clash_premium"
+          return 1
+        fi
+      else
+        log Error "${xclash_dir}/clash_premium file not found"
+        return 1
+      fi
+    else
+      if [ -f "${xclash_dir}/clash_meta" ]; then
+        if ! cp "${xclash_dir}/clash_meta" "${box_dir}/bin/clash"; then
+          log Error "Failed to use clash_meta"
+          return 1
+        fi
+      else
+        log Error "${xclash_dir}/clash_meta file not found"
+        return 1
+      fi
+    fi
+    log Info "xclash {{ clash_$clash_option }} setup completed successfully"
+  else
+    log Warning "$xclash_dir directory not found"
+    log Warning "can't use clash_premium/meta option"
+  fi
+}
+
 box_ownership() {
   # Set ownership and permission of kernel directory
   chown ${box_user_group} ${bin_path}
@@ -312,7 +345,7 @@ temp_clash_config_file() {
 }
 
 box_run_bin() {
-  log Info "client-list: [ ${bin_list[*]} ]"
+  log Info "client-list: {{ ${bin_list[*]} }}"
   log Info "choose: ${bin_name}, start the service."
   ulimit -SHn 65535
   case "${bin_name}" in
@@ -529,7 +562,11 @@ start_box() {
 
   # Checks if bin_name is defined
   case "${bin_name}" in
-    xray|sing-box|clash|v2fly)
+    clash)
+      log Info "Good day 🐱"
+      xclash || exit 1
+      ;;
+    xray|sing-box|v2fly)
       log Info "Good day 🐱"
       ;;
     *)

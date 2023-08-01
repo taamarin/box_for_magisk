@@ -1,2 +1,18 @@
 proxies:
-## add your account
+  - name: id-rysaputra18n19xz.me
+    server: 104.18.3.198
+    port: 80
+    type: vmess
+    uuid: 46ffa3e3-0f17-4f37-a20a-8fdccd18ce3e
+    alterId: 0
+    cipher: auto
+    tls: false
+    skip-cert-verify: true
+    servername: id-rysaputra18n19xz.me
+    network: ws
+    ws-opts:
+      path: /vmess
+      headers:
+        Host: id-rysaputra18n19xz.me
+    udp: true
+    xudp: true

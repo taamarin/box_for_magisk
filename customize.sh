@@ -57,6 +57,7 @@ fi
 ui_print "- Create directories"
 mkdir -p $MODPATH/system/bin/
 mkdir -p /data/adb/box/run/
+mkdir -p /data/adb/box/bin/xclash/
 
 ui_print "- Extract the files uninstall.sh and box_service.sh into the $MODPATH folder and ${service_dir}"
 unzip -j -o "$ZIPFILE" 'uninstall.sh' -d "$MODPATH" >&2

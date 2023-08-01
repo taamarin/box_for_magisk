@@ -9,7 +9,7 @@
     },
     "inbounds": [
         {
-            "port": 5335,
+            "port": 9898,
             "protocol": "dokodemo-door",
             "tag": "proxy-in",
             "settings": {
