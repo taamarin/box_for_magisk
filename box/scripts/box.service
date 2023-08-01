@@ -61,36 +61,30 @@ box_run_crontab() {
 }
 
 xclash() {
-  local xclash_dir="${box_dir}/bin/xclash"
   local clash_option="${clash_option:-meta}" # Default to "meta" if clash_option is not set
 
-  if [ -d "$xclash_dir" ]; then
-    if [ "$clash_option" = "premium" ]; then
-      if [ -f "${xclash_dir}/clash_premium" ]; then
-        if ! cp "${xclash_dir}/clash_premium" "${box_dir}/bin/clash"; then
-          log Error "Failed to use clash_premium"
-          return 1
-        fi
-      else
-        log Error "${xclash_dir}/clash_premium file not found"
+  if [ "$clash_option" = "premium" ]; then
+    if [ -f "${bin_dir}/clash_premium" ]; then
+      if ! cp "${bin_dir}/clash_premium" "${box_dir}/bin/clash"; then
+        log Error "Failed to use clash_premium"
         return 1
       fi
     else
-      if [ -f "${xclash_dir}/clash_meta" ]; then
-        if ! cp "${xclash_dir}/clash_meta" "${box_dir}/bin/clash"; then
-          log Error "Failed to use clash_meta"
-          return 1
-        fi
-      else
-        log Error "${xclash_dir}/clash_meta file not found"
+      log Error "${bin_dir}/clash_premium file not found"
+      return 1
+    fi
+  else
+    if [ -f "${bin_dir}/clash_meta" ]; then
+      if ! cp "${bin_dir}/clash_meta" "${box_dir}/bin/clash"; then
+        log Error "Failed to use clash_meta"
         return 1
       fi
+    else
+      log Error "${bin_dir}/clash_meta file not found"
+      return 1
     fi
-    log Info "xclash {{ clash_$clash_option }} setup completed successfully"
-  else
-    log Warning "$xclash_dir directory not found"
-    log Warning "can't use clash_premium/meta option"
   fi
+  log Info "xclash {{ clash_$clash_option }} setup completed successfully"
 }
 
 box_ownership() {
@@ -108,33 +102,38 @@ box_permission() {
     # Set ownership and permission of kernel directory
     box_ownership
     log Info "Using kernel in ${bin_path}."
-  elif which ${bin_name} | grep -q "/system/bin/"; then
-    mount -o remount,rw /system/bin/$bin_name
-    # Split box_user_group into user and group using IFS
-    IFS=':' read -r box_user box_group <<< "${box_user_group}"
-    # Check if box_user and box_group exist
-    if ! id -u "${box_user}" 2>/dev/null || ! id -g "${box_group}" 2>/dev/null; then
-      log Error "${box_user_group} error, use root:net_admin instead."
-      box_user_group="root:net_admin"
-    fi
-    bin_path=$(which ${bin_name})
-    # Set ownership and permission of kernel directory
-    box_ownership
-    # Check if user is not root and group is not net_admin
-    if [[ ${box_user_id} -ne 0 || ${box_group_id} -ne 3005 ]]; then
-      # Set capability of kernel directory
-      box_user_group="root:net_admin"
-      if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" 2>&1; then
-        log Warning "setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" authorization failed."
-        bin_path="${box_dir}/bin/${bin_name}"
-        # Set ownership and permission of kernel directory
-        box_ownership
-      fi
-    fi
-    mount -o remount,ro /system/bin/$bin_name
-    log Info "Using kernel in ${bin_path}."
+  # elif which ${bin_name} | grep -q "/system/bin/"; then
+    # mount -o remount,rw /system/bin/$bin_name
+    # # Split box_user_group into user and group using IFS
+    # IFS=':' read -r box_user box_group <<< "${box_user_group}"
+    # # Check if box_user and box_group exist
+    # if ! id -u "${box_user}" 2>/dev/null || ! id -g "${box_group}" 2>/dev/null; then
+      # log Error "${box_user_group} error, use root:net_admin instead."
+      # box_user_group="root:net_admin"
+    # fi
+    # bin_path=$(which ${bin_name})
+    # # Set ownership and permission of kernel directory
+    # box_ownership
+    # # Check if user is not root and group is not net_admin
+    # if [[ ${box_user_id} -ne 0 || ${box_group_id} -ne 3005 ]]; then
+      # # Set capability of kernel directory
+      # box_user_group="root:net_admin"
+      # if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" 2>&1; then
+        # log Warning "setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" authorization failed."
+        # bin_path="${box_dir}/bin/${bin_name}"
+        # # Set ownership and permission of kernel directory
+        # box_ownership
+      # fi
+    # fi
+    # mount -o remount,ro /system/bin/$bin_name
+    # log Info "Using kernel in ${bin_path}."
   else
-    sed -i "s/box_user_group=.*/box_user_group=\"root:net_admin\"/g" ${settings}
+    if  [[ "${box_user_group}" != @(root:net_admin|0:3005) ]]; then
+      log Error "does't support user_group {{ $box_user_group }}"
+      sed -i "s/box_user_group=.*/box_user_group=\"root:net_admin\"/g" ${settings}
+      log Debug "automatically changed to {{ root:net_admin }}, restart box"
+      exit 1
+    fi
     log Error "Kernel <${bin_name}> is missing."
     log Error "Please download the <${bin_name}> kernel and place it in the ${bin_dir}/ directory."
     log Debug "exec: su -c /data/adb/box/scripts/box.tool upcore"

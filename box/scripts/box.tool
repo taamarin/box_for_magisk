@@ -325,8 +325,7 @@ extra_kernel() {
       fi
 
       if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/${bin_name}"; then
-        mkdir -p "${bin_dir}/xclash"
-        cp "${bin_dir}/${bin_name}" "${bin_dir}/xclash/clash_${clash_option}"
+        cp "${bin_dir}/${bin_name}" "${bin_dir}/clash_${clash_option}"
 
         if [ -f "${box_pid}" ]; then
           restart_box
