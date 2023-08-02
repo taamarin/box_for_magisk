@@ -62,25 +62,16 @@ box_run_crontab() {
 
 xclash() {
   local clash_option="${clash_option:-meta}" # Default to "meta" if clash_option is not set
+  current_clash="$(readlink ${bin_dir}/clash)"
 
-  if [ "$clash_option" = "premium" ]; then
-    if [ -f "${bin_dir}/clash_premium" ]; then
-      if ! cp "${bin_dir}/clash_premium" "${box_dir}/bin/clash"; then
-        log Error "Failed to use clash_premium"
+  if [ ! "$current_clash" = "${bin_dir}/xclash/clash_${clash_option}" ]; then
+    if [ -f "${bin_dir}/clash_${clash_option}" ]; then
+      if ! ln -sf "${bin_dir}/xclash/clash_${clash_option}" "${box_dir}/bin/clash"; then
+        log Error "Failed to use clash_${clash_option}"
         return 1
       fi
     else
-      log Error "${bin_dir}/clash_premium file not found"
-      return 1
-    fi
-  else
-    if [ -f "${bin_dir}/clash_meta" ]; then
-      if ! cp "${bin_dir}/clash_meta" "${box_dir}/bin/clash"; then
-        log Error "Failed to use clash_meta"
-        return 1
-      fi
-    else
-      log Error "${bin_dir}/clash_meta file not found"
+      log Error "${bin_dir}/clash_${clash_option} file not found"
       return 1
     fi
   fi
