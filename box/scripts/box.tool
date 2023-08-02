@@ -324,6 +324,7 @@ extra_kernel() {
         gunzip_command="busybox gunzip"
       fi
 
+      mkdir -p "${bin_dir}/xclash"
       if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/xclash/${bin_name}_${clash_option}"; then
         ln -sf "${bin_dir}/xclash/${bin_name}_${clash_option}" "${bin_dir}/${bin_name}"
 
