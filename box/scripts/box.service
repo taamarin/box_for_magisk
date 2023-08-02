@@ -88,7 +88,6 @@ box_ownership() {
 
 box_permission() {
   chmod 0700 ${box_dir}/bin/yq
-  chmod 0700 ${box_dir}/bin/curl
   if [[ "${box_user_group}" == @(root:net_admin|0:3005) && -f "${bin_path}" ]]; then
     # Set ownership and permission of kernel directory
     box_ownership
