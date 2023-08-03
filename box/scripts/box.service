@@ -11,13 +11,13 @@ box_check_logs() {
   log Info "deleting and backup logs"
   for bin in "${bin_list[@]}"; do
     if [ -f "${box_run}/${bin}.log" ]; then
-      mv "${box_run}/${bin}.log" "${box_run}/${bin}-$(date +%Y-%m-%d-%H-%M-%S).log"
+      mv "${box_run}/${bin}.log" "${box_run}/${bin}.old.log"
     fi
   done
   # Delete other log files
   find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
-  # Delete logs 10 minutes ago or older
-  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mmin +10 -exec rm -f {} +
+  # Delete logs that are three days old or older
+  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mtime +3 -exec rm -f {} +
 }
 
 box_bin_alive() {
@@ -93,31 +93,6 @@ box_permission() {
     # Set ownership and permission of kernel directory
     box_ownership
     log Info "Using kernel in ${bin_path}."
-  # elif which ${bin_name} | grep -q "/system/bin/"; then
-    # mount -o remount,rw /system/bin/$bin_name
-    # # Split box_user_group into user and group using IFS
-    # IFS=':' read -r box_user box_group <<< "${box_user_group}"
-    # # Check if box_user and box_group exist
-    # if ! id -u "${box_user}" 2>/dev/null || ! id -g "${box_group}" 2>/dev/null; then
-      # log Error "${box_user_group} error, use root:net_admin instead."
-      # box_user_group="root:net_admin"
-    # fi
-    # bin_path=$(which ${bin_name})
-    # # Set ownership and permission of kernel directory
-    # box_ownership
-    # # Check if user is not root and group is not net_admin
-    # if [[ ${box_user_id} -ne 0 || ${box_group_id} -ne 3005 ]]; then
-      # # Set capability of kernel directory
-      # box_user_group="root:net_admin"
-      # if ! setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" 2>&1; then
-        # log Warning "setcap 'cap_net_admin,cap_net_raw,cap_net_bind_service+ep' "${bin_path}" authorization failed."
-        # bin_path="${box_dir}/bin/${bin_name}"
-        # # Set ownership and permission of kernel directory
-        # box_ownership
-      # fi
-    # fi
-    # mount -o remount,ro /system/bin/$bin_name
-    # log Info "Using kernel in ${bin_path}."
   else
     if  [[ "${box_user_group}" != @(root:net_admin|0:3005) ]]; then
       log Error "does't support user_group {{ $box_user_group }}"

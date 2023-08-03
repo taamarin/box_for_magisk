@@ -85,8 +85,8 @@ update_geox() {
   [ -z "${geodata_mode}" ] && geodata_mode=false
   case "${bin_name}" in
     clash)
-      geoip_file="${box_dir}/clash/$(if [[ "${clash_option}" == "premium"  || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [[ "${clash_option}" == "premium"  || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
+      geoip_file="${box_dir}/clash/$(if [[ "${clash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
+      geoip_url="https://github.com/$(if [[ "${clash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
       geosite_file="${box_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
