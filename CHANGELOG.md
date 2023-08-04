@@ -1,3 +1,5 @@
+#### Changelog v1.2.1
++ code Optimize 
 #### Changelog v1.2.0
 + add: options for clash_ premium/meta ([see](https://github.com/taamarin/box_for_magisk/blob/24cee5837965e73eee0b945292d9557180c627d3/box/settings.ini#L24-L26))
 #### Changelog v1.1
