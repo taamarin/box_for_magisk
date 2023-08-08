@@ -262,10 +262,11 @@ update_kernel() {
   file_kernel="${bin_name}-${arch}"
   case "${bin_name}" in
     "sing-box")
+      api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
-      sing_box_version_temp=$(busybox wget --no-check-certificate -qO- "${url_down}" | grep -oE '/tag/v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | busybox awk -F'/' '{print $3}')
-      sing_box_version=${sing_box_version_temp#v}
-      download_link="${url_down}/download/${sing_box_version_temp}/sing-box-${sing_box_version}-${platform}-${arch}.tar.gz"
+      # set download link and get the latest version
+      latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | grep -o "v[0-9].*" | head -1 | cut -d'"' -f1)
+      download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
       update_file "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && extra_kernel
       ;;
@@ -344,8 +345,8 @@ extra_kernel() {
       fi
 
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${box_dir}/bin" >&2 &&
-        mv "${box_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}" &&
-        rm -r "${box_dir}/bin/sing-box-${sing_box_version}-${platform}-${arch}"; then
+        mv "${box_dir}/bin/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}" &&
+        rm -r "${box_dir}/bin/sing-box-${latest_version#v}-${platform}-${arch}"; then
         if [ -f "${box_pid}" ]; then
           restart_box
         else
