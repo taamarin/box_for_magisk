@@ -76,7 +76,7 @@ xclash() {
       return 1
     fi
   fi
-  log Info "xclash {{ clash_$clash_option }} setup completed successfully"
+  log Info "xclash [ clash_$clash_option ] setup completed successfully"
 }
 
 box_ownership() {
@@ -95,9 +95,9 @@ box_permission() {
     log Info "Using kernel in ${bin_path}."
   else
     if  [[ "${box_user_group}" != @(root:net_admin|0:3005) ]]; then
-      log Error "does't support user_group {{ $box_user_group }}"
+      log Error "does't support user_group [ $box_user_group ]"
       sed -i "s/box_user_group=.*/box_user_group=\"root:net_admin\"/g" ${settings}
-      log Debug "automatically changed to {{ root:net_admin }}, restart box"
+      log Debug "automatically changed to [ root:net_admin ], restart box"
       exit 1
     fi
     log Error "Kernel <${bin_name}> is missing."
@@ -280,13 +280,12 @@ prepare_clash() {
   clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2 }' "${clash_config}" 2>/dev/null)
   if [ -z "${clash_enhanced_mode}" ]; then
     # Add enhanced-mode: fake-ip
-    sed -i '/dns:/ {n; /enable:.*/ {a\  enhanced-mode: fake-ip
-    }}' "$clash_config"
+    sed -i '/dns:/ {n; /enable:.*/ {a\  enhanced-mode: fake-ip}}' "$clash_config"
     log Debug "enhanced-mode: fake-ip add success"
   fi
 
   if [ "${proxy_mode}" != "tun" ]; then
-    if [ -n "${packages_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
+    if [ -n "${packages_list[*]}" ] && [ -n "${gid_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Warning "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
       log Warning "auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
@@ -310,7 +309,7 @@ temp_clash_config_file() {
 }
 
 box_run_bin() {
-  log Info "client-list: {{ ${bin_list[*]} }}"
+  log Info "client-list: [ ${bin_list[*]} ]"
   log Info "choose: ${bin_name}, start the service."
   ulimit -SHn 65535
   case "${bin_name}" in

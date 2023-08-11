@@ -145,6 +145,54 @@ intranet6=(
   ff00::/8
 )
 
+monitor_local_ip() {
+  [ "${iptables}" = "iptables -w 64" ] && ipv=4 || ipv=6
+  if [ "${iptables}" = "iptables -w 64" ]; then
+    local_ips=($(ip a | busybox awk '$1~/inet$/{print $2}'))
+  else
+    local_ips=($(ip -6 a | busybox awk '$1~/inet6$/{print $2}'))
+  fi
+  local_ip_number=${#local_ips[@]}
+  rules_ips=($(${iptables} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | busybox awk '{print $9}'))
+  rules_number=$(${iptables} -t mangle -L FILTER_LOCAL_IP | grep "ACCEPT" | wc -l)
+
+  if [ ${local_ip_number} -ne ${rules_number} ] ; then
+    for rules_subnet in "${rules_ips[@]}" ; do
+      wait_count=0
+      a_subnet=$(busybox ipcalc -n ${rules_subnet} | busybox awk -F '=' '{print $2}')
+      for local_subnet in "${local_ips[@]}" ; do
+        b_subnet=$(busybox ipcalc -n ${local_subnet} | busybox awk -F '=' '{print $2}')
+        if [ "${a_subnet}" != "${b_subnet}" ] ; then
+          wait_count=$((wait_count + 1))
+          if [ ${wait_count} -ge ${local_ip_number} ] ; then
+            ${iptables} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet} -j ACCEPT
+          fi
+        fi
+      done
+    done
+
+    for subnets in "${local_ips[@]}" ; do
+      if ! (${iptables} -t mangle -C FILTER_LOCAL_IP -d ${subnets} -j ACCEPT > /dev/null 2>&1) ; then
+        ${iptables} -t mangle -I FILTER_LOCAL_IP -d ${subnets} -j ACCEPT
+      fi
+    done
+    log Debug "Filter Local IP($ipv) ${local_ips[*]}"
+
+    unset a_subnet
+    unset b_subnet
+    log Debug "iptables rules for bypassing the local IP($ipv) have been updated."
+  else
+    log Debug "local IP($ipv) remains unchanged, and no processing has been performed."
+    return 1
+  fi
+
+  unset local_ips
+  unset local_ip_number
+  unset rules_ips
+  unset rules_number
+  unset wait_count
+}
+
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
   ${iptables} $1 FORWARD -i "${tun_device}" -j ACCEPT
@@ -229,7 +277,14 @@ start_redirect() {
 
           # Allow !app
           ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
-          log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
+          log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} no transparent proxy."
+        fi
+        if [ "${gid_list}" != "" ] ; then
+          # Bypass gids
+          for gid in ${gid_list[@]} ; do
+            ${iptables} -t nat -I BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
+          done
+          [ "${iptables}" = "iptables -w 64" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
         fi
         ;;
       whitelist)
@@ -250,7 +305,14 @@ start_redirect() {
 
           ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j REDIRECT --to-ports "${redir_port}"
           ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j REDIRECT --to-ports "${redir_port}"
-          log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
+          log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} transparent proxy."
+        fi
+        if [ "${gid_list}" != "" ] ; then
+          # Route gids to Box
+          for gid in ${gid_list[@]} ; do
+            ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j REDIRECT --to-ports ${redir_port}
+          done
+          [ "${iptables}" = "iptables -w 64" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} transparent proxy."
         fi
         ;;
       *)
@@ -431,7 +493,14 @@ start_tproxy() {
         # Allow !app
         ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] no transparent proxy."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} no transparent proxy."
+      fi
+      if [ "${gid_list}" != "" ] ; then
+        # Bypass gids
+        for gid in ${gid_list[@]} ; do
+          ${iptables} -t mangle -I BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
+        done
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
       fi
       ;;
     whitelist)
@@ -458,7 +527,15 @@ start_tproxy() {
         ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
         # Route DNS request to Box
         [ "${bin_name}" != "clash" ] && ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode} < [ ${packages_list[*]} ] transparent proxy."
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} transparent proxy."
+      fi
+      if [ "${gid_list}" != "" ] ; then
+        # Route gids to Box
+        for gid in ${gid_list[@]} ; do
+          ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-mark ${id}
+          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-mark ${id}
+        done
+        [ "${iptables}" = "iptables -w 64" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} transparent proxy."
       fi
       ;;
     *)
@@ -485,6 +562,12 @@ start_tproxy() {
     # ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
     [ "${iptables}" = "iptables -w 64" ] && log Warning "disable QUIC"
   fi
+
+  # # add filter local ip
+  # ${iptables} -t mangle -N FILTER_LOCAL_IP
+  # ${iptables} -t mangle -A PREROUTING -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -A OUTPUT -j FILTER_LOCAL_IP
+  # monitor_local_ip
 
   # This rule blocks local access to tproxy-port to prevent traffic loopback.
   if [ "${iptables}" = "iptables -w 64" ]; then
@@ -552,6 +635,12 @@ stop_tproxy() {
   # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
+
+  # # flush filter local IP
+  # ${iptables} -t mangle -D OUTPUT -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -D PREROUTING -j FILTER_LOCAL_IP
+  # ${iptables} -t mangle -F FILTER_LOCAL_IP
+  # ${iptables} -t mangle -X FILTER_LOCAL_IP
 
   if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
