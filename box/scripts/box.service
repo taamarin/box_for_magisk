@@ -285,7 +285,7 @@ prepare_clash() {
   fi
 
   if [ "${proxy_mode}" != "tun" ]; then
-    if [ -n "${packages_list[*]}" ] && [ -n "${gid_list[*]}" ] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
+    if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Warning "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
       log Warning "auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
