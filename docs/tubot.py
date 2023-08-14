@@ -20,8 +20,7 @@ MSG_TEMPLATE = """
 ```
 {commit_message}
 ```
-[Commit]({commit_url})
-[Workflow run]({run_url})
+[commit]({commit_url})
 """.strip()
 
 

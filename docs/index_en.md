@@ -61,15 +61,25 @@ su -c /data/adb/box/scripts/box.tool all
 ### To apply filtering using a blacklist or whitelist, you can follow these general steps:
 
 - By default, BFM provides a proxy for all applications (APP) from all Android users.
-- If you want BFM to proxy all applications (APP), except for some specific applications, please open the file /data/adb/box/settings.ini, change the value of proxy_mode to "blacklist" (default), and add the applications to be excluded to the packages_list, for example: packages_list=("com.termux" "org.telegram.messenger").
-- If you only want to proxy specific applications (APP), use the "whitelist" mode.
-- When the value of proxy_mode is set to "TUN", transparent proxy will not function, and only the corresponding kernel will start supporting TUN. Currently, only "clash" and "sing-box" are available.
-- If Clash is used, the blacklist and whitelist will not apply in fake-ip mode
+- If you want BFM to proxy all applications (APP), except for some specific applications, please open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (default), and add the applications to be excluded to the `packages_list`, for **example: packages_list=("com.termux" "org.telegram.messenger")**.
+- If you only want to proxy specific applications (APP), use the `whitelist` mode.
+- When the value of `proxy_mode` is set to `TUN`, transparent proxy will not function, and only the corresponding kernel will start supporting TUN. Currently, **only clash and sing-box are available**.
+> Notes: If Clash is used, the blacklist and whitelist will not apply in fake-ip mode
+
+### Transparent Proxies for Specific Processes
+
+- BFM by default performs a transparent proxy for all processes.
+
+- If you want BFM to proxy for all processes except specific ones, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (the default value), then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in processes with the corresponding GID **not being proxied**.
+
+- If you wish to perform transparent proxying only for specific processes, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `whitelist`, then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in only processes with the corresponding GID being **proxied**.
+
+> Tips: Since Android iptables does not support extension PID matching, process matching by Box is done via GID matching indirectly. On Android you can use busybox setuidgid command to start a specific process with a specific UID, any GID.
 
 ### Change the proxy mode in BFM, follow these steps:
 
-- BFM utilizes TPROXY to transparently proxy TCP+UDP traffic (default). If it is detected that the device does not support TPROXY, open the file **/data/adb/box/settings.ini** and change network_mode="redirect" to REDIRECT, which only uses TCP proxying.
-- Open the file /data/adb/box/settings.ini and change the value of network_mode to redirect, tproxy, or mixed.
+- BFM utilizes TPROXY to transparently proxy TCP+UDP traffic (default). If it is detected that the device does not support TPROXY, open the file **/data/adb/box/settings.ini** and change `network_mode="redirect"` to `redirect`, which only uses TCP proxying.
+- Open the file `/data/adb/box/settings.ini` and change the value of `network_mode` to **redirect, tproxy, or mixed**.
 - redirect: Use redirect mode for TCP proxying.
 - tproxy: Use tproxy mode for TCP + UDP proxying.
 - mixed: Use redirect mode for TCP and tun mode for UDP proxying
@@ -106,8 +116,8 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### manual mode
 
-- If you want to have full control over BFM by running commands manually, you can create a new file named /data/adb/box/manual. In this case, the BFM service will not start automatically when your device is powered on, and you will not be able to control the start or stop of the service through the Magisk Manager application.
-- By creating the /data/adb/box/manual file, you take manual control over BFM and can execute commands as needed to manage its operations. Please note that modifying system files requires appropriate permissions, and any manual changes should be made with caution.
+- If you want to have full control over BFM by running commands manually, you can create a new file named **/data/adb/box/manual**. In this case, the BFM service will not start automatically when your device is powered on, and you will not be able to control the start or stop of the service through the Magisk Manager application.
+- By creating the **/data/adb/box/manual** file, you take manual control over BFM and can execute commands as needed to manage its operations. Please note that modifying system files requires appropriate permissions, and any manual changes should be made with caution.
 
 ### Start and stop the management service
 

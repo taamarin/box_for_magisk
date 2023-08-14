@@ -62,29 +62,38 @@ su -c /data/adb/box/scripts/box.tool all
 ### Menerapkan pemfilteran (blacklist/whitelist)
 
 - BFM menyediakan proxy untuk semua aplikasi (APP) dari semua pengguna Android secara default.
-- Jika Anda ingin BFM mem-proxy semua aplikasi (APP), kecuali beberapa aplikasi, silakan buka file /data/adb/box/settings.ini, ubah nilai proxy_mode menjadi blacklist (default), tambahkan aplikasi yang akan dikecualikan ke packages_list , misalnya: packages_list=("com.termux" "org.telegram.messenger")
-- Jika Anda hanya ingin mem-proxy aplikasi (APP) tertentu, gunakan whitelist.
-- Ketika nilai proxy_mode adalah TUN, proxy transparan tidak akan berfungsi, dan hanya kernel yang sesuai yang akan mulai mendukung TUN. Saat ini, hanya clash dan sing-box yang tersedia.
-- Jika Clash digunakan, blacklist dan whitelist tidak akan berlaku dalam mode fake-ip.
+- Jika Anda ingin BFM **mem-proxy semua aplikasi (APP), kecuali beberapa aplikasi**, silakan buka file `/data/adb/box/settings.ini`, ubah nilai `proxy_mode` menjadi `blacklist` (default), tambahkan aplikasi yang akan dikecualikan ke packages_list , misalnya: **packages_list=("com.termux" "org.telegram.messenger")**
+- Jika Anda hanya ingin **mem-proxy aplikasi (APP) tertentu**, gunakan `whitelist`, dan tambahkan (APP) yang hanya ingin di proxy, misalnya: **packages_list=("com.termux" "org.telegram.messenger")**.
+- Ketika nilai `proxy_mode` adalah TUN, **proxy transparan tidak akan berfungsi**, dan hanya kernel yang sesuai yang akan mulai mendukung TUN. Saat ini, hanya **clash** dan **sing-box** yang tersedia.
+
+> Notes: Jika Clash digunakan, blacklist dan whitelist tidak akan berlaku dalam mode fake-ip.
+
+### Proxy Transparan untuk Proses Tertentu
+
+- BFM secara default melakukan proxy transparan untuk semua proses.
+- Jika Anda ingin BFM melakukan proxy untuk semua proses kecuali beberapa proses tertentu, buka berkas `/data/adb/box/settings.ini`, ubah nilai `proxy_mode` menjadi `blacklist` (nilai default), lalu tambahkan elemen GID ke dalam array `gid_list`, dengan GID dipisahkan oleh spasi. Ini akan mengakibatkan proses dengan GID yang sesuai **tidak diproksikan**.
+- Jika Anda ingin hanya melakukan proxy transparan untuk proses tertentu, buka berkas **/data/adb/box/settings.ini**, ubah nilai `proxy_mode` menjadi `whitelist`, lalu tambahkan elemen GID ke dalam array `gid_list`, dengan GID dipisahkan oleh spasi. Ini akan mengakibatkan hanya proses dengan GID yang sesuai yang akan **diproksikan**.
+
+> Tip: Karena iptables Android tidak mendukung pencocokan ekstensi PID, pencocokan proses oleh Box dilakukan melalui pencocokan GID secara tidak langsung. Di Android dapat menggunakan perintah setuidgid busybox untuk memulai proses tertentu dengan UID tertentu, GID apa pun.
 
 ### mengubah mode proxy
 
-- BFM menggunakan TPROXY untuk mem-proxy TCP+UDP secara transparan (default). Jika terdeteksi bahwa perangkat tidak mendukung TPROXY, buka /data/adb/box/settings.ini dan ubah network_mode="redirect" menjadi REDIRECT yang hanya menggunakan proxy TCP.
-- Buka file /data/adb/box/settings.ini dan ubah nilai network_mode menjadi redirect, tproxy atau mixed.
+- BFM menggunakan TPROXY untuk mem-proxy TCP+UDP secara transparan (default). Jika terdeteksi bahwa perangkat tidak mendukung TPROXY, buka `/data/adb/box/settings.ini` dan ubah `network_mode="redirect"` menjadi `redirect` yang hanya menggunakan proxy TCP.
+- Buka file `/data/adb/box/settings.ini` dan ubah nilai `network_mode` menjadi `redirect`, `tproxy` atau `mixed`.
 - redirect：redirect(TCP).
 - tproxy：tproxy(TCP + UDP).
 - mixed：redirect(TCP) and tun(UDP).
 
 ### Lewati proxy transparan saat menghubungkan ke Wi-Fi atau hotspot
 
-- BFM secara transparan memproksi localhost dan hotspot (termasuk tethering USB) secara default.
-- Buka file /data/adb/box/settings.ini, ubah ignore_out_list dan tambahkan wlan+, sehingga proxy transparan akan mem-bypass wlan dan hotspot tidak akan terhubung ke proxy.
-- Buka file /data/adb/box/settings.ini, ubah ap_list dan tambahkan wlan+. BFM akan mem-proxy hotspot (mungkin ap+ / wlan+ untuk perangkat Mediatek).
-- Gunakan perintah ifconfig di Terminal untuk mengetahui nama AP.
+- BFM secara transparan memproksi `localhost` dan `hotspot` (termasuk tethering USB) secara default.
+- Buka file `/data/adb/box/settings.ini`, ubah `ignore_out_list` dan tambahkan `wlan+`, sehingga proxy transparan akan mem-bypass `wlan` dan `hotspot` **tidak akan terhubung ke proxy**.
+- Buka file `/data/adb/box/settings.ini`, ubah `ap_list` dan tambahkan `wlan+`. BFM akan **mem-proxy hotspot** (mungkin **ap+ / wlan+** untuk perangkat **Mediatek**).
+- Gunakan perintah `ifconfig` di Terminal untuk mengetahui nama AP.
 
 ### Aktifkan Cron Job untuk memperbarui Geo dan Subs sesuai jadwal secara otomatis
 
-- Buka file /data/adb/box/settings.ini, ubah nilai run_crontab=true, dan atur interva_update="@daily" (default), sesuaikan dengan yang anda inginkan.
+- Buka file `/data/adb/box/settings.ini`, ubah nilai `run_crontab=true`, dan atur `interva_update="@daily"` (default), sesuaikan dengan yang anda inginkan.
 
 ```shell
   # jalankan perintah
@@ -97,7 +106,7 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Masuk ke mode manual
 
-- Jika Anda ingin memiliki kontrol penuh atas BFM dengan menjalankan perintah, buat saja file baru bernama /data/adb/box/manual. Dalam hal ini, layanan BFM tidak akan dimulai secara otomatis saat perangkat Anda dihidupkan, Anda juga tidak dapat mengatur mulai atau berhentinya layanan melalui aplikasi Magisk Manager.
+- Jika Anda ingin memiliki kontrol penuh atas BFM dengan menjalankan perintah, buat saja file baru bernama `/data/adb/box/manual`. Dalam hal ini, layanan BFM **tidak akan dimulai secara otomatis saat perangkat Anda dihidupkan)**, Anda juga tidak dapat mengatur mulai atau berhentinya layanan melalui aplikasi Magisk Manager.
 
 ### Memulai dan menghentikan layanan manajemen
 
@@ -157,9 +166,9 @@ Atau Anda dapat memperbaruinya satu per satu.
 
 ## instruksi lainnya
 
-- Saat memodifikasi salah satu file konfigurasi inti, pastikan konfigurasi terkait tproxy cocok dengan definisi di file /data/adb/box/settings.ini.
-- Jika perangkat memiliki alamat IP publik, tambahkan IP tersebut ke jaringan internal di file /data/adb/box/scripts/box.iptables untuk mencegah pengulangan lalu lintas.
-- Log untuk layanan BFM dapat ditemukan di direktori /data/adb/box/run.
+- Saat memodifikasi salah satu file konfigurasi inti, pastikan konfigurasi terkait tproxy cocok dengan definisi di file `/data/adb/box/settings.ini`.
+- Jika perangkat memiliki alamat IP publik, tambahkan IP tersebut ke jaringan internal di file `/data/adb/box/scripts/box.iptables` untuk mencegah pengulangan lalu lintas.
+- Log untuk layanan BFM dapat ditemukan di direktori **/data/adb/box/run**.
 
 Anda dapat menjalankan perintah berikut untuk mendapatkan instruksi operasi terkait lainnya:
 

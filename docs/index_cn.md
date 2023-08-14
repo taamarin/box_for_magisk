@@ -67,6 +67,16 @@ su -c /data/adb/box/scripts/box.tool all
 - 当 proxy_mode 的值为 tun 时，透明代理将不起作用，仅启动相应的内核，用于支持 TUN，目前仅有 clash 和 sing-box 可用。
 - 如果使用 Clash，在 fake-ip 模式下，黑名单和白名单将无法生效。
 
+### 特定进程的透明代理
+
+- BFM 默认透明代理所有进程
+
+- 如果您希望 BFM 代理所有进程，除了某些特定的进程，那么请打开 `/data/adb/box/settings.ini` 文件，修改 `proxy_mode` 的值为 `blacklist`（默认值），在 `gid_list` 数组中添加 GID 元素，GID 之间用空格隔开。即可**不代理**相应 GID 的进程
+
+- 如果您希望只对特定的进程进行透明代理，那么请打开 `/data/adb/box/settings.ini` 文件，修改 `proxy_mode` 的值为 `whitelist`，在 `gid_list` 数组中添加 GID 元素，GID 之间用空格隔开。即可**仅代理**相应 GID 进程
+
+> 小贴士：因为安卓 iptables 不支持 PID 扩展匹配，所以 Box 匹配进程是通过匹配 GID 间接达到的。安卓可以使用 busybox setuidgid 命令使用特定 UID 任意 GID 启动特定进程
+
 ### 更改代理模式
 
 - BFM 使用 TPROXY 来透明代理 TCP + UDP（默认）。如果检测到设备不支持 TPROXY，请打开/data/adb/box/settings.ini 并将 network_mode="redirect"更改为仅使用 TCP 代理的 redirect。
