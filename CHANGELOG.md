@@ -1,3 +1,6 @@
+#### Changelog v1.3.0
++ fix update_kernel sing-box function
++ add GID black/white lists
 #### Changelog v1.2.1
 + code Optimize 
 #### Changelog v1.2.0
