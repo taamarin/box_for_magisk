@@ -152,6 +152,15 @@ update_subs() {
               if ${yq_cmd} '.proxies' "${update_file_name}" >/dev/null 2>&1; then
                 "${yq_cmd}" '.proxies' "${update_file_name}" > "${clash_provide_config}"
                 "${yq_cmd}" -i '{"proxies": .}' "${clash_provide_config}"
+
+                if ${yq_cmd} '.rules' "${update_file_name}" >/dev/null 2>&1; then
+                  "${yq_cmd}" '.rules' "${update_file_name}" > "${clash_provide_rules}"
+                  "${yq_cmd}" -i '{"rules": .}' "${clash_provide_rules}"
+
+                  "${yq_cmd}" -i 'del(.rules)' "${clash_config}"
+                  cat "${clash_provide_rules}" >> "${clash_config}"
+                fi
+
                 log Info "subscription success"
                 log Info "Update subscription $(date +"%F %R")"
                 if [ -f "${update_file_name}.bak" ]; then
