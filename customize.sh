@@ -46,12 +46,12 @@ unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >&2
 
 if [ -d "/data/adb/box" ]; then
   ui_print "- Backup box"
-  latest=$(date '+%Y-%m-%d_%H-%M')
-  mkdir -p "/data/adb/box/${latest}"
-  mv /data/adb/box/* "/data/adb/box/${latest}/"
-  mv $MODPATH/box/* /data/adb/box/
+  temp_bak=$(mktemp -d "/data/adb/box/box.XXXXXXXXXX")
+  temp_dir="${temp_bak}"
+  mv /data/adb/box/* "${temp_dir}/"
+  mv "$MODPATH/box/"* /data/adb/box/
 else
-  mv $MODPATH/box /data/adb/
+  mv "$MODPATH/box" /data/adb/
 fi
 
 ui_print "- Create directories"
@@ -96,11 +96,38 @@ while true ; do
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
     sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🙁 Module installed but you need to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
+    rm -f /data/adb/box/bin/.bin
     ui_print "- skip download KERNEL and GEOX" && break
   fi
 done
 
 [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
+
+ui_print "- restore configuration xray/clash/sing-box/v2fly"
+
+if [ -d "${temp_dir}/clash" ]; then
+  cp -r "${temp_dir}/clash/"* /data/adb/box/clash/
+fi
+
+if [ -d "${temp_dir}/sing-box" ]; then
+  cp -r "${temp_dir}/sing-box/"* /data/adb/box/sing-box/
+fi
+
+if [ -d "${temp_dir}/xray" ]; then
+  cp -r "${temp_dir}/xray/"* /data/adb/box/xray/
+fi
+
+if [ -d "${temp_dir}/v2fly" ]; then
+  cp -r "${temp_dir}/v2fly/"* /data/adb/box/v2fly/
+fi
+
+ui_print "- restore bin xray/clash/sing-box/v2fly"
+if [ ! -z "$(ls -A /data/adb/box/bin/)" ]; then
+  cp -r "${temp_dir}/bin/"* "/data/adb/box/bin/"
+fi
+
+ui_print "- restore logs, pid and uid.list"
+cp "${temp_dir}/run/"* "/data/adb/box/run/"
 
 ui_print "- Installation is complete, reboot your device"
 ui_print "- report issues to @taamarin on Telegram"
