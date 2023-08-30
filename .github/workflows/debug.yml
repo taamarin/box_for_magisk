@@ -80,9 +80,10 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_URL: ${{ github.event.head_commit.url }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TITLE: B4R ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}_debug
+          TITLE: box for root ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}_debug
         run: |
-          export VERSION=$(git rev-parse --short HEAD)
+          export VERSION=$(git describe --tags)
+          export CG=$(git log --oneline -n 5)
           FILE=$(find ./bfr/* -type f)
           pip3 install python-telegram-bot
           python3 docs/tubot.py $FILE
