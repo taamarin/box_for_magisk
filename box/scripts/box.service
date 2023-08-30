@@ -474,7 +474,7 @@ box_bin_status() {
 
   # Save the process ID to the pid file
   if [ -n "$PID" ]; then
-    sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ♻️ '${bin_name}' service is running ] /g' "$PROPFILE"
+    sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✔ $bin_name service is running!!! ] /g" "$PROPFILE"
     echo -n "$PID" > "${box_pid}"
   fi
 }
@@ -482,7 +482,7 @@ box_bin_status() {
 start_box() {
   # Clear the log file and add the timestamp and delimiter
   # cd /data/adb/box/bin; chmod 755 *
-  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ⚠️ Module is working! but no service is running ] /g' "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ☹ Module is working! but no service is running ] /g" "$PROPFILE"
 
   echo -n "" > "${box_log}"
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
@@ -599,7 +599,7 @@ stop_box() {
     log Warning "${bin_name} Not stopped; may still be shutting down or failed to shut down."
     force_stop
   fi
-  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ ⛔ '${bin_name}' service is stopped ] /g' "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✘ $bin_name service is stopped !!! ] /g" "$PROPFILE"
 }
 
 stop_cron() {
