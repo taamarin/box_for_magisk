@@ -9,11 +9,11 @@ rm_data() {
   fi
   
   if [ -f "/data/adb/ksu/service.d/box_service.sh" ]; then
-    rm -f "/data/adb/ksu/service.d/box_service.sh"
+    rm -rf "/data/adb/ksu/service.d/box_service.sh"
   fi
 
   if [ -f "/data/adb/service.d/box_service.sh" ]; then
-    rm -f "/data/adb/service.d/box_service.sh"
+    rm -rf "/data/adb/service.d/box_service.sh"
   fi
 
 }

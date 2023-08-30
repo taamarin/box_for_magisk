@@ -452,9 +452,9 @@ port_detection() {
     # Make a note of the detected ports
     if busybox pidof "${bin_name}" >/dev/null 2>&1; then
       if [ -t 1 ]; then
-        echo -n "${orange}${now} [debug]: ${bin_name} port detected:${normal}"
+        echo -n "${orange}${current_time} [Debug]: ${bin_name} port detected:${normal}"
       else
-        echo -n "${now} [debug]: ${bin_name} port detected:" | tee -a "${box_log}" >> /dev/null 2>&1
+        echo -n "${current_time} [Debug]: ${bin_name} port detected:" | tee -a "${box_log}" >> /dev/null 2>&1
       fi
       # write ports
       while read -r port; do
@@ -532,7 +532,7 @@ reload_config() {
       if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}_report.log" 2>&1; then
         log Info "${clash_config} passed"
       else
-        log debug "${clash_config}"
+        log Debug "${clash_config}"
         log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
       fi
       ;;
