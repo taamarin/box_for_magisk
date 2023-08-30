@@ -20,7 +20,7 @@ MSG_TEMPLATE = """
 
 {version}
 
-[Commit](https://github.com/shioeri/sing-box/commits/dev-next):
+[Commit](https://github.com/taamarin/box_for_magisk/commits/master):
 ```
 {cg}
 ```

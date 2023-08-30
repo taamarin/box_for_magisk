@@ -186,66 +186,7 @@ update_subs() {
         return 1
       fi
       ;;
-    "sing-box")
-      if [ -n "${subscription_url_sing}" ]; then
-        # subscription sing-box
-        if [ "${update_subscription}" = "true" ]; then
-          log Info "daily updates subs"
-          log Debug "Downloading ${update_file_name}"
-          if update_file "${update_file_name}" "${subscription_url_sing}"; then
-            log Info "${update_file_name} saved"
-            if [ "${enhanced}" = "true" ]; then
-              if "${yq_cmd}" -e . "${update_file_name}" >/dev/null 2>&1; then
-                cp "${update_file_name}" "${sing_provide_config}"
-                if [ -f "${update_file_name}.bak" ]; then
-                  rm "${update_file_name}.bak"
-                fi
-
-                # script to edit sing-box subscriptions
-                # removed the structure: inbounds/experimental/route/log and dns
-                "${yq_cmd}" 'del(.inbounds, .experimental, .route, .log, .dns)' -i --output-format=json "${sing_provide_config}"
-
-                # remove outbound with type: direct/block/dns/selector/urltest
-                "${yq_cmd}" 'del(.outbounds[] | select(.type == "direct" or .type == "block" or .type == "dns" or .type == "selector" or .type == "urltest"))' -i --output-format=json "${sing_provide_config}"
-
-                # create new outbounds with type: selector, tag: singbox in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "b0x", "type": "selector", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
-
-                # create new outbounds with type: urltest, tag: b0x[urltest] in ${sing_provide_config}
-                "${yq_cmd}" '.outbounds += [{"tag": "b0x[urltest]", "type": "urltest", "url": "https://www.gstatic.com/generate_204", "interval": "3m", "outbounds": [.outbounds[].tag]}]' -i --output-format=json "${sing_provide_config}"
-
-                # renew outbounds with tag: singbox in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["b0x"]' -i --output-format=json "${sing_config}"
-
-                # renew outbounds with tag: b0x[urltest] in main ${sing_config} dan ${sing_provide_config}
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x[urltest]"))' -i --output-format=json "${sing_provide_config}"
-                "${yq_cmd}" 'del(.outbounds[].outbounds[] | select(. == "b0x[urltest]"))' -i --output-format=json "${sing_config}"
-                "${yq_cmd}" '.outbounds[0].outbounds += ["b0x[urltest]"]' -i --output-format=json "${sing_config}"
-
-                log Info "subscription success"
-                log Info "Update subscription $(date +"%F %R")"
-              else
-                log Error "update subscription failed"
-                log Error "${update_file_name} error"
-                return 1
-              fi
-            fi
-            return 0
-          else
-            log Error "update subscription failed"
-            return 1
-          fi
-        else
-          return 1
-        fi
-      else
-        log Warning "${bin_name} subscription url is empty..."
-        return 1
-      fi
-      ;;
-    "xray" | "v2fly")
+    "xray"|"v2fly"|"sing-box")
       log Warning "${bin_name} does not support subscriptions.."
       return 1
       ;;

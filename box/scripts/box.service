@@ -51,7 +51,7 @@ box_run_crontab() {
     echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
     log Debug "Interval crontab geox and subs: ${interva_update}."
     log Info "${bin_name} geox updates: ${update_geo}."
-    if [[ "${bin_name}" == @(clash|sing-box) ]]; then
+    if [ "${bin_name}" = "clash" ]; then
       log Info "${bin_name} subscription update: ${update_subscription}."
     fi
   else
