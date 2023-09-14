@@ -46,6 +46,7 @@ start_inotifyd() {
   inotifyd "${scripts_dir}/box.inotify" "${moddir}" >> "/dev/null" 2>&1 &
 }
 
+mkdir -p /data/adb/box/run/
 if [ -f "/data/adb/box/manual" ]; then
   exit 1
 fi

@@ -1,4 +1,4 @@
-#!/sbin/sh
+#!/system/bin/sh
 
 SKIPUNZIP=1
 ASH_STANDALONE=1
@@ -37,7 +37,7 @@ fi
 
 if [ -d "/data/adb/modules/box_for_magisk" ]; then
   rm -rf "/data/adb/modules/box_for_magisk"
-  ui_print "- old module deleted."
+  ui_print "- Old module deleted."
 fi
 
 ui_print "- Installing Box for Magisk/KernelSU"
@@ -50,22 +50,20 @@ if [ -d "/data/adb/box" ]; then
   temp_dir="${temp_bak}"
   mv /data/adb/box/* "${temp_dir}/"
   mv "$MODPATH/box/"* /data/adb/box/
+  backup_box="true"
 else
   mv "$MODPATH/box" /data/adb/
 fi
 
 ui_print "- Create directories"
 mkdir -p $MODPATH/system/bin/
+mkdir -p /data/adb/box/
 mkdir -p /data/adb/box/run/
 mkdir -p /data/adb/box/bin/xclash/
 
 ui_print "- Extract the files uninstall.sh and box_service.sh into the $MODPATH folder and ${service_dir}"
 unzip -j -o "$ZIPFILE" 'uninstall.sh' -d "$MODPATH" >&2
 unzip -j -o "$ZIPFILE" 'box_service.sh' -d "${service_dir}" >&2
-
-ui_print "- Delete leftover files"
-rm -rf $MODPATH/box
-rm -f $MODPATH/box_service.sh
 
 ui_print "- Setting permissions"
 set_perm_recursive $MODPATH 0 0 0755 0644
@@ -86,8 +84,8 @@ chmod ugo+x /data/adb/box/scripts/*
 ui_print "-----------------------------------------------------------"
 ui_print "- Do you want to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb)? size: ±100MB."
 ui_print "- Make sure you have a good internet connection."
-ui_print "- [ Vol UP(+): Yes ] / [ Vol DOWN(-): No ]"
-
+ui_print "- [ Vol UP(+): Yes ]"
+ui_print "- [ Vol DOWN(-): No ]"
 while true ; do
   getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
   if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
@@ -95,39 +93,35 @@ while true ; do
     /data/adb/box/scripts/box.tool all
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-    sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🙁 Module installed but you need to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
-    rm -f /data/adb/box/bin/.bin
+    rm -rf /data/adb/box/bin/.bin
     ui_print "- skip download KERNEL and GEOX" && break
   fi
 done
 
+if [ "${backup_box}" = "true" ]; then
+  ui_print "- restore configuration xray/clash/sing-box/v2fly"
+  [ -d "${temp_dir}/clash" ] && cp -r "${temp_dir}/clash/"* /data/adb/box/clash/
+  [ -d "${temp_dir}/xray" ] && cp -r "${temp_dir}/xray/"* /data/adb/box/xray/
+  [ -d "${temp_dir}/v2fly" ] && cp -r "${temp_dir}/v2fly/"* /data/adb/box/v2fly/
+  [ -d "${temp_dir}/sing-box" ] && cp -r "${temp_dir}/sing-box/"* /data/adb/box/sing-box/
+
+  if [ -z "$(find /data/adb/box/bin -type f)" ]; then
+    ui_print "- restore bin xray/clash/sing-box/v2fly"
+    cp -r "${temp_dir}/bin/"* "/data/adb/box/bin/"
+  fi
+
+  ui_print "- restore logs, pid and uid.list"
+  cp "${temp_dir}/run/"* "/data/adb/box/run/"
+fi
+
+if [ -z "$(find /data/adb/box/bin -type f)" ]; then
+  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🙁 Module installed but you need to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
+fi
 [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 
-ui_print "- restore configuration xray/clash/sing-box/v2fly"
-
-if [ -d "${temp_dir}/clash" ]; then
-  cp -r "${temp_dir}/clash/"* /data/adb/box/clash/
-fi
-
-if [ -d "${temp_dir}/sing-box" ]; then
-  cp -r "${temp_dir}/sing-box/"* /data/adb/box/sing-box/
-fi
-
-if [ -d "${temp_dir}/xray" ]; then
-  cp -r "${temp_dir}/xray/"* /data/adb/box/xray/
-fi
-
-if [ -d "${temp_dir}/v2fly" ]; then
-  cp -r "${temp_dir}/v2fly/"* /data/adb/box/v2fly/
-fi
-
-ui_print "- restore bin xray/clash/sing-box/v2fly"
-if [ ! -z "$(ls -A /data/adb/box/bin/)" ]; then
-  cp -r "${temp_dir}/bin/"* "/data/adb/box/bin/"
-fi
-
-ui_print "- restore logs, pid and uid.list"
-cp "${temp_dir}/run/"* "/data/adb/box/run/"
+ui_print "- Delete leftover files"
+rm -rf $MODPATH/box
+rm -f $MODPATH/box_service.sh
 
 ui_print "- Installation is complete, reboot your device"
 ui_print "- report issues to @taamarin on Telegram"
