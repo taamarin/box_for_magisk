@@ -90,9 +90,8 @@ probe_user_group() {
 }
 
 disable_ipv6() {
-  # Enable IP(4) forwarding
   sysctl -w net.ipv4.ip_forward=1
-  sysctl -w net.ipv6.conf.all.forwarding=1
+  sysctl -w net.ipv6.conf.all.forwarding=0
 
   sysctl -w net.ipv6.conf.all.accept_ra=0
   sysctl -w net.ipv6.conf.wlan0.accept_ra=0
@@ -102,7 +101,6 @@ disable_ipv6() {
 } >> /dev/null 2>&1
 
 ipv6_enable() {
-  # Enable IP(6) forwarding
   sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv6.conf.all.forwarding=1
 
@@ -128,11 +126,10 @@ intranet=(
   203.0.113.0/24
   224.0.0.0/4
   240.0.0.0/4
-  255.0.0.0/32
+  255.0.0.0/4
   255.255.255.0/24
 )
 intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
-# log Info "intranet=(${intranet[*]})"
 
 intranet6=(
   ::/128
@@ -150,55 +147,6 @@ intranet6=(
   ff00::/8
 )
 intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
-# log Info "intranet6=(${intranet6[*]})"
-
-monitor_local_ip() {
-  [ "${iptables}" = "iptables -w 64" ] && ipv=4 || ipv=6
-  if [ "${iptables}" = "iptables -w 64" ]; then
-    local_ips=($(ip a | busybox awk '$1~/inet$/{print $2}'))
-  else
-    local_ips=($(ip -6 a | busybox awk '$1~/inet6$/{print $2}'))
-  fi
-  local_ip_number=${#local_ips[@]}
-  rules_ips=($(${iptables} -t mangle -nvL FILTER_LOCAL_IP | grep "ACCEPT" | busybox awk '{print $9}'))
-  rules_number=$(${iptables} -t mangle -L FILTER_LOCAL_IP | grep "ACCEPT" | wc -l)
-
-  if [ ${local_ip_number} -ne ${rules_number} ] ; then
-    for rules_subnet in "${rules_ips[@]}" ; do
-      wait_count=0
-      a_subnet=$(busybox ipcalc -n ${rules_subnet} | busybox awk -F '=' '{print $2}')
-      for local_subnet in "${local_ips[@]}" ; do
-        b_subnet=$(busybox ipcalc -n ${local_subnet} | busybox awk -F '=' '{print $2}')
-        if [ "${a_subnet}" != "${b_subnet}" ] ; then
-          wait_count=$((wait_count + 1))
-          if [ ${wait_count} -ge ${local_ip_number} ] ; then
-            ${iptables} -t mangle -D FILTER_LOCAL_IP -d ${rules_subnet} -j ACCEPT
-          fi
-        fi
-      done
-    done
-
-    for subnets in "${local_ips[@]}" ; do
-      if ! (${iptables} -t mangle -C FILTER_LOCAL_IP -d ${subnets} -j ACCEPT > /dev/null 2>&1) ; then
-        ${iptables} -t mangle -I FILTER_LOCAL_IP -d ${subnets} -j ACCEPT
-      fi
-    done
-    log Debug "Filter Local IP($ipv) ${local_ips[*]}"
-
-    unset a_subnet
-    unset b_subnet
-    log Debug "iptables rules for bypassing the local IP($ipv) have been updated."
-  else
-    log Debug "local IP($ipv) remains unchanged, and no processing has been performed."
-    return 1
-  fi
-
-  unset local_ips
-  unset local_ip_number
-  unset rules_ips
-  unset rules_number
-  unset wait_count
-}
 
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
@@ -239,6 +187,8 @@ start_redirect() {
         ${iptables} -t nat -A BOX_EXTERNAL -d "${subnet}" -m comment --comment "Allow access to intranet subnet ${subnet}" -j RETURN
         ${iptables} -t nat -A BOX_LOCAL -d "${subnet}" -m comment --comment "Allow access to intranet subnet ${subnet}" -j RETURN
     done
+
+    # [ "${iptables}" = "iptables -w 64" ] && log Info "intranet=(${intranet[*]})" || log Info "intranet6=(${intranet6[*]})"
 
     ${iptables} -t nat -A BOX_EXTERNAL -p tcp -i lo -j REDIRECT --to-ports "${redir_port}"
 
@@ -472,6 +422,8 @@ start_tproxy() {
     fi
   fi
 
+  # [ "${iptables}" = "iptables -w 64" ] && log Info "intranet=(${intranet[*]})" || log Info "intranet6=(${intranet6[*]})"
+
   # Bypass box itself
   ${iptables} -t mangle -I BOX_LOCAL -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -j RETURN
   # ${iptables} -t mangle -I BOX_LOCAL -m mark --mark ${routing_mark} -j RETURN
@@ -567,14 +519,8 @@ start_tproxy() {
     ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
     ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
     # ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
-    [ "${iptables}" = "iptables -w 64" ] && log Warning "disable QUIC"
+    [ "${iptables}" = "iptables -w 64" ] && log Warning "Disabling QUIC"
   fi
-
-  # # add filter local ip
-  # ${iptables} -t mangle -N FILTER_LOCAL_IP
-  # ${iptables} -t mangle -A PREROUTING -j FILTER_LOCAL_IP
-  # ${iptables} -t mangle -A OUTPUT -j FILTER_LOCAL_IP
-  # monitor_local_ip
 
   # This rule blocks local access to tproxy-port to prevent traffic loopback.
   if [ "${iptables}" = "iptables -w 64" ]; then
@@ -643,12 +589,6 @@ stop_tproxy() {
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
 
-  # # flush filter local IP
-  # ${iptables} -t mangle -D OUTPUT -j FILTER_LOCAL_IP
-  # ${iptables} -t mangle -D PREROUTING -j FILTER_LOCAL_IP
-  # ${iptables} -t mangle -F FILTER_LOCAL_IP
-  # ${iptables} -t mangle -X FILTER_LOCAL_IP
-
   if [ "${iptables}" = "iptables -w 64" ]; then
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner "${box_user}" --gid-owner "${box_group}" -m tcp --dport "${tproxy_port}" -j REJECT
     ${iptables} -D OUTPUT -d 127.0.0.1 -p tcp -m owner --uid-owner 0 --gid-owner 3005 -m tcp --dport "${tproxy_port}" -j REJECT
@@ -677,71 +617,71 @@ stop_tproxy() {
   fi
 }
 
+cleanup_iptables() {
+  for iptables in "iptables -w 64" "ip6tables -w 64"; do
+    iptables="${iptables}" && {
+      stop_tproxy
+      stop_redirect
+      forward -D
+    } >> /dev/null 2>&1
+  done
+}
+
 if [ "${proxy_mode}" != "tun" ]; then
   case "$1" in
     enable)
       misc_info
       probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      #ipv4
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      #ipv6
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
       # find uuid apps/game
       find_packages_uid
+      # cleanup iptables ipv4/6
+      cleanup_iptables
       case "${network_mode}" in
         tproxy)
-          log Info "use Tproxy : tcp + udp."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Tproxy: tcp + udp."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
-          start_tproxy && log Info "create iptables transparent proxy rules done." || { log Error "create iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+          start_tproxy && log Info "Creating iptables transparent proxy rules done." || { log Error "Creating iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            start_tproxy && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+            start_tproxy && log Info "Creating ip6tables transparent proxy rules done." || { log Error "Creating ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         redirect)
-          log Info "use Redirect : tcp + udp(direct)."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Redirect: tcp + udp (direct)."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
-          start_redirect && log Info "create iptables transparent proxy rules done." || { log Error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+          start_redirect && log Info "Creating iptables transparent proxy rules done." || { log Error "Creating iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log Info "Creating ip6tables transparent proxy rules done." || { log Error "Creating ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         mixed)
-          log Info "use Mixed : tcp(redirect) + udp(tun)."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Mixed: tcp(redirect) + udp(tun)."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           forward -I || forward -D >> /dev/null 2>&1
-          start_redirect && log Info "create iptables transparent proxy rules done." || (log Error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
+          start_redirect && log Info "Creating iptables transparent proxy rules done." || (log Error "Creating iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
             forward -I || forward -D >> /dev/null 2>&1
-            start_redirect && log Info "create ip(6)tables transparent proxy rules done." || (log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
+            start_redirect && log Info "Creating ip6tables transparent proxy rules done." || (log Error "Creating ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         *)
@@ -753,67 +693,59 @@ if [ "${proxy_mode}" != "tun" ]; then
       log Info "${bin_name} connected."
       ;;
     renew)
+      misc_info
       probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
       log Warning "cleaning up iptables transparent proxy rules."
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      log Warning "clean up iptables transparent proxy rules done."
-      misc_info
+      # find uuid apps/game
       find_packages_uid
+      # cleanup iptables ipv4/6
+      cleanup_iptables
       case "${network_mode}" in
         tproxy)
-          log Info "use Tproxy : tcp + udp."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Tproxy: tcp + udp."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
-          start_tproxy && log Info "create iptables transparent proxy rules done." || { log Error "create iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+          start_tproxy && log Info "Creating iptables transparent proxy rules done." || { log Error "Creating iptables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            start_tproxy && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
+            start_tproxy && log Info "Creating ip6tables transparent proxy rules done." || { log Error "Creating ip6tables transparent proxy rules failed." && stop_tproxy >> /dev/null 2>&1; }
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         redirect)
-          log Info "use Redirect : tcp + udp(direct)."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Redirect: tcp + udp (direct)."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
-          start_redirect && log Info "create iptables transparent proxy rules done." || { log Error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+          start_redirect && log Info "Creating iptables transparent proxy rules done." || { log Error "Creating iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
-            start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log Info "Creating ip6tables transparent proxy rules done." || { log Error "Creating ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         mixed)
-          log Info "use Mixed : tcp(redirect) + udp(tun)."
-          log Info "creating iptables transparent proxy rules."
+          log Info "Using Mixed: tcp(redirect) + udp(tun)."
+          log Info "Creating iptables transparent proxy rules."
           iptables="iptables -w 64"
           forward -I || forward -D >> /dev/null 2>&1
-          start_redirect && log Info "create iptables transparent proxy rules done." || { log Error "create iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+          start_redirect && log Info "Creating iptables transparent proxy rules done." || (log Error "Creating iptables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           if [ "${ipv6}" = "true" ]; then
-            log Debug "use IPv6."
+            log Debug "Using IPv6."
             ipv6_enable
             iptables="ip6tables -w 64"
             forward -I || forward -D >> /dev/null 2>&1
-            start_redirect && log Info "create ip(6)tables transparent proxy rules done." || { log Error "create ip(6)tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1; }
+            start_redirect && log Info "Creating ip6tables transparent proxy rules done." || (log Error "Creating ip6tables transparent proxy rule failed." && stop_redirect >> /dev/null 2>&1)
           else
             disable_ipv6
-            log Warning "disable IPv6."
+            log Warning "Disabling IPv6."
           fi
         ;;
         *)
@@ -828,20 +760,10 @@ if [ "${proxy_mode}" != "tun" ]; then
     disable)
       ipv6_enable
       probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      log Warning "clean up iptables transparent proxy rules."
-      #ipv4
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      #ipv6
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      log Warning "clean up iptables transparent proxy rules done."
+      log Warning "Cleaning up iptables transparent proxy rules."
+      # cleanup iptables ipv4/6
+      cleanup_iptables
+      log Warning "Cleaning up iptables transparent proxy rules done."
       ;;
     *)
       echo "${red}$0 $1 no found${normal}"
@@ -852,84 +774,54 @@ else
   case "$1" in
     enable)
       misc_info
-      log Info "use Tun : tcp + udp."
+      log Info "Using Tun: tcp + udp."
       probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      #ipv4
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      #ipv6
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
+      # Cleanup iptables ipv4/6
+      cleanup_iptables
       iptables="iptables -w 64"
-      forward -I && log Info "create iptables tun rules done." || { log Error "create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
+      forward -I && log Info "Create iptables tun rules done." || { log Error "Create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
       if [ "${ipv6}" = "true" ]; then
-        log Debug "use IPv6."
+        log Debug "Using IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log Info "create ip(6)tables tun rules done." || { log Error "create ip(6)tables tun rules failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log Info "Create ip6tables tun rules done." || { log Error "Create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
-        log Warning "disable IPv6."
+        log Warning "Disable IPv6."
       fi
       box_sync_port
       log Info "${bin_name} connected."
       ;;
     renew)
-      log Info "use Tun : tcp + udp."
-      probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      log Warning "cleaning up tun rules."
-      #ipv4
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      #ipv6
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      log Warning "clean up tun rules done."
       misc_info
+      log Info "Using Tun: tcp + udp."
+      probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
+      log Warning "Cleaning up tun rules."
+      # Cleanup iptables ipv4/6
+      cleanup_iptables
+      log Warning "Clean up tun rules done."
       iptables="iptables -w 64"
-      forward -I && log Info "create iptables tun rules done." || { log Error "create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
+      forward -I && log Info "Create iptables tun rules done." || { log Error "Create iptables tun rules failed." && forward -D >> /dev/null 2>&1; }
       if [ "${ipv6}" = "true" ]; then
-        log Debug "use IPv6."
+        log Debug "Using IPv6."
         ipv6_enable
         iptables="ip6tables -w 64"
-        forward -I && log Info "create ip(6)tables tun rules done." || { log Error "create ip(6)tables tun rules failed." && forward -D >> /dev/null 2>&1; }
+        forward -I && log Info "Create ip6tables tun rules done." || { log Error "Create ip6tables tun rules failed." && forward -D >> /dev/null 2>&1; }
       else
         disable_ipv6
-        log Warning "disable IPv6."
+        log Warning "Disable IPv6."
       fi
       box_sync_port
-      log Info "restart iptables tun rules done."
+      log Info "Restart iptables tun rules done."
       log Info "${bin_name} connected."
       ;;
     disable)
       ipv6_enable
-      probe_user_group || log Error "failed to check BOX user group, please make sure ${bin_name} kernel is started."
-      log Warning "cleaning up tun rules."
-      #ipv4
-      iptables="iptables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      #ipv6
-      iptables="ip6tables -w 64" && {
-        stop_tproxy
-        stop_redirect
-        forward -D
-      } >> /dev/null 2>&1
-      log Warning "clean up tun rules done."
+      probe_user_group || log Error "Failed to check BOX user group, please make sure ${bin_name} kernel is started."
+      log Warning "Cleaning up tun rules."
+      # Cleanup iptables ipv4/6
+      cleanup_iptables
+      log Warning "Cleaning up tun rules done."
       ;;
     *)
       echo "${red}$0 $1 no found${normal}"

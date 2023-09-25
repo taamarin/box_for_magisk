@@ -9,28 +9,8 @@ user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 use_ghproxy=false
 
-# Restart the binary, after stopping and running again
-restart_box() {
-  "${scripts_dir}/box.service" restart
-  # PIDS=("clash" "xray" "sing-box" "v2fly")
-  PIDS=(${bin_name})
-  PID=""
-  i=0
-  while [ -z "$PID" ] && [ "$i" -lt "${#PIDS[@]}" ]; do
-    PID=$(busybox pidof "${PIDS[$i]}")
-    i=$((i+1))
-  done
-
-  if [ -n "$PID" ]; then
-    log Debug "${bin_name} Restart complete [$(date +"%F %R")]"
-  else
-    log Error "Failed to restart ${bin_name}."
-    ${scripts_dir}/box.iptables disable >/dev/null 2>&1
-  fi
-}
-
 # Updating files from URLs
-update_file() {
+upfile() {
   file="$1"
   update_url="$2"
   file_bak="${file}.bak"
@@ -58,28 +38,180 @@ update_file() {
   return 0
 }
 
+# Restart the binary, after stopping and running again
+restart_box() {
+  "${scripts_dir}/box.service" restart
+  # PIDS=("clash" "xray" "sing-box" "v2fly")
+  PIDS=(${bin_name})
+  PID=""
+  i=0
+  while [ -z "$PID" ] && [ "$i" -lt "${#PIDS[@]}" ]; do
+    PID=$(busybox pidof "${PIDS[$i]}")
+    i=$((i+1))
+  done
+
+  if [ -n "$PID" ]; then
+    log Debug "${bin_name} Restart complete [$(date +"%F %R")]"
+  else
+    log Error "Failed to restart ${bin_name}."
+    ${scripts_dir}/box.iptables disable >/dev/null 2>&1
+  fi
+}
+
+# Check Configuration
+check() {
+  # su -c /data/adb/box/scripts/box.tool rconf
+  case "${bin_name}" in
+    sing-box)
+      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" > "${box_run}/${bin_name}_report.log" 2>&1; then
+        log Info "${sing_config} passed"
+      else
+        log Debug "${sing_config}"
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+      fi
+      ;;
+    clash)
+      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}_report.log" 2>&1; then
+        log Info "${clash_config} passed"
+      else
+        log Debug "${clash_config}"
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+      fi
+      ;;
+    xray)
+      export XRAY_LOCATION_ASSET="${box_dir}/xray"
+      if ${bin_path} -test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}_report.log" 2>&1; then
+        log Info "configuration passed"
+      else
+        echo "$(ls ${box_dir}/${bin_name})"
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+      fi
+      ;;
+    v2fly)
+      export V2RAY_LOCATION_ASSET="${box_dir}/v2fly"
+      if ${bin_path} test -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}_report.log" 2>&1; then
+        log Info "configuration passed"
+      else
+        echo "$(ls ${box_dir}/${bin_name})"
+        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+      fi
+      ;;
+    *)
+      log Error "<${bin_name}> unknown binary."
+      exit 1
+      ;;
+  esac
+}
+
+# reload base config
+reload() {
+  curl_command="curl"
+  if ! command -v curl >/dev/null 2>&1; then
+    if [ ! -e "${bin_dir}/curl" ]; then
+      log Debug "$bin_dir/curl file not found, unable to reload configuration"
+      log Debug "start to download from github"
+      upcurl || exit 1
+    fi
+    curl_command="${bin_dir}/curl"
+  fi
+
+  check
+
+  case "${bin_name}" in
+    "clash")
+      if [ "${clash_option}" = "meta" ]; then
+        endpoint="http://${ip_port}/configs?force=true"
+      else
+        endpoint="http://${ip_port}/configs"
+      fi
+
+      if ${curl_command} -X PUT -H "Authorization: Bearer ${secret}" "${endpoint}" -d '{"path": "", "payload": ""}' 2>&1; then
+        log Info "${bin_name} config reload success"
+        return 0
+      else
+        log Error "${bin_name} config reload failed !"
+        exit 1
+      fi
+      ;;
+    "sing-box")
+      endpoint="http://${ip_port}/configs?force=true"
+      if ${curl_command} -X PUT -H "Authorization: Bearer ${secret}" "${endpoint}" -d '{"path": "", "payload": ""}' 2>&1; then
+        log Info "${bin_name} config reload success."
+        return 0
+      else
+        log Error "${bin_name} config reload failed !"
+        exit 1
+      fi
+      ;;
+    "xray"|"v2fly")
+      [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+      ;;
+    *)
+      log warning "${bin_name} not supported using API to reload config."
+      return 1
+      ;;
+  esac
+}
+
+# Get latest curl
+upcurl() {
+  local arch
+  case $(uname -m) in
+    "aarch64") arch="arm64" ;;
+    "armv7l"|"armv8l") arch="armv7" ;;
+    "i686") arch="i686" ;;
+    "x86_64") arch="amd64" ;;
+    *) log Warning "Unsupported architecture: $(uname -m)" >&2; return 1 ;;
+  esac
+
+  mkdir -p "${bin_dir}/backup"
+  [ -f "${bin_dir}/curl" ] && cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
+
+  local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | grep -o "[0-9.]*" | head -1)
+  [ -z "${latest_version}" ] && latest_version="8.3.0"
+
+  local file_name="curl-static-${arch}-${latest_version}.tar.xz"
+  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/${file_name}"
+
+  log Debug "Download ${download_link}"
+  upfile "${bin_dir}/curl.tar.xz" "${download_link}"
+
+  local tar_command="tar"
+  ! command -v tar &>/dev/null && tar_command="busybox tar"
+
+  if ! ${tar_command} -xf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
+    log Error "Failed to extract ${bin_dir}/curl.tar.xz" >&2
+    cp "${bin_dir}/backup/curl.bak" "${bin_dir}/curl" >/dev/null 2>&1 && log Info "Restored curl" || return 1
+  fi
+
+  chown "${box_user_group}" "${box_dir}/bin/curl"
+  chmod 0700 "${bin_dir}/curl"
+
+  rm -r "${bin_dir}/curl.tar.xz"
+}
+
 # Get latest yq
-update_yq() {
-  # su -c /data/adb/box/scripts/box.tool upyq
+upyq() {
+  local arch platform
   case $(uname -m) in
     "aarch64") arch="arm64"; platform="android" ;;
     "armv7l"|"armv8l") arch="arm"; platform="android" ;;
     "i686") arch="386"; platform="android" ;;
     "x86_64") arch="amd64"; platform="android" ;;
-    *) log Warning "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+    *) log Warning "Unsupported architecture: $(uname -m)" >&2; return 1 ;;
   esac
-  # If you use yq_linux, an error will occur (cmd: mkdir /tmp permission denied) when using a cron job.
-  # download_link="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${arch}"
-  download_link="https://github.com/taamarin/yq/releases/download/prerelease/yq_${platform}_${arch}"
+
+  local download_link="https://github.com/taamarin/yq/releases/download/prerelease/yq_${platform}_${arch}"
 
   log Debug "Download ${download_link}"
-  update_file "${box_dir}/bin/yq" "${download_link}"
+  upfile "${box_dir}/bin/yq" "${download_link}"
+
   chown "${box_user_group}" "${box_dir}/bin/yq"
-  chmod 0755 "${box_dir}/bin/yq"
+  chmod 0700 "${box_dir}/bin/yq"
 }
 
 # Check and update geoip and geosite
-update_geox() {
+upgeox() {
   # su -c /data/adb/box/scripts/box.tool geox
   geodata_mode=$(busybox awk '!/^ *#/ && /geodata-mode:*./{print $2}' "${clash_config}")
   [ -z "${geodata_mode}" ] && geodata_mode=false
@@ -103,39 +235,38 @@ update_geox() {
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
   esac
-  if [ "${update_geo}" = "true" ] && { log Info "daily updates geox" && log Debug "Downloading ${geoip_url}"; } && update_file "${geoip_file}" "${geoip_url}" && { log Debug "Downloading ${geosite_url}" && update_file "${geosite_file}" "${geosite_url}"; }; then
+  if [ "${update_geo}" = "true" ] && { log Info "daily updates geox" && log Debug "Downloading ${geoip_url}"; } && upfile "${geoip_file}" "${geoip_url}" && { log Debug "Downloading ${geosite_url}" && upfile "${geosite_file}" "${geosite_url}"; }; then
 
     find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.db.bak" -delete
     find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.dat.bak" -delete
     find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.mmdb.bak" -delete
-    log Debug "Update geox $(date +%F %R)"
+
+    log Debug "update geox $(date "+%F %R")"
+    if [ -f "${box_pid}" ]; then
+      reload
+    fi
     return 0
+
   else
    return 1
   fi
 }
 
 # Check and update subscription
-update_subs() {
+upsubs() {
   enhanced=false
-  update_file_name="$(if [ "${bin_name}" = "clash" ]; then echo "${clash_config}"; else echo "${sing_config}"; fi)"
+  update_file_name="${clash_config}"
   if [ "${renew}" != "true" ]; then
-    yq_command=$(command -v yq >/dev/null 2>&1; echo $?)
-    # If yq native doesn't exist
-    if [ "${yq_command}" -eq 1 ]; then
+    yq_command="yq"
+    if ! command -v yq &>/dev/null; then
       if [ ! -e "${box_dir}/bin/yq" ]; then
         log Debug "yq file not found, start to download from github"
-        update_yq
+        ${scripts_dir}/box.tool upyq
       fi
-      yq_command=$(command -v "${box_dir}/bin/yq" >/dev/null 2>&1; echo $?)
+      yq_command="${box_dir}/bin/yq"
     fi
-    if [ "${yq_command}" -eq 0 ]; then
-      if [ -f "${box_dir}/bin/yq" ]; then yq_cmd="${box_dir}/bin/yq"; else yq_cmd="yq"; fi
-      enhanced=true
-      update_file_name="${update_file_name}.subscription"
-    else
-      log Warning "yq not found, this will update main configuration $(if [ "${bin_name}" = "clash" ]; then echo "${clash_config}"; else echo "${sing_config}"; fi)"
-    fi
+    enhanced=true
+    update_file_name="${update_file_name}.subscription"
   fi
 
   case "${bin_name}" in
@@ -145,20 +276,20 @@ update_subs() {
         if [ "${update_subscription}" = "true" ]; then
           log Info "daily updates subs"
           log Debug "Downloading ${update_file_name}"
-          if update_file "${update_file_name}" "${subscription_url_clash}"; then
+          if upfile "${update_file_name}" "${subscription_url_clash}"; then
             log Info "${update_file_name} saved"
             # If there is a yq command, extract the proxy information from the yml and output it to the clash_provide_config file
             if [ "${enhanced}" = "true" ]; then
-              if ${yq_cmd} '.proxies' "${update_file_name}" >/dev/null 2>&1; then
-                "${yq_cmd}" '.proxies' "${update_file_name}" > "${clash_provide_config}"
-                "${yq_cmd}" -i '{"proxies": .}' "${clash_provide_config}"
+              if ${yq_command} '.proxies' "${update_file_name}" >/dev/null 2>&1; then
+                "${yq_command}" '.proxies' "${update_file_name}" > "${clash_provide_config}"
+                "${yq_command}" -i '{"proxies": .}' "${clash_provide_config}"
 
                 if [ "${custom_rules_subs}" = "true" ]; then
-                  if ${yq_cmd} '.rules' "${update_file_name}" >/dev/null 2>&1; then
+                  if ${yq_command} '.rules' "${update_file_name}" >/dev/null 2>&1; then
 
-                    "${yq_cmd}" '.rules' "${update_file_name}" > "${clash_provide_rules}"
-                    "${yq_cmd}" -i '{"rules": .}' "${clash_provide_rules}"
-                    "${yq_cmd}" -i 'del(.rules)' "${clash_config}"
+                    "${yq_command}" '.rules' "${update_file_name}" > "${clash_provide_rules}"
+                    "${yq_command}" -i '{"rules": .}' "${clash_provide_rules}"
+                    "${yq_command}" -i 'del(.rules)' "${clash_config}"
 
                     cat "${clash_provide_rules}" >> "${clash_config}"
                   fi
@@ -197,8 +328,8 @@ update_subs() {
   esac
 }
 
-update_kernel() {
-  # su -c /data/adb/box/scripts/box.tool upcore
+upkernel() {
+  # su -c /data/adb/box/scripts/box.tool upkernel
   mkdir -p "${bin_dir}/backup"
   if [ -f "${bin_dir}/${bin_name}" ]; then
     cp "${bin_dir}/${bin_name}" "${bin_dir}/backup/${bin_name}.bak" >/dev/null 2>&1
@@ -220,7 +351,7 @@ update_kernel() {
       latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | grep -o "v[0-9].*" | head -1 | cut -d'"' -f1)
       download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
-      update_file "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && extra_kernel
+      upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
       ;;
     "clash")
       if [ "${clash_option}" = "meta" ]; then
@@ -235,13 +366,13 @@ update_kernel() {
         filename="clash.meta-${platform}-${arch}-${latest_version}"
         # download and update the file
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
-        update_file "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && extra_kernel
+        upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
       # if meta flag is false, download clash premium/dev
       else
         # if dev flag is false, download latest premium version
         filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
         log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
-        update_file "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && extra_kernel
+        upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
       fi
       ;;
     "xray"|"v2fly")
@@ -259,7 +390,7 @@ update_kernel() {
       # Do anything else below
       download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       log Debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
-      update_file "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && extra_kernel
+      upfile "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && xkernel
     ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -269,7 +400,7 @@ update_kernel() {
 }
 
 # Check and update kernel
-extra_kernel() {
+xkernel() {
   case "${bin_name}" in
     "clash")
       gunzip_command="gunzip"
@@ -346,7 +477,7 @@ extra_kernel() {
 }
 
 # Check and update yacd
-update_dashboard() {
+upyacd() {
   # su -c /data/adb/box/scripts/box.tool upyacd
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${bin_name}/dashboard.zip"
@@ -368,7 +499,7 @@ update_dashboard() {
       else
         unzip_command="busybox unzip"
       fi
-      $unzip_command -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${bin_name}/dashboard" >&2
+      "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${bin_name}/dashboard" >&2
       mv -f "${box_dir}/${bin_name}/dashboard/$dir_name"/* "${box_dir}/${bin_name}/dashboard/"
       rm -f "${file_dashboard}"
       rm -rf "${box_dir}/${bin_name}/dashboard/${dir_name}"
@@ -457,127 +588,53 @@ cgroup_limit() {
   return 0
 }
 
-# Check config
-reload_config() {
-  # su -c /data/adb/box/scripts/box.tool rconf
-  case "${bin_name}" in
-    sing-box)
-      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" > "${box_run}/${bin_name}_report.log" 2>&1; then
-        log Info "${sing_config} passed"
-      else
-        log Debug "${sing_config}"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
-      fi
-      ;;
-    clash)
-      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}_report.log" 2>&1; then
-        log Info "${clash_config} passed"
-      else
-        log Debug "${clash_config}"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
-      fi
-      ;;
-    xray|v2fly)
-      true
-      ;;
-    *)
-      log Error "<${bin_name}> unknown binary."
-      exit 1
-      ;;
-  esac
-}
-
-# reload bin
-reload_bin() {
-  # su -c /data/adb/box/scripts/box.tool rbin
-  case "${bin_name}" in
-    sing-box)
-      if kill -SIGHUP "$(busybox pidof sing-box)" >/dev/null 2>&1; then
-        log Debug "RESTART with -SIGHUP done"
-        return 0
-      else
-        flag=true
-        return 1
-      fi
-      ;;
-    clash)
-      ip_port=$(busybox awk '/external-controller:/ {print $2}' "${clash_config}") >/dev/null 2>&1
-      secret=$(busybox awk '/secret:/ {print $2}' "${clash_config}") >/dev/null 2>&1
-      if busybox wget --header="Authorization: Bearer ${secret}" --post-data "" -O /dev/null "http://${ip_port}/restart" >/dev/null 2>&1; then
-        log Debug "RESTART with clash-meta API done"
-        return 0
-      else
-        flag=true
-        return 1
-      fi
-      ;;
-    *)
-      flag=true
-      return 1
-      ;;
-  esac
-}
-
 case "$1" in
-  upyq)
-    update_yq
-    ;;
-  upyacd)
-    if update_dashboard; then
-      busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
-    fi
-    ;;
-  upcore)
-    update_kernel
+  check)
+    check
     ;;
   cgroup)
     cgroup_limit
     ;;
+  geosub)
+    upgeox
+    upsubs && reload
+    ;;
+  geox|subs)
+    if [ "$1" = "geox" ]; then
+      upgeox && [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+    else
+      upsubs && [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+    fi
+    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
+    ;;
+  upkernel)
+    upkernel
+    ;;
+  upyacd)
+    upyacd
+    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
+    ;;
+  upyq|upcurl)
+    $1
+    ;;
   port)
     port_detection
     ;;
-  rconf)
-    reload_config
-    ;;
-  rbin)
-    reload_bin
-    ;;
-  geox)
-    if update_geox && ! reload_bin; then
-      if [ -f "${box_pid}" ] && [ "${flag}" = "true" ]; then
-        restart_box
-      fi
-    fi
-    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
-    ;;
-  subs)
-    if update_subs && ! reload_bin; then
-      if [ -f "${box_pid}" ] && [ "${flag}" = "true" ]; then
-        restart_box 
-      fi
-    fi
-    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
-    ;;
-  geosub)
-    update_geox
-    update_subs
-    if ! reload_bin; then
-      if [ -f "${box_pid}" ] && [ "${bin_name}" != "clash" ] && [ "${flag}" = "true" ]; then
-        restart_box
-      fi
-    fi
+  reload)
+    reload
     ;;
   all)
-    update_yq
+    upyq
+    upcurl
     for bin_name in "${bin_list[@]}"; do
-      update_kernel
-      update_geox
-      update_subs
-      update_dashboard
+      upkernel
+      upgeox
+      upsubs
+      upyacd
     done
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}rconf|rbin|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|cgroup|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all${normal}}"
     ;;
 esac

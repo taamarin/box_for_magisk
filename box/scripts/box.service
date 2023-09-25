@@ -39,9 +39,9 @@ box_bin_alive() {
 }
 
 box_run_crontab() {
-  # Start crond with the "-c" option and keep it in the background
+  # start crond with the "-c" option and keep it in the background
   nohup busybox crond -c "${box_run}" > /dev/null 2>&1 &
-  # Delete the previous crontab and create a new crontab
+  # delete the previous crontab and create a new crontab
   busybox crontab -c "${box_run}" -r
   touch "${box_run}/root"
   chmod 0755 "${box_run}/root"
@@ -61,7 +61,8 @@ box_run_crontab() {
 }
 
 xclash() {
-  local clash_option="${clash_option:-meta}" # Default to "meta" if clash_option is not set
+  local clash_option="${clash_option:-meta}"
+  # default to "meta" if clash_option is not set
   current_clash="$(readlink "${bin_dir}/clash")"
 
   if [ "$current_clash" != "${bin_dir}/xclash/clash_${clash_option}" ]; then
@@ -85,10 +86,11 @@ box_ownership() {
   chown -R ${box_user_group} ${box_dir}
   chmod 6755 ${bin_path}
   chmod -R 644 ${box_dir}/${bin_name}
+  chmod 0700 ${box_dir}/bin/yq
+  chmod 0700 ${box_dir}/bin/curl
 }
 
 box_permission() {
-  chmod 0700 ${box_dir}/bin/yq
   if [[ "${box_user_group}" == @(root:net_admin|0:3005) && -f "${bin_path}" ]]; then
     # Set ownership and permission of kernel directory
     box_ownership
@@ -141,60 +143,60 @@ prepare_singbox() {
     log Info "config ${sing_config}"
   fi
 
-  yq_cmd="yq"
+  yq_command="yq"
   if ! command -v yq &>/dev/null; then
     if [ ! -e "${box_dir}/bin/yq" ]; then
       log Debug "yq file not found, start to download from github"
       ${scripts_dir}/box.tool upyq
     fi
-    yq_cmd="${box_dir}/bin/yq"
+    yq_command="${box_dir}/bin/yq"
   fi
   # delete Toggle comment, because yq doesn't work, Execute the sed command to uncomment the "/* ... */", "//" line
   sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json
   if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     if grep -q '"type": "tproxy"' "${sing_config}"; then
-      "${yq_cmd}" 'del(.inbounds[] | select(.type == "tproxy"))' -i --output-format=json "${sing_config}"
+      "${yq_command}" 'del(.inbounds[] | select(.type == "tproxy"))' -i --output-format=json "${sing_config}"
     fi
     # Checks if "type" is "tun" in configuration
     if grep -q '"type": "tun"' "${sing_config}"; then
-      log Info "type (tun) already exists in ${sing_config}"
+      log Info "type [Tun] already exists in ${sing_config}"
     else
       # Add "tun" configuration if missing
-      "${yq_cmd}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
-      log Debug "(tun) configuration has been added to ${sing_config}"
+      "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
+      log Debug "[Tun] configuration has been added to ${sing_config}"
     fi
     # Checks if "type" is "redirect" in configuration
     if [ "${network_mode}" = "mixed" ]; then
       if grep -q '"type": "redirect"' "${sing_config}"; then
-        log Info "type (redirect) already exists in ${sing_config}"
+        log Info "type [Redirect] already exists in ${sing_config}"
       else
         # Add "redirect" configuration if missing
-        "${yq_cmd}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-        log Debug "(redirect) configuration has been added to ${sing_config}"
+        "${yq_command}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+        log Debug "[Redirect] configuration has been added to ${sing_config}"
       fi
     fi
     sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${box_dir}/sing-box/"*.json
     sed -i 's/auto_route": false/auto_route": true/g' "${box_dir}/sing-box/"*.json
   else
     if grep -q '"type": "tun"' "${sing_config}"; then
-      "${yq_cmd}" 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
+      "${yq_command}" 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
     fi
     if grep -q '"type": "redirect"' "${sing_config}"; then
-      "${yq_cmd}" 'del(.inbounds[] | select(.type == "redirect"))' -i --output-format=json "${sing_config}"
+      "${yq_command}" 'del(.inbounds[] | select(.type == "redirect"))' -i --output-format=json "${sing_config}"
     fi
     # Checks if "type" is "tproxy" in configuration
     if grep -q '"type": "tproxy"' "${sing_config}"; then
-      log Info "type (tproxy) already exists in ${sing_config}"
+      log Info "type [Tproxy] already exists in ${sing_config}"
     else
       # Add "tproxy" configuration if missing
-      "${yq_cmd}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-      log Debug "(tproxy) configuration has been added to ${sing_config}"
+      "${yq_command}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+      log Debug "[Tproxy] configuration has been added to ${sing_config}"
     fi
     # sync tproxy port sing-box, Looping through each JSON file in the directory
     for file in "${box_dir}/sing-box/"*.json; do
       tproxy=$(sed -n 's/.*"type": "\(tproxy\)".*/\1/p' "${file}")
       if [ -n "${tproxy}" ]; then
-        "${yq_cmd}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
+        "${yq_command}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
       fi
     done
     sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "${box_dir}/sing-box/"*.json
@@ -221,16 +223,19 @@ prepare_clash() {
   if [ -z "${clash_external_controller}" ]; then
     printf "\nexternal-controller: 0.0.0.0:9090" >> "${clash_config}"
   fi
+
   # write external_ui, if not in $clash_config
   clash_external_ui=$(busybox awk '!/^ *#/ && /external-ui: /{print $1}' "${clash_config}")
   if [ -z "${clash_external_ui}" ]; then
     printf "\nexternal-ui: ./dashboard" >> "${clash_config}"
   fi
+
   # write tproxy-port, if not in $clash_config
   clash_tproxy_port=$(busybox awk '!/^ *#/ && /tproxy-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_tproxy_port}" ]; then
     printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
   fi
+
   # write redir-port, if not in $clash_config
   clash_redir_port=$(busybox awk '!/^ *#/ && /redir-port: /{print $1}' "${clash_config}")
   if [ -z "${clash_redir_port}" ]; then
@@ -286,7 +291,7 @@ prepare_clash() {
 
   if [ "${proxy_mode}" != "tun" ]; then
     if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
-      log Warning "${proxy_mode} only works in enhanced-mode: redir-host (clash.meta)"
+      log Warning "${proxy_mode} only works in enhanced-mode: redir-host [Clash.Meta]"
       log Warning "auto replace fake-ip > redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi
@@ -389,7 +394,7 @@ box_run_bin() {
 
       # run v2ray
       export V2RAY_LOCATION_ASSET="${box_dir}/${bin_name}"
-      if ${bin_path} test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
+      if ${bin_path} test -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
         nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
@@ -526,12 +531,11 @@ start_box() {
 
   # Checks if bin_name is defined
   case "${bin_name}" in
-    clash)
+    clash|xray|sing-box|v2fly)
       log Info "Good day 🐱"
-      xclash || exit 1
-      ;;
-    xray|sing-box|v2fly)
-      log Info "Good day 🐱"
+      [ "${bin_name}" = "clash" ] && {
+        xclash || exit 1
+      }
       ;;
     *)
       log Error "bin_name: <..${bin_name}..> unknown not defined."
@@ -562,11 +566,12 @@ start_box() {
   if [ "${port_detect}" = "true" ]; then "${scripts_dir}/box.tool" port; else log Info "${bin_name} skipped port detection."; fi
   count=0
   while [ $count -le 10 ]; do
-    sleep 0.15
+    sleep 0.17
     box_bin_alive || break
     count=$((count + 1))
   done
   box_bin_status
+
   # open the yacd in browser
   open_yacd
 }
