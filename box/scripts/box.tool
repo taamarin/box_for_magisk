@@ -130,7 +130,7 @@ reload() {
         return 0
       else
         log Error "${bin_name} config reload failed !"
-        exit 1
+        return 1
       fi
       ;;
     "sing-box")
@@ -140,11 +140,15 @@ reload() {
         return 0
       else
         log Error "${bin_name} config reload failed !"
-        exit 1
+        return 1
       fi
       ;;
     "xray"|"v2fly")
-      [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+      if [ -f "${box_pid}" ]; then
+        if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
+          restart_box
+        fi
+      fi
       ;;
     *)
       log warning "${bin_name} not supported using API to reload config."
@@ -242,11 +246,7 @@ upgeox() {
     find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.mmdb.bak" -delete
 
     log Debug "update geox $(date "+%F %R")"
-    if [ -f "${box_pid}" ]; then
-      reload
-    fi
     return 0
-
   else
    return 1
   fi
@@ -310,11 +310,12 @@ upsubs() {
             return 1
           fi
         else
+          log Warning "update subscription: $update_subscription"
           return 1
         fi
       else
         log Warning "${bin_name} subscription url is empty..."
-        return 1
+        return 0
       fi
       ;;
     "xray"|"v2fly"|"sing-box")
@@ -596,23 +597,37 @@ case "$1" in
     cgroup_limit
     ;;
   geosub)
+    upsubs
     upgeox
-    upsubs && reload
+    if [ -f "${box_pid}" ]; then
+      if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
+        reload
+        open_dasboard
+      fi
+    fi
     ;;
   geox|subs)
     if [ "$1" = "geox" ]; then
-      upgeox && [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+      upgeox
     else
-      upsubs && [ -f "${box_pid}" ] && [ "${bin_name}" = @(xray|v2fly) ] && restart_box
+      upsubs
+      [ "${bin_name}" != "clash" ] && exit 1
     fi
-    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
+    if [ -f "${box_pid}" ]; then
+      if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
+        reload
+        open_dasboard
+      fi
+    fi
     ;;
   upkernel)
     upkernel
     ;;
   upyacd)
     upyacd
-    busybox pidof "${bin_name}" >/dev/null 2>&1 && open_yacd
+    if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
+      open_dashboard
+    fi
     ;;
   upyq|upcurl)
     $1

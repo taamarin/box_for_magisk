@@ -63,11 +63,29 @@ misc_info() {
   esac
 }
 
-box_sync_port() {
+sync_port() {
   if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
     netstat -tnulp | grep -q "${tproxy_port}" || log Warning "tproxy_port: ${tproxy_port} out of sync with config"
   elif [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
     ifconfig | grep -q "${tun_device}" || log Warning "tun_device: '${tun_device}' not found"
+  fi
+}
+
+bin_alive() {
+  local PID=$(<"${box_pid}" 2>/dev/null)
+  if ! kill -0 "$PID" 2>/dev/null; then
+    log Error "$(<"${box_run}/${bin_name}.log")"
+    log Error "${bin_name} service is not running."
+    log Error "please check ${bin_name}.log for more information."
+    log Error "killing stale pid $PID"
+    for bin in "${bin_list[@]}"; do
+      killall -15 "${bin}" >/dev/null 2>&1 || busybox pkill -15 "${bin}" >/dev/null 2>&1 
+    done
+    cleanup_iptables
+    [ -f "${box_pid}" ] && rm -f "${box_pid}"
+    return 1
+  else
+    return 0
   fi
 }
 
@@ -689,8 +707,8 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      box_sync_port
-      log Info "${bin_name} connected."
+      sync_port
+      bin_alive && log Info "${bin_name} connected."
       ;;
     renew)
       misc_info
@@ -753,9 +771,9 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      box_sync_port
+      sync_port
       log Info "restart iptables transparent proxy rules done."
-      log Info "${bin_name} connected."
+      bin_alive && log Info "${bin_name} connected."
       ;;
     disable)
       ipv6_enable
@@ -789,8 +807,8 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      box_sync_port
-      log Info "${bin_name} connected."
+      sync_port
+      bin_alive && log Info "${bin_name} connected."
       ;;
     renew)
       misc_info
@@ -811,9 +829,9 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      box_sync_port
+      sync_port
       log Info "Restart iptables tun rules done."
-      log Info "${bin_name} connected."
+      bin_alive && log Info "${bin_name} connected."
       ;;
     disable)
       ipv6_enable
