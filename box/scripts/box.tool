@@ -8,6 +8,8 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 use_ghproxy=false
+# to enable/disable download the stable Clash.Meta kernel
+clash_meta_stable="enable"
 
 # Updating files from URLs
 upfile() {
@@ -346,31 +348,35 @@ upkernel() {
   file_kernel="${bin_name}-${arch}"
   case "${bin_name}" in
     "sing-box")
+      # set download link and get the latest version
       api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
-      # set download link and get the latest version
       latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | grep -o "v[0-9].*" | head -1 | cut -d'"' -f1)
       download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
       upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
       ;;
     "clash")
+      # if meta flag is false, download clash premium/dev
       if [ "${clash_option}" = "meta" ]; then
-        # set download link and get the latest version
+        # set download link
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
-        if [ "$use_ghproxy" == true ]; then
-          download_link="https://ghproxy.com/${download_link}"
+        if [ "${clash_meta_stable}" = "enable" ]; then
+          latest_version=$(wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/Clash.Meta/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+          tag="$latest_version"
+        else
+          if [ "$use_ghproxy" == true ]; then
+            download_link="https://ghproxy.com/${download_link}"
+          fi
+          tag="Prerelease-Alpha"
+          latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         fi
-        tag="Prerelease-Alpha"
-        latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         # set the filename based on platform and architecture
         filename="clash.meta-${platform}-${arch}-${latest_version}"
         # download and update the file
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
-      # if meta flag is false, download clash premium/dev
       else
-        # if dev flag is false, download latest premium version
         filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
         log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
@@ -428,10 +434,10 @@ xkernel() {
         tar_command="busybox tar"
       fi
 
-      if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${box_dir}/bin" >&2 &&
-        mv "${box_dir}/bin/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}" &&
-        rm -r "${box_dir}/bin/sing-box-${latest_version#v}-${platform}-${arch}"; then
+      if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
+        mv "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}"
         if [ -f "${box_pid}" ]; then
+          rm -rf /data/adb/box/sing-box/cache.db
           restart_box
         else
           log Debug "${bin_name} does not need to be restarted."
@@ -439,6 +445,9 @@ xkernel() {
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
+
+      [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ] && \
+        rm -r "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
       ;;
     "v2fly"|"xray")
       bin="xray"
