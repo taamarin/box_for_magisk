@@ -573,7 +573,7 @@ start_box() {
   box_bin_status
 
   # open the yacd in browser
-  open_dasboard
+  open_dashboard
 }
 
 stop_box() {

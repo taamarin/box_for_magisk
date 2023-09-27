@@ -602,7 +602,7 @@ case "$1" in
     if [ -f "${box_pid}" ]; then
       if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
         reload
-        open_dasboard
+        open_dashboard
       fi
     fi
     ;;
@@ -616,7 +616,7 @@ case "$1" in
     if [ -f "${box_pid}" ]; then
       if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
         reload
-        open_dasboard
+        open_dashboard
       fi
     fi
     ;;
