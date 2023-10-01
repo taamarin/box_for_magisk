@@ -104,7 +104,7 @@ box_permission() {
     fi
     log Error "Kernel <${bin_name}> is missing."
     log Error "Please download the <${bin_name}> kernel and place it in the ${bin_dir}/ directory."
-    log Debug "exec: su -c /data/adb/box/scripts/box.tool upcore"
+    log Debug "exec: su -c /data/adb/box/scripts/box.tool upkernel"
     exit 1
   fi
 }
@@ -320,8 +320,8 @@ box_run_bin() {
   case "${bin_name}" in
     sing-box)
       prepare_singbox
-      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+      if ${bin_path} check -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
+        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -334,7 +334,7 @@ box_run_bin() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -365,7 +365,7 @@ box_run_bin() {
       # run xray
       export XRAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} -test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -395,7 +395,7 @@ box_run_bin() {
       # run v2ray
       export V2RAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} test -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -413,17 +413,25 @@ box_run_bin() {
 }
 
 box_cgroup() {
-  if [ "${cgroup_memory}" = "true" ]; then
-    if ${scripts_dir}/box.tool cgroup; then
-      log Info "cgroup limit: ${cgroup_memory_limit}."
+  set_cgroup_config() {
+    local cgroup_attr="$1"
+    local cgroup_value="$2"
+
+    if [ "${cgroup_value}" = "true" ]; then
+      if ${scripts_dir}/box.tool "${cgroup_attr}"; then
+        true
+      else
+        log_warning "failed to enable ${cgroup_attr} for ${bin_name}."
+        log_warning "cgroups ${cgroup_attr} is turned off"
+        sed -i -E "/cgroup_${cgroup_attr}/ s/(true)/false/" "${settings}"
+      fi
     else
-      log Warning "failed to enable cgroup for ${bin_name}."
-      log Warning "cgroups is turned off"
-      sed -i -E "/cgroup_memory/ s/(true)/false/" "${settings}"
+      log_info "${bin_name} cgroup_${cgroup_attr}: ${cgroup_value}"
     fi
-  else
-    log Info "${bin_name} cgroup: disabled."
-  fi
+  }
+  set_cgroup_config "memcg" "${cgroup_memcg}"
+  set_cgroup_config "cpuset" "${cgroup_cpuset}"
+  set_cgroup_config "blkio" "${cgroup_blkio}"
 }
 
 # Function to display the usage of a binary
@@ -459,10 +467,20 @@ box_bin_status() {
 
   # Get the CPU usage of the binary
   cpu=$(ps -p $PID -o %cpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
+
+  cpus_allowed=$(grep Cpus_allowed_list /proc/$PID/status | busybox awk '{ print $2" "$3 }')
+  cpuset=$(ps -p $PID -o cpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
+
   if [ -n "${cpu}" ]; then
     log Info "${bin_name} CPU usage: ${cpu}%"
   else
     log Info "${bin_name} CPU usage: not available"
+  fi
+  if [ -n "${cpuset}" ]; then
+    log Info "${bin_name} list of allowed CPUs : ${cpus_allowed}"
+    log Info "${bin_name} Which CPU running on : ${cpuset}"
+  else
+    log Info "${bin_name} Which CPU running on : not available"
   fi
 
   # Check battery temperature
@@ -563,7 +581,12 @@ start_box() {
   box_run_bin
   box_cgroup
   # $bin_name detected port
-  if [ "${port_detect}" = "true" ]; then "${scripts_dir}/box.tool" port; else log Info "${bin_name} skipped port detection."; fi
+  if [ "${port_detect}" = "true" ]; then
+    ${scripts_dir}/box.tool port
+  else
+    log Info "${bin_name} skipped port detection."
+  fi
+
   count=0
   while [ $count -le 10 ]; do
     sleep 0.17
@@ -597,14 +620,15 @@ stop_box() {
     if [ -f "${box_pid}" ]; then
       rm -f "${box_pid}"
     fi
-    log Warning "${bin_name} service is stopped."
+    log Warning "${bin_name} shutting down, service is stopped."
     log Warning "${bin_name} disconnected."
     [ -t 1 ] && echo -e "${white}--------------------------------------------${normal}"
   else
     log Warning "${bin_name} Not stopped; may still be shutting down or failed to shut down."
     force_stop
   fi
-  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✘ $bin_name service is stopped !!! ] /g" "$PROPFILE"
+
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✘ $bin_name shutting down, service is stopped !!! ] /g" "$PROPFILE"
 }
 
 stop_cron() {
@@ -666,7 +690,7 @@ case "$1" in
       esac
       box_bin_status
     else
-      log Warning "${bin_name} service is stopped."
+      log Warning "${bin_name} shutting down, service is stopped."
     fi
     ;;
   cron)

@@ -1,98 +1,127 @@
 {
-    "log": {
-        "disabled": false,
-        "timestamp": false,
-        "level": "panic"
-    },
-    "dns": {
-        "servers": [
-            {
-                "tag": "sing",
-                "address": "8.8.8.8",
-                "detour": "PROXY"
-            },
-            {
-                "tag": "rcode",
-                "address": "rcode://success"
-            }
-        ],
-        "rules": [
-            {
-                "outbound": "any",
-                "domain_suffix": [
-                    "googlesyndication.com"
-                ],
-                "domain": [
-                    "github.com"
-                ],
-                "server": "sing"
-            },
-            {
-                "geosite": "category-ads-all",
-                "server": "rcode"
-            }
-        ]
-    },
-    "inbounds": [
-        {
-            "type": "tproxy",
-            "tag": "tproxy-in",
-            "listen": "::",
-            "listen_port": 9898,
-            "sniff": true,
-            "sniff_override_destination": true
-        }
+  "log": {
+    "disabled": false,
+    "level": "panic",
+    "output": "/data/adb/box/run/sing-box.log",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "AdGuard",
+        "address": "94.140.14.14"
+      },
+      {
+        "tag": "local",
+        "address": "",
+        "detour": "direct"
+      },
+      {
+        "tag": "rcode",
+        "address": "rcode://success"
+      }
     ],
-    "outbounds": [
-        {
-            "outbounds": [
-                "direct"
-            ],
-            "tag": "PROXY",
-            "type": "selector"
-        },
-        {
-            "tag": "direct",
-            "type": "direct"
-        },
-        {
-            "tag": "block",
-            "type": "block"
-        },
-        {
-            "tag": "dns-out",
-            "type": "dns"
-        }
-    ],
-    "route": {
-        "final": "PROXY",
+    "rules": [
+      {
+        "outbound": "any",
+        "server": "local",
+        "disable_cache": true
+      },
+      {
+        "type": "logical",
+        "mode": "and",
         "rules": [
-            {
-                "port": 53,
-                "outbound": "dns-out"
-            },
-            {
-                "domain_suffix": [
-                    "googlesyndication.com"
-                ],
-                "domain": [
-                    "github.com"
-                ],
-                "outbound": "PROXY"
-            },
-            {
-                "geosite": "category-ads-all",
-                "outbound": "block"
-            }
+          {
+            "network": "udp",
+            "port": 443,
+            "geosite": "youtube"
+          }
         ],
-        "find_process": false,
-        "auto_detect_interface": true
-    },
-    "experimental": {
-        "clash_api": {
-            "external_controller": "127.0.0.1:9090",
-            "external_ui": "./dashboard",
-            "store_selected": true
-        }
+        "server": "rcode"
+      }
+    ],
+    "strategy": "prefer_ipv4"
+  },
+  "inbounds": [
+    {
+      "type": "tproxy",
+      "tag": "tproxy-in",
+      "listen": "::",
+      "listen_port": 9898,
+      "sniff": true,
+      "sniff_override_destination": false
     }
+  ],
+  "outbounds": [
+    {
+      "tag": "default",
+      "type": "selector",
+      "default": "",
+      "outbounds": [
+        "direct",
+        "block"
+      ]
+    },
+    {
+      "type": "dns",
+      "tag": "dns"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "port": 53,
+        "outbound": "dns"
+      },
+      {
+        "domain_regex": [
+          "^.*adtival.network$",
+          "^.*googlesyndication.com$"
+        ],
+        "outbound": "default"
+      },
+      {
+        "ip_cidr": [
+          "0.0.0.0/8",
+          "100.64.0.0/10",
+          "127.0.0.0/8",
+          "192.168.0.0/16",
+          "::/128",
+          "::1/128",
+          "fe80::/10"
+        ],
+        "skip_resolve": true,
+        "outbound": "block"
+      },
+      {
+        "type": "logical",
+        "mode": "and",
+        "rules": [
+          {
+            "network": "udp",
+            "port": 443,
+            "geosite": "youtube"
+          }
+        ],
+        "outbound": "block"
+      }
+    ],
+    "final": "default"
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9090",
+      "external_ui": "dashboard",
+      "cache_file": "cache.db",
+      "store_selected": true
+    }
+  }
 }

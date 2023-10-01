@@ -79,7 +79,7 @@ bin_alive() {
     log Error "please check ${bin_name}.log for more information."
     log Error "killing stale pid $PID"
     for bin in "${bin_list[@]}"; do
-      killall -15 "${bin}" >/dev/null 2>&1 || busybox pkill -15 "${bin}" >/dev/null 2>&1 
+      killall -15 "${bin}" >/dev/null 2>&1 || busybox pkill -15 "${bin}" >/dev/null 2>&1
     done
     cleanup_iptables
     [ -f "${box_pid}" ] && rm -f "${box_pid}"
@@ -146,6 +146,7 @@ intranet=(
   240.0.0.0/4
   255.0.0.0/4
   255.255.255.0/24
+  # 255.255.255.255/32
 )
 intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
 
@@ -534,9 +535,9 @@ start_tproxy() {
 
   # Disable QUIC
   if [ "${quic}" = "disable" ]; then
-    ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
-    ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
-    # ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
+    # ${iptables} -A OUTPUT -p udp --dport 443 -j REJECT
+    # ${iptables} -A OUTPUT -p udp --dport 80 -j REJECT
+    ${iptables} -A OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
     [ "${iptables}" = "iptables -w 64" ] && log Warning "Disabling QUIC"
   fi
 
@@ -603,7 +604,7 @@ stop_tproxy() {
   ${iptables} -t mangle -X DIVERT
 
   # flush QUIC
-  # ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
+  ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
   ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
 
@@ -638,8 +639,8 @@ stop_tproxy() {
 cleanup_iptables() {
   for iptables in "iptables -w 64" "ip6tables -w 64"; do
     iptables="${iptables}" && {
-      stop_tproxy
       stop_redirect
+      stop_tproxy
       forward -D
     } >> /dev/null 2>&1
   done

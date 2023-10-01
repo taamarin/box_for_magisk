@@ -174,18 +174,14 @@ upcurl() {
   [ -f "${bin_dir}/curl" ] && cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
 
   local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | grep -o "[0-9.]*" | head -1)
-  [ -z "${latest_version}" ] && latest_version="8.3.0"
+  [ -z "${latest_version}" ] && latest_version="8.4.0"
 
-  local file_name="curl-static-${arch}-${latest_version}.tar.xz"
-  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/${file_name}"
+  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-static-${arch}-${latest_version}.tar.xz"
 
   log Debug "Download ${download_link}"
   upfile "${bin_dir}/curl.tar.xz" "${download_link}"
 
-  local tar_command="tar"
-  ! command -v tar &>/dev/null && tar_command="busybox tar"
-
-  if ! ${tar_command} -xf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
+  if ! busybox tar -xJf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
     log Error "Failed to extract ${bin_dir}/curl.tar.xz" >&2
     cp "${bin_dir}/backup/curl.bak" "${bin_dir}/curl" >/dev/null 2>&1 && log Info "Restored curl" || return 1
   fi
@@ -348,9 +344,9 @@ upkernel() {
   file_kernel="${bin_name}-${arch}"
   case "${bin_name}" in
     "sing-box")
-      # set download link and get the latest version
       api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
+
       latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | grep -o "v[0-9].*" | head -1 | cut -d'"' -f1)
       download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
@@ -361,6 +357,7 @@ upkernel() {
       if [ "${clash_option}" = "meta" ]; then
         # set download link
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
+
         if [ "${clash_meta_stable}" = "enable" ]; then
           latest_version=$(wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/Clash.Meta/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
           tag="$latest_version"
@@ -387,6 +384,7 @@ upkernel() {
       api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       # set download link and get the latest version
       latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+
       case $(uname -m) in
         "i386") download_file="$bin-linux-32.zip" ;;
         "x86_64") download_file="$bin-linux-64.zip" ;;
@@ -433,7 +431,6 @@ xkernel() {
       if ! command -v tar >/dev/null 2>&1; then
         tar_command="busybox tar"
       fi
-
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
         mv "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}"
         if [ -f "${box_pid}" ]; then
@@ -445,7 +442,6 @@ xkernel() {
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
-
       [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ] && \
         rm -r "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
       ;;
@@ -541,7 +537,7 @@ port_detection() {
       # write ports
       while read -r port; do
         sleep 0.5
-        [ -t 1 ] && (echo -n "${red}${port}|$normal") || (echo -n "${port}|" | tee -a "${box_log}" >> /dev/null 2>&1)
+        [ -t 1 ] && (echo -n "${red}${port} $normal") || (echo -n "${port} " | tee -a "${box_log}" >> /dev/null 2>&1)
       done <<< "${ports}"
       # Add a newline to the output if running in terminal
       [ -t 1 ] && echo -e "\033[1;31m""\033[0m" || echo "" >> "${box_log}" 2>&1
@@ -554,23 +550,55 @@ port_detection() {
   fi
 }
 
-# Function to limit cgroup memory
-cgroup_limit() {
-  # Check if the cgroup memory limit has been set.
-  if [ -z "${cgroup_memory_limit}" ]; then
-    log Warning "cgroup_memory_limit is not set"
-    return 1
-  fi
-
-  # Check if the cgroup memory path is set and exists.
-  if [ -z "${cgroup_memory_path}" ]; then
-    local cgroup_memory_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
-    if [ -z "${cgroup_memory_path}" ]; then
-      log Warning "cgroup_memory_path is not set and could not be found"
+# Function to limit cgroup memcg
+cgroup_blkio() {
+  # Check if the cgroup blkio path is set and exists.
+  if [ -z "${blkio_path}" ]; then
+    local blkio_path=$(mount | grep cgroup | busybox awk '/blkio/{print $3}' | head -1)
+    if [ -z "${blkio_path}" ]; then
+      log Warning "blkio_path: is not set and could not be found"
       return 1
     fi
   else
-    log Warning "Leave the 'cgroup_memory_path' field empty to obtain the path."
+    log Warning "leave the blkio_path: field empty to obtain the path."
+    return 1
+  fi
+
+  # Check if box_pid is set and exists.
+  if [ ! -f "${box_pid}" ]; then
+    log Warning "${box_pid} does not exist"
+    return 1
+  fi
+
+  local PID=$(<"${box_pid}" 2>/dev/null)
+  if [ -d "${blkio_path}/background" ]; then
+    if [ ! -z "$PID" ]; then
+      # log Info "${bin_name} blkio: background"
+      echo "$PID" >> "${blkio_path}/background/cgroup.procs" \
+        && log Info "add $PID to ${blkio_path}/background/cgroup.procs"
+    fi
+  else
+     return 1
+  fi
+  return 0
+}
+
+cgroup_memcg() {
+  # Check if the cgroup memcg limit has been set.
+  if [ -z "${memcg_limit}" ]; then
+    log Warning "memcg_limit: is not set"
+    return 1
+  fi
+
+  # Check if the cgroup memcg path is set and exists.
+  if [ -z "${memcg_path}" ]; then
+    local memcg_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
+    if [ -z "${memcg_path}" ]; then
+      log Warning "memcg_path: is not set and could not be found"
+      return 1
+    fi
+  else
+    log Warning "leave the memcg_path: field empty to obtain the path."
     return 1
   fi
 
@@ -583,15 +611,48 @@ cgroup_limit() {
   # Create cgroup directory and move process to cgroup.
   bin_name=${bin_name}
   # local bin_name=$(basename "$0")
-  mkdir -p "${cgroup_memory_path}/${bin_name}"
+  mkdir -p "${memcg_path}/${bin_name}"
   local PID=$(<"${box_pid}" 2>/dev/null)
 
   if [ ! -z "$PID" ]; then
-    echo "$PID" > "${cgroup_memory_path}/${bin_name}/cgroup.procs" \
-      && log Info "Moved process $PID to ${cgroup_memory_path}/${bin_name}/cgroup.procs"
-    # Set memory limit for cgroups.
-    echo "${cgroup_memory_limit}" > "${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes" \
-      && log Info "Set memory limit to ${cgroup_memory_limit} for ${cgroup_memory_path}/${bin_name}/memory.limit_in_bytes"
+    # Set memcg limit for cgroups.
+    echo "${memcg_limit}" > "${memcg_path}/${bin_name}/memory.limit_in_bytes" \
+      && log Info "${bin_name} memcg limit: ${memcg_limit}"
+
+    echo "$PID" > "${memcg_path}/${bin_name}/cgroup.procs" \
+      && log Info "add $PID to ${memcg_path}/${bin_name}/cgroup.procs"
+  else
+    return 1
+  fi
+  return 0
+}
+
+cgroup_cpuset() {
+  # Check if the cgroup cpuset path is set and exists.
+  if [ -z "${cpuset_path}" ]; then
+    cpuset_path=$(mount | grep cgroup | busybox awk '/cpuset/{print $3}' | head -1)
+    if [ -z "${cpuset_path}" ]; then
+      log Warning "cpuset_path: is not set and could not be found"
+      return 1
+    fi
+  else
+    log Warning "leave the cpuset_path: field empty to obtain the path."
+    return 1
+  fi
+
+  # Check if box_pid is set and exists.
+  if [ ! -f "${box_pid}" ]; then
+    log Warning "${box_pid} does not exist"
+    return 1
+  fi
+
+  local PID=$(<"${box_pid}" 2>/dev/null)
+  if [ -d "${cpuset_path}/top-app" ]; then
+    if [ ! -z "$PID" ]; then
+      # log Info "${bin_name} cpuset: $(cat ${cpuset_path}/top-app/cpus)"
+      echo "$PID" >> "${cpuset_path}/top-app/cgroup.procs" \
+        && log Info "add $PID to ${cpuset_path}/top-app/cgroup.procs"
+    fi
   else
     return 1
   fi
@@ -602,8 +663,22 @@ case "$1" in
   check)
     check
     ;;
-  cgroup)
-    cgroup_limit
+  memcg|cpuset|blkio)
+  # leave it blank by default, it will fill in auto,
+    case "$1" in
+      memcg)
+        memcg_path=""
+        cgroup_memcg
+        ;;
+      cpuset)
+        cpuset_path=""
+        cgroup_cpuset
+        ;;
+      blkio)
+        blkio_path=""
+        cgroup_blkio
+        ;;
+    esac
     ;;
   geosub)
     upsubs
@@ -659,6 +734,6 @@ case "$1" in
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|cgroup|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all${normal}}"
     ;;
 esac

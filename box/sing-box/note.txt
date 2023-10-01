@@ -1,7 +1,0 @@
-
-########################
-# example configuration and wiki #
-########################
-
-# https://gist.github.com/CHIZI-0618/fc3495cd15b3ab3d53c77872ebece8ae
-# http://sing-box.sagernet.org/configuration/
