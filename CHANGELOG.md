@@ -1,3 +1,11 @@
+#### Changelog v1.4.0
++ feat: backup and restore
++ remove: sing-box subscription support (if you want to use ProxyProvider, use sing-box kernel([yaotthaha](https://github.com/yaotthaha/sing-box-pub), [PuerNya](https://github.com/PuerNya/sing-box/tree/building), [qjebbs](https://github.com/qjebbs/sing-box)). [example](https://gist.github.com/CHIZI-0618/fc3495cd15b3ab3d53c77872ebece8ae)
++ add: stable Clash.Meta kernel downloads
++ add: cgroup blkio(background),cpuset(top-app), default false
++ add: taskset, default ff
++ ap_list: add swlan+
++ fixes and improvements
 #### Changelog v1.3.0
 + fix update_kernel sing-box function
 + add GID black/white lists
