@@ -421,12 +421,12 @@ box_cgroup() {
       if ${scripts_dir}/box.tool "${cgroup_attr}"; then
         true
       else
-        log_warning "failed to enable ${cgroup_attr} for ${bin_name}."
-        log_warning "cgroups ${cgroup_attr} is turned off"
+        log Warning "failed to enable ${cgroup_attr} for ${bin_name}."
+        log Warning "cgroups ${cgroup_attr} is turned off"
         sed -i -E "/cgroup_${cgroup_attr}/ s/(true)/false/" "${settings}"
       fi
     else
-      log_info "${bin_name} cgroup_${cgroup_attr}: ${cgroup_value}"
+      log Info "${bin_name} cgroup_${cgroup_attr}: ${cgroup_value}"
     fi
   }
   set_cgroup_config "memcg" "${cgroup_memcg}"
