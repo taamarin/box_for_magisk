@@ -505,6 +505,11 @@ box_bin_status() {
 start_box() {
   # Clear the log file and add the timestamp and delimiter
   # cd /data/adb/box/bin; chmod 755 *
+
+  until [ ! -z "$(getprop gsm.sim.operator.alpha)" ]; do
+    sleep 5
+  done
+
   sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ☹ Module is working! but no service is running ] /g" "$PROPFILE"
 
   echo -n "" > "${box_log}"
