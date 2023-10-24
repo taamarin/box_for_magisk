@@ -1,3 +1,6 @@
+#### Changelog v1.4.1
++ Fix restore configuration and kernel, at the start of flash when select `VOL DOWN (-)`
+
 #### Changelog v1.4.0
 + feat: backup and restore
 + remove: sing-box subscription support (if you want to use ProxyProvider, use sing-box kernel([yaotthaha](https://github.com/yaotthaha/sing-box-pub), [PuerNya](https://github.com/PuerNya/sing-box/tree/building), [qjebbs](https://github.com/qjebbs/sing-box)). [example](https://gist.github.com/CHIZI-0618/fc3495cd15b3ab3d53c77872ebece8ae)
