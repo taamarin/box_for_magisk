@@ -1,17 +1,19 @@
 #!/system/bin/sh
 
 SKIPUNZIP=1
-ASH_STANDALONE=1
+SKIPMOUNT=false
+PROPFILE=true
+POSTFSDATA=false
+LATESTARTSERVICE=false
 
 ### INSTALLATION ###
-
 if [ "$BOOTMODE" != true ]; then
   ui_print "-----------------------------------------------------------"
   ui_print "! Please install in Magisk Manager or KernelSU Manager"
   ui_print "! Install from recovery is NOT supported"
   abort "-----------------------------------------------------------"
 elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ]; then
-  abort "ERROR: Please update your KernelSU and KernelSU Manager"
+  abort "error: Please update your KernelSU and KernelSU Manager"
 fi
 
 # check android
@@ -80,9 +82,10 @@ set_perm /data/adb/box/scripts/start.sh  0  0  0755
 
 # fix "set_perm_recursive /data/adb/box/scripts" not working on some phones.
 chmod ugo+x /data/adb/box/scripts/*
+rm -rf /data/adb/box/bin/.bin
 
 ui_print "-----------------------------------------------------------"
-ui_print "- Do you want to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb)? size: ±100MB."
+ui_print "- Do you want to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb)? size: ±100MB."
 ui_print "- Make sure you have a good internet connection."
 ui_print "- [ Vol UP(+): Yes ]"
 ui_print "- [ Vol DOWN(-): No ]"
@@ -93,30 +96,47 @@ while true ; do
     /data/adb/box/scripts/box.tool all
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-    rm -rf /data/adb/box/bin/.bin
-    ui_print "- skip download KERNEL and GEOX" && break
+    ui_print "- skip download Kernel and Geox"
+    break
   fi
 done
 
 if [ "${backup_box}" = "true" ]; then
-  ui_print "- restore configuration xray/clash/sing-box/v2fly"
-  [ -d "${temp_dir}/clash" ] && cp -r "${temp_dir}/clash/"* /data/adb/box/clash/
-  [ -d "${temp_dir}/xray" ] && cp -r "${temp_dir}/xray/"* /data/adb/box/xray/
-  [ -d "${temp_dir}/v2fly" ] && cp -r "${temp_dir}/v2fly/"* /data/adb/box/v2fly/
-  [ -d "${temp_dir}/sing-box" ] && cp -r "${temp_dir}/sing-box/"* /data/adb/box/sing-box/
+  ui_print "- restore configuration xray, clash, sing-box, and v2fly"
+  restore_config() {
+    config_dir="$1"
+    if [ -d "${temp_dir}/$config_dir" ]; then
+      cp -r "${temp_dir}/$config_dir/"* "/data/adb/box/$config_dir/"
+    fi
+  }
+  restore_config "clash"
+  restore_config "xray"
+  restore_config "v2fly"
+  restore_config "sing-box"
 
-  if [ -z "$(find /data/adb/box/bin -type f)" ]; then
-    ui_print "- restore bin xray/clash/sing-box/v2fly"
-    cp -r "${temp_dir}/bin/"* "/data/adb/box/bin/"
-  fi
+  restore_kernel() {
+    kernel_name="$1"
+    if [ ! -f "/data/adb/box/bin/$kernel_name" ] && [ -f "${temp_dir}/bin/$kernel_name" ]; then
+      ui_print "- restore $kernel_name kernel"
+      cp -r "${temp_dir}/bin/$kernel_name" "/data/adb/box/bin/$kernel_name"
+    fi
+  }
+  restore_kernel "curl"
+  restore_kernel "yq"
+  restore_kernel "xray"
+  restore_kernel "sing-box"
+  restore_kernel "v2fly"
+  restore_kernel "xclash/clash_meta"
+  restore_kernel "xclash/clash_premium"
 
   ui_print "- restore logs, pid and uid.list"
   cp "${temp_dir}/run/"* "/data/adb/box/run/"
 fi
 
 if [ -z "$(find /data/adb/box/bin -type f)" ]; then
-  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 🙁 Module installed but you need to download KERNEL(xray clash v2fly sing-box) and GEOX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
+  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but you need to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
 fi
+
 [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 
 ui_print "- Delete leftover files"
@@ -124,4 +144,4 @@ rm -rf $MODPATH/box
 rm -f $MODPATH/box_service.sh
 
 ui_print "- Installation is complete, reboot your device"
-ui_print "- report issues to @taamarin on Telegram"
+ui_print "- report issues to t.me.taamarin"
