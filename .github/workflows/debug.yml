@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -28,7 +28,6 @@ jobs:
 
       - name: update module.prop
         run: |
-          # sed -i "s/version=.*/version=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.tag }}_debug/g" module.prop
           sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
           sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
 
@@ -53,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -69,11 +68,6 @@ jobs:
           sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
           sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
           sh build.sh
- 
-      - name: Release
-        run: |
-          mkdir bfr
-          find -name "*.zip" -exec cp {} bfr \;
 
       - name: Upload to telegram
         env:
@@ -86,8 +80,8 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: box for root ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}_debug
         run: |
-          export VERSION=$(git describe --tags)
+          export VERSION=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}
           export CG=$(git log --oneline -n 5)
-          FILE=$(find ./bfr/* -type f)
+          FILE=$(find ./*.zip -type f)
           pip3 install python-telegram-bot
           python3 docs/tubot.py $FILE
