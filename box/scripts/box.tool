@@ -359,7 +359,7 @@ upkernel() {
         download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
 
         if [ "${clash_meta_stable}" = "enable" ]; then
-          latest_version=$(wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/Clash.Meta/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/Clash.Meta/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
           tag="$latest_version"
         else
           if [ "$use_ghproxy" == true ]; then
