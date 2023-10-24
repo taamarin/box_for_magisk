@@ -662,20 +662,11 @@ force_stop() {
   fi
 }
 
-# determine the busybox location
-# check if there is a busybox in another location, and if so, use that one
-busybox="/data/adb/magisk/busybox"
-[ -f "${busybox}" ] || busybox="/data/adb/ksu/bin/busybox"
-# create a symbolic link to busybox in the specified directory (assume $bin_dir is specified previously)
-ln -sf "${busybox}" "${bin_dir}/busybox" || { 
-  log Error "Failed to create symbolic link ${bin_dir}/busybox"
-  exit 1
-}
-# check if the 'busybox' command can be found
-command -v busybox &> /dev/null || { 
+# Check whether busybox is installed or not on the system using command -v
+if ! command -v busybox &> /dev/null; then
   log Error "busybox command not found."
   exit 1
-}
+fi
 
 case "$1" in
   start)
