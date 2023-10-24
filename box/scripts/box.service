@@ -86,8 +86,8 @@ box_ownership() {
   chown -R ${box_user_group} ${box_dir}
   chmod 6755 ${bin_path}
   chmod -R 644 ${box_dir}/${bin_name}
-  chmod 0700 ${box_dir}/bin/yq
-  chmod 0700 ${box_dir}/bin/curl
+  chmod 0755 ${box_dir}/bin/yq
+  chmod 0755 ${box_dir}/bin/curl
 }
 
 box_permission() {
