@@ -164,7 +164,7 @@ prepare_singbox() {
       log Info "type [Tun] already exists in ${sing_config}"
     else
       # Add "tun" configuration if missing
-      "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
+      "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
       log Debug "[Tun] configuration has been added to ${sing_config}"
     fi
     # Checks if "type" is "redirect" in configuration
