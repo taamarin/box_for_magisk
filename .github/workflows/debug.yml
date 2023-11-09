@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.0
         with:
           fetch-depth: 0
 
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.0
         with:
           fetch-depth: 0
 
@@ -69,19 +69,19 @@ jobs:
           sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
           sh build.sh
 
-      - name: Upload to telegram
+      - name: upload to telegram
+        if: ${{  success() }}
         env:
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          CACHE_CHAT_ID: ${{ secrets.CACHE_CHAT_ID }}
+          CHAT_ID: "-1001597117128"
+          MESSAGE_THREAD_ID: "218356"
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-          COMMIT_URL: ${{ github.event.head_commit.url }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TITLE: box for root ${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}_debug
         run: |
-          export VERSION=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}
-          export CG=$(git log --oneline -n 5)
-          FILE=$(find ./*.zip -type f)
-          pip3 install python-telegram-bot
-          python3 docs/tubot.py $FILE
+          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            export VERSION=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}
+            export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
+            FILE=$(find -name "*.zip")
+            pip3 install telethon==1.31.1
+            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
+          fi

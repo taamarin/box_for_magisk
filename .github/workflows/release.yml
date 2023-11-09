@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.1.0
       - name: Get Version
         id: get_version
         run: |
@@ -51,18 +51,19 @@ jobs:
           files: box_for_root-v*.zip
           generate_release_notes: true
 
-      - name: Upload to telegram
+      - name: upload to telegram
+        if: ${{  success() }}
         env:
-          CHAT_ID: ${{ secrets.CHAT_ID }}
-          CACHE_CHAT_ID: ${{ secrets.CACHE_CHAT_ID }}
+          CHAT_ID: "-1001597117128"
+          MESSAGE_THREAD_ID: "218356"
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ secrets.MESSAGE_THREAD_ID }}
-          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-          COMMIT_URL: ${{ github.event.head_commit.url }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          TITLE: ${{ github.event.inputs.tag }}
         run: |
-          export VERSION=$(git rev-parse --short HEAD)
-          FILE=$(find ./box_for_root-v* -type f)
-          pip3 install python-telegram-bot
-          python3 docs/tubot.py $FILE
+          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            export VERSION=$(git rev-parse --short HEAD)
+            export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
+            FILE=$(find -name "*.zip")
+            pip3 install telethon==1.31.1
+            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
+          fi
