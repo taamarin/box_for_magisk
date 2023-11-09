@@ -82,12 +82,14 @@ xclash() {
 
 box_ownership() {
   # Set ownership and permission of kernel directory
-  chown ${box_user_group} ${bin_path}
   chown -R ${box_user_group} ${box_dir}
-  chmod 6755 ${bin_path}
   chmod -R 644 ${box_dir}/${bin_name}
-  chmod 0755 ${box_dir}/bin/yq
-  chmod 0755 ${box_dir}/bin/curl
+
+  chown ${box_user_group} ${bin_path}
+  chmod 6755 ${bin_path}
+
+  chmod 0700 ${box_dir}/bin/yq
+  chmod 0700 ${box_dir}/bin/curl
 }
 
 box_permission() {
@@ -102,9 +104,9 @@ box_permission() {
       log Debug "automatically changed to [ root:net_admin ], restart box"
       exit 1
     fi
-    log Error "Kernel <${bin_name}> is missing."
-    log Error "Please download the <${bin_name}> kernel and place it in the ${bin_dir}/ directory."
-    log Debug "exec: su -c /data/adb/box/scripts/box.tool upkernel"
+    log Error "Kernel [ ${bin_name} ] is missing."
+    log Error "Please download the [ ${bin_name} ] kernel and place it in the ${bin_dir}/ directory."
+    log Debug "exec 'su -c /data/adb/box/scripts/box.tool upkernel' in terminal"
     exit 1
   fi
 }
@@ -292,7 +294,7 @@ prepare_clash() {
   if [ "${proxy_mode}" != "tun" ]; then
     if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Warning "${proxy_mode} only works in enhanced-mode: redir-host [Clash.Meta]"
-      log Warning "auto replace fake-ip > redir-host"
+      log Warning "auto replace fake-ip to redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi
   fi
@@ -406,7 +408,7 @@ box_run_bin() {
       fi
       ;;
     *)
-      log Error "<${bin_name}> unknown binary."
+      log Error "[ ${bin_name} ] unknown binary."
       exit 1
       ;;
   esac
@@ -426,7 +428,7 @@ box_cgroup() {
         sed -i -E "/cgroup_${cgroup_attr}/ s/(true)/false/" "${settings}"
       fi
     else
-      log Info "${bin_name} cgroup_${cgroup_attr}: ${cgroup_value}"
+      log Info "${bin_name} cgroup ${cgroup_attr}: ${cgroup_value}"
     fi
   }
   set_cgroup_config "memcg" "${cgroup_memcg}"
@@ -509,6 +511,18 @@ start_box() {
 
   echo -n "" > "${box_log}"
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
+
+  # busybox check
+  local busybox="/data/adb/magisk/busybox"
+  [ -f "/data/adb/ksu/bin/busybox" ] && local busybox="/data/adb/ksu/bin/busybox"
+  bb_ver_code=$(busybox | head -n 1 | busybox awk '{print $2}' | sed -e 's/^v//' -e 's/-osm0sis$//' -e 's/-Magisk$//')
+  if [ "$(echo "${bb_ver_code}" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" -lt "$(echo "1.36.1" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" ]; then
+    log Error "Please update your busybox to version 1.36.1 or latest"
+    log Warning "current busybox version $bb_ver_code"
+    log Warning "Download busybox, Override to $busybox and Grant permission 755"
+    exit 1
+  fi
+
   if [ -t 1 ]; then
     echo -e "${yellow}$(getprop persist.sys.timezone)${normal}"
     echo -e "${yellow}$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)${normal}"
@@ -550,13 +564,13 @@ start_box() {
   # Checks if bin_name is defined
   case "${bin_name}" in
     clash|xray|sing-box|v2fly)
-      log Info "Good day 🐱"
+      log Info "Good day"
       [ "${bin_name}" = "clash" ] && {
         xclash || exit 1
       }
       ;;
     *)
-      log Error "bin_name: <..${bin_name}..> unknown not defined."
+      log Error "bin_name: [ ${bin_name} ] unknown not defined."
       exit 1
       ;;
   esac
