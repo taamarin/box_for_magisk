@@ -109,7 +109,7 @@ probe_user_group() {
 
 disable_ipv6() {
   sysctl -w net.ipv4.ip_forward=1
-  sysctl -w net.ipv6.conf.all.forwarding=0
+  sysctl -w net.ipv6.conf.all.forwarding=1
 
   sysctl -w net.ipv6.conf.all.accept_ra=0
   sysctl -w net.ipv6.conf.wlan0.accept_ra=0
@@ -196,10 +196,10 @@ start_redirect() {
     # Just that it returns a result
     # "--to-destination" can be set to a reachable address.
 
-    if [ -n "${fake_ip_range}" ]; then
-      ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-      ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-    fi
+    # if [ -n "${fake_ip_range}" ]; then
+      # ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      # ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    # fi
 
 # Allow access to intranet subnets
     for subnet in "${intranet[@]}"; do
@@ -317,8 +317,8 @@ stop_redirect() {
   fi
 
   if [ "${iptables}" = "iptables -w 64" ]; then
-    ${iptables} -t nat -D BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-    ${iptables} -t nat -D BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    # ${iptables} -t nat -D BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    # ${iptables} -t nat -D BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
 
     ${iptables} -t nat -F BOX_EXTERNAL
     ${iptables} -t nat -X BOX_EXTERNAL
