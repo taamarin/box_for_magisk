@@ -261,7 +261,7 @@ prepare_clash() {
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
         '  exclude-package: []' \ >> "${clash_config}"
-      log Debug "(tun) configuration has been added to ${sing_config}"
+      log Debug "(tun) configuration has been added to ${clash_config}"
     else
       log Info  "type (tun) already exists in ${clash_config}"
     fi
