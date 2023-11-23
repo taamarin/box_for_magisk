@@ -1,3 +1,11 @@
+#### Changelog v1.4.2
++ box script fixes and improvements.
++ requires `install busybox-ndk v1.36.1+` to fix :
+   + wget: TLS error from peer (alert code 80): 80
+   + wget: error getting response: Connection reset by peer
+   + setuidgid permission denied on some devices
+   > ignore it if you don't experience it
+   
 #### Changelog v1.4.1
 + Fix restore configuration and kernel, at the start of flash when select `VOL DOWN (-)`
 
