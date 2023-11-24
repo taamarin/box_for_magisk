@@ -6,16 +6,13 @@ This project is not responsible for: damaged devices, corrupted SD cards, or bur
 If you have no idea how to configure this module, you may need applications such as **ClashForAndroid, ClashMetaForAndroid, v2rayNG, Surfboard, SagerNet, AnXray, NekoBox,** etc.
 
 ## Installation
-
-- Download the module's zip package from the RELEASE and install it through `Magisk` / `KernelSU`. During installation, you will be asked whether to download the complete package. You can choose either **complete download** or **separate download** later, then reboot your device.
-- This mod supports direct updates in `Magisk Manager` (updated mods will take effect without rebooting the device).
+- Download the modules zip package from the [RELEASE](https://github.com/taamarin/box_for_magisk/releases) and install it through `Magisk/KernelSU`. During installation, you will be asked whether to download the complete package. You can choose either **complete download** or **separate download** later, then reboot your device.
+- This mod supports direct updates in `Magisk/KernelSU Manager` (updated mods will take effect without rebooting the device).
 
 ### Kernel Updates
-
 This module includes the following kernels:
-
-- [clash](https://github.com/Dreamacro/clash)
-- [clash.meta](https://github.com/MetaCubeX/Clash.Meta)
+- [clash](https://github.com/Dreamacro/clash)(Delete master branch)
+- [clash.meta](https://github.com/MetaCubeX/Clash.Meta)(Archive and change branches, the content is still there)
 - [sing-box](https://github.com/SagerNet/sing-box)
 - [v2ray-core](https://github.com/v2fly/v2ray-core)
 - [Xray-core](https://github.com/XTLS/Xray-core)
@@ -26,50 +23,44 @@ Each core operates in the directory `/data/adb/box/bin/${bin_name}`, and the cor
 
 Make sure you are connected to the internet and run the following command to update the kernel file:
 
-```sh
+```shell
 # Update the selected kernel, based on `${bin_name}`.
 su -c /data/adb/box/scripts/box.tool upcore
 ```
 
 If you are using `clash/sing-box` as the selected kernel, you may also need to run the following command to open the control panel:
 
-```sh
+```shell
 # Update the admin panel for `clash/sing-box`.
 su -c /data/adb/box/scripts/box.tool upyacd
 ```
 
 Alternatively, you can do it all at once (which may consume unnecessary storage space).
 
-```sh
+```shell
 # Update all files, including various kernel types.
 su -c /data/adb/box/scripts/box.tool all
 ```
 
 ## Configuration
-
 **The following core services are referred to as BFM:**
-
 - The following core services are collectively referred to as BFM.
-- You can enable or disable the module to start or stop the BFM services in real time through the Magisk Manager application without having to reboot the device. Starting the service may take a few seconds, and stopping the service will take effect immediately.
+- You can enable or disable the module to start or stop the BFM services in real time through the Magisk/KernelSU Manager application without having to reboot the device. Starting the service may take a few seconds, and stopping the service will take effect immediately.
 
 ### Core configuration
-
 - For the core configuration of `bin_name`, please refer to the **Kernel Updates** section for the configuration.
 - Each core configuration file needs to be customized by the user, and the script will check the validity of the configuration. The results of the check will be stored in the `/data/adb/box/run/runs.log` file.
-- Tip: Both `clash` and `sing-box` come with pre-configured scripts for transparent proxy. For further configuration, please refer to the official documentation. Documentation links: [Official Clash Documentation](https://github.com/Dreamacro/clash/wiki/configuration), [Official sing-box Documentation](https://sing-box.sagernet.org/configuration/outbound)
+- Tip: Both `clash` and `sing-box` come with pre-configured scripts for transparent proxy. For further configuration, please refer to the official documentation. Documentation links: [Official Clash Documentation](https://github.com/Dreamacro/clash/wiki/configuration)(Delete master branch), [Official sing-box Documentation](https://sing-box.sagernet.org/configuration/outbound)
 
 ### To apply filtering using a blacklist or whitelist, you can follow these general steps:
-
 - By default, BFM provides a proxy for all applications (APP) from all Android users.
 - If you want BFM to proxy all applications (APP), except for some specific applications, please open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (default), and add the applications to be excluded to the `packages_list`, for **example: packages_list=("com.termux" "org.telegram.messenger")**.
 - If you only want to proxy specific applications (APP), use the `whitelist` mode.
-- When the value of `proxy_mode` is set to `TUN`, transparent proxy will not function, and only the corresponding kernel will start supporting TUN. Currently, **only clash and sing-box are available**.
-> Notes: If Clash is used, the blacklist and whitelist will not apply in fake-ip mode
+- When the value of `proxy_mode` is set to `TUN`, transparent proxy will not function, and only the corresponding kernel will start supporting **TUN**. Currently, **only clash and sing-box are available**.
+> **Notes: If Clash is used, the blacklist and whitelist will not apply in fake-ip mode**
 
 ### Transparent Proxies for Specific Processes
-
 - BFM by default performs a transparent proxy for all processes.
-
 - If you want BFM to proxy for all processes except specific ones, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (the default value), then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in processes with the corresponding GID **not being proxied**.
 
 - If you wish to perform transparent proxying only for specific processes, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `whitelist`, then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in only processes with the corresponding GID being **proxied**.
@@ -77,7 +68,6 @@ su -c /data/adb/box/scripts/box.tool all
 > Tips: Since Android iptables does not support extension PID matching, process matching by Box is done via GID matching indirectly. On Android you can use busybox setuidgid command to start a specific process with a specific UID, any GID.
 
 ### Change the proxy mode in BFM, follow these steps:
-
 - BFM utilizes TPROXY to transparently proxy TCP+UDP traffic (default). If it is detected that the device does not support TPROXY, open the file **/data/adb/box/settings.ini** and change `network_mode="redirect"` to `redirect`, which only uses TCP proxying.
 - Open the file `/data/adb/box/settings.ini` and change the value of `network_mode` to **redirect, tproxy, or mixed**.
 - redirect: Use redirect mode for TCP proxying.
@@ -86,7 +76,6 @@ su -c /data/adb/box/scripts/box.tool all
 - Make sure to save the changes to the configuration file and restart the BFM service or the device for the modifications to take effect.
 
 ### bypass transparent proxy when connecting to Wi-Fi or hotspot in BFM
-
 - BFM transparently proxies localhost and hotspot (including USB tethering) by default.
 - Open the file **/data/adb/box/settings.ini** using a text editor, Find the `ignore_out_list` parameter in the file, update the value of ignore_out_list by adding `wlan+` to it. This will bypass transparent proxy for Wi-Fi connections.
 - If you want to enable proxying for hotspots, follow these additional steps:
@@ -96,7 +85,6 @@ su -c /data/adb/box/scripts/box.tool all
 - If you are unsure about the name of the access point (AP), you can use the **ifconfig** command in the Terminal to determine the AP name.
 
 ### To enable Cron Job for automatic updates of Geo and Subs according to a schedule.
-
 - Open the file **/data/adb/box/settings.ini** using a text editor.
 - Locate the parameter `run_crontab` in the file.
 - Change the value of `run_crontab` to true.
@@ -113,54 +101,24 @@ su -c /data/adb/box/scripts/box.tool all
 - Ensure that you have the necessary permissions to execute the command. The updates will automatically occur according to the specified schedule once you have enabled the Cron Job and executed the command.
 
 ## Start and Stop
-
 ### manual mode
-
-- If you want to have full control over BFM by running commands manually, you can create a new file named **/data/adb/box/manual**. In this case, the BFM service will not start automatically when your device is powered on, and you will not be able to control the start or stop of the service through the Magisk Manager application.
+- If you want to have full control over BFM by running commands manually, you can create a new file named **/data/adb/box/manual**. In this case, the BFM service will not start automatically when your device is powered on, and you will not be able to control the start or stop of the service through the Magisk/KernelSU Manager application.
 - By creating the **/data/adb/box/manual** file, you take manual control over BFM and can execute commands as needed to manage its operations. Please note that modifying system files requires appropriate permissions, and any manual changes should be made with caution.
 
 ### Start and stop the management service
-
 - The BFM service script is /data/adb/box/scripts/box.service
 
-- Star BFM:
-
 ```shell
-  # This command will initiate the BFM service and start its operations.
-  su -c /data/adb/box/scripts/box.service start
-```
+# Start BFM
+  su -c /data/adb/box/scripts/box.service start &&  su -c /data/adb/box/scripts/box.iptables enable
 
-- Stop BFM:
-
-```shell
-  # This command will stop the BFM service and halt its operations.
-  su -c /data/adb/box/scripts/box.service stop
+# Stop BFM
+  su -c /data/adb/box/scripts/box.iptables disable && su -c /data/adb/box/scripts/box.service stop
 ```
 
 - When executing these commands, the Terminal will print logs simultaneously and output them to the log file.
 
-#### manage whether transparent proxy is enabled or disabled.
-
-- Skrip proxy transparan adalah /data/adb/box/scripts/box.iptables.
-
-- Enable transparent proxy:
-
-```shell
-  # This command will enable the transparent proxy functionality.
-  su -c /data/adb/box/scripts/box.iptables enable
-```
-
-- Disable transparent proxy:
-
-```shell
-  # This command will disable the transparent proxy functionality.
-  su -c /data/adb/box/scripts/box.iptables disable
-```
-
-- When executing these commands, make sure you have the necessary permissions. The script **box.iptables** is responsible for managing the transparent proxy functionality in BFM.
-
 ## Geo database subscriptions and updates
-
 To update both the subscription and the Geo database simultaneously, you can use the following command:
 
 ```shell
@@ -187,7 +145,6 @@ By running these commands, you will be able to update the subscription and the G
 ```
 
 ## Here are some additional instructions:
-
 - When modifying any of the core configuration files, ensure that the tproxy-related configurations match the definitions in the **/data/adb/box/settings.ini** file.
 - If your device has a public IP address, you can add that IP address to the internal network in the **/data/adb/box/scripts/box.iptables** file to prevent loopback traffic.
 - The logs for the BFM service can be found in the directory **/data/adb/box/run**.
@@ -197,25 +154,20 @@ You can run the following command to get other related operating instructions:
 
 ```shell
   su -c /data/adb/box/scripts/box.tool
-  # usage: $0 {rconf|reload|upyacd|upcore|upyq|cgroup|port|geox|subs|geosub|all}
+  # usage: {check|bond0|bond1|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all}
   su -c /data/adb/box/scripts/box.service
-  # usage: $0 {start|stop|restart|usage|cron}
+  # usage: $0 {start|stop|restart|status|cron|kcron}
   su -c /data/adb/box/scripts/box.iptables
   # usage: $0 {enable|disable|renew}
 ```
 
 ## uninstall
-
-- An install that removes this module from Magisk Manager, will remove the file **/data/adb/service.d/box_service.sh** and the BFM data directory at **/data/adb/box**.
-
+- An install that removes this module from Magisk/KernelSU Manager, will remove the file **/data/adb/service.d/box_service.sh** and the BFM data directory at **/data/adb/box**.
 - Remove the BFM data directory by running the following command:
 
 ```shell
   # This command will delete the BFM data directory located at /data/adb/box.
   su -c rm -rf /data/adb/box
-```
-
-```shell
-  # This command will delete the BFM service script located at /data/adb/service.d/box_service.sh
   su -c rm -rf /data/adb/service.d/box_service.sh
+  su -c rm -rf /data/adb/modules/box_for_root
 ```
