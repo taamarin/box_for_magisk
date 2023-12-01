@@ -374,9 +374,10 @@ upkernel() {
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
       else
-        filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
-        log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
-        upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
+        log Warning "clash.${clash_option} Repository has been deleted"
+        # filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+        # log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
+        # upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
       fi
       ;;
     "xray"|"v2fly")
