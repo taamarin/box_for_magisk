@@ -212,7 +212,6 @@ prepare_clash() {
     log Error "configuration file ${clash_config} not found"
     exit 1
   else
-    temp_clash_config_file
     log Info "config ${clash_config}"
   fi
 
@@ -296,21 +295,6 @@ prepare_clash() {
       log Warning "${proxy_mode} only works in enhanced-mode: redir-host xclash[mihomo]"
       log Warning "auto replace fake-ip to redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
-    fi
-  fi
-}
-
-temp_clash_config_file() {
-  clash_template="${box_dir}/clash/template"
-  temp_clash_config_file="${clash_config}"
-
-  if [ -f "${clash_template}" ]; then
-    log debug "use template configuration"
-    cp -f "${clash_template}" "${temp_clash_config_file}.temp" && echo "\n" >> "${temp_clash_config_file}.temp"
-    sed -n -E '/^proxies:$/,$p' "${clash_config}" >> "${temp_clash_config_file}.temp"
-    sed -i '/^[[:space:]]*$/d' "${temp_clash_config_file}.temp"
-    if mv "${temp_clash_config_file}.temp" "${clash_config}"; then
-      log Info "The merging of the $clash_config and $clash_template files is complete."
     fi
   fi
 }
