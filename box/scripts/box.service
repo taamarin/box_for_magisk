@@ -499,7 +499,7 @@ start_box() {
   # busybox check
   busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | sed -e 's/^v//' -e 's/-osm0sis$//' -e 's/-Magisk$//')
   if [ "$(echo "${busybox_code}" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" -lt "$(echo "1.36.1" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" ]; then
-    log info "current busybox version $busybox_code"
+    log Info "Current busybox v${busybox_code}"
     log Error "Please update your busybox to version 1.36.1+ latest"
     exit 1
   fi
@@ -557,7 +557,7 @@ start_box() {
   esac
 
   # show the current version of busybox
-  log Info "current busybox version $busybox_code"
+  log Info "Current busybox v${busybox_code}"
 
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
   box_permission

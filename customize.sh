@@ -106,7 +106,7 @@ if [ "${backup_box}" = "true" ]; then
   restore_config() {
     config_dir="$1"
     if [ -d "${temp_dir}/$config_dir" ]; then
-      cp -r "${temp_dir}/$config_dir/"* "/data/adb/box/$config_dir/"
+      cp -rf "${temp_dir}/$config_dir/"* "/data/adb/box/$config_dir/"
     fi
   }
   restore_config "clash"
@@ -118,7 +118,7 @@ if [ "${backup_box}" = "true" ]; then
     kernel_name="$1"
     if [ ! -f "/data/adb/box/bin/$kernel_name" ] && [ -f "${temp_dir}/bin/$kernel_name" ]; then
       ui_print "- restore $kernel_name kernel"
-      cp -r "${temp_dir}/bin/$kernel_name" "/data/adb/box/bin/$kernel_name"
+      cp -rf "${temp_dir}/bin/$kernel_name" "/data/adb/box/bin/$kernel_name"
     fi
   }
   restore_kernel "curl"
@@ -126,8 +126,8 @@ if [ "${backup_box}" = "true" ]; then
   restore_kernel "xray"
   restore_kernel "sing-box"
   restore_kernel "v2fly"
-  restore_kernel "xclash/clash_meta"
-  restore_kernel "xclash/clash_premium"
+  restore_kernel "xclash/mihomo"
+  restore_kernel "xclash/premium"
 
   ui_print "- restore logs, pid and uid.list"
   cp "${temp_dir}/run/"* "/data/adb/box/run/"

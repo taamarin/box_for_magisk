@@ -26,18 +26,6 @@
         "outbound": "any",
         "server": "local",
         "disable_cache": true
-      },
-      {
-        "type": "logical",
-        "mode": "and",
-        "rules": [
-          {
-            "network": "udp",
-            "port": 443,
-            "geosite": "youtube"
-          }
-        ],
-        "server": "rcode"
       }
     ],
     "strategy": "prefer_ipv4"
@@ -80,38 +68,6 @@
       {
         "port": 53,
         "outbound": "dns"
-      },
-      {
-        "domain_regex": [
-          "^.*adtival.network$",
-          "^.*googlesyndication.com$"
-        ],
-        "outbound": "default"
-      },
-      {
-        "ip_cidr": [
-          "0.0.0.0/8",
-          "100.64.0.0/10",
-          "127.0.0.0/8",
-          "192.168.0.0/16",
-          "::/128",
-          "::1/128",
-          "fe80::/10"
-        ],
-        "skip_resolve": true,
-        "outbound": "block"
-      },
-      {
-        "type": "logical",
-        "mode": "and",
-        "rules": [
-          {
-            "network": "udp",
-            "port": 443,
-            "geosite": "youtube"
-          }
-        ],
-        "outbound": "block"
       }
     ],
     "final": "default"
@@ -124,4 +80,18 @@
       "store_selected": true
     }
   }
+// http://sing-box.sagernet.org/configuration/
+/* Since sing-box 1.8.0
+  "experimental": {
+    "cache_file": {
+      "enabled": true,
+      "path": "cache.db",
+      "store_fakeip": false
+    },
+    "clash_api": {
+      "external_controller": "0.0.0.0:9090",
+      "external_ui": "/data/adb/box/sing-box/dashboard"
+    }
+  }
+*/
 }

@@ -1,7 +1,8 @@
 
 ########################
-# example configuration and wiki #
+example configuration / documentation
 ########################
 
-# http://dreamacro.github.io/clash/ >> wiki clash premium 
-# http://https://wiki.metacubex.one/ >> wiki clash meta
+~[clash premium documentation](http://dreamacro.github.io/clash/)~
+
+[mihomo documentation](https://wiki.metacubex.one/)
