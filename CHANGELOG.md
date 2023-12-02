@@ -1,3 +1,7 @@
+#### Changelog v1.4.3
++ update the core repository binary file name from ~clash_meta~ to mihomo.
++ feat: ipv6 route rule _(will completely block IPv6 if the [ipv6 value](https://github.com/taamarin/box_for_magisk/blob/58505c41e2fc53883b21fa80b15e164524a1bccd/box/settings.ini#L19-L22) is set to false)_ [1c0f8e7](https://github.com/taamarin/box_for_magisk/commit/1c0f8e752e9c0b23c9c9bcfad00f65ffe2528f35)
+
 #### Changelog v1.4.2
 + box script fixes and improvements.
 + requires `install busybox-ndk v1.36.1+` to fix :
@@ -17,17 +21,22 @@
 + add: taskset, default ff
 + ap_list: add swlan+
 + fixes and improvements
+
 #### Changelog v1.3.0
 + fix update_kernel sing-box function
 + add GID black/white lists
+
 #### Changelog v1.2.1
 + code Optimize 
+
 #### Changelog v1.2.0
 + add: options for clash_ premium/meta ([see](https://github.com/taamarin/box_for_magisk/blob/24cee5837965e73eee0b945292d9557180c627d3/box/settings.ini#L24-L26))
+
 #### Changelog v1.1
 + fix an issue where the log file output kept continuously growing larger. ([see](https://github.com/taamarin/box_for_magisk/blob/0a3e9bb6b4260ce065bd3aaaded835cb3f7c0dc7/box/settings.ini#L61-L63))
 + fix `kernel/core` permissions in `/system/bin` directory.
 + chore: sing-box `inbound` configuration
 + customize box.iptables scripts.
+
 #### Changelog v1.0
 + bug fixes and stability improvements.
