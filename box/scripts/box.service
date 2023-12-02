@@ -61,23 +61,23 @@ box_run_crontab() {
 }
 
 xclash() {
-  local clash_option="${clash_option:-meta}"
-  # default to "meta" if clash_option is not set
+  local xclash_option="${xclash_option:-mihomo}"
+  # default to "mihomo" if xclash_option is not set
   current_clash="$(readlink "${bin_dir}/clash")"
 
-  if [ "$current_clash" != "${bin_dir}/xclash/clash_${clash_option}" ]; then
-    if [ -f "${bin_dir}/xclash/clash_${clash_option}" ]; then
-      if ! ln -sf "${bin_dir}/xclash/clash_${clash_option}" "${bin_dir}/clash"; then
-        log Error "Failed to use clash_${clash_option}"
+  if [ "$current_clash" != "${bin_dir}/xclash/${xclash_option}" ]; then
+    if [ -f "${bin_dir}/xclash/${xclash_option}" ]; then
+      if ! ln -sf "${bin_dir}/xclash/${xclash_option}" "${bin_dir}/clash"; then
+        log Error "Failed to use ${xclash_option}"
         return 1
       fi
     else
       mkdir -p "${bin_dir}/xclash"
-      log Error "${bin_dir}/xclash/clash_${clash_option} file not found"
+      log Error "${bin_dir}/xclash/${xclash_option} file not found"
       return 1
     fi
   fi
-  log Info "xclash [ clash_$clash_option ] setup completed successfully"
+  log Info "xclash [ $xclash_option ] setup completed"
 }
 
 box_ownership() {
@@ -293,7 +293,7 @@ prepare_clash() {
 
   if [ "${proxy_mode}" != "tun" ]; then
     if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
-      log Warning "${proxy_mode} only works in enhanced-mode: redir-host [Clash.Meta]"
+      log Warning "${proxy_mode} only works in enhanced-mode: redir-host xclash[mihomo]"
       log Warning "auto replace fake-ip to redir-host"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
     fi

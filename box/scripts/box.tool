@@ -8,8 +8,8 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 use_ghproxy=false
-# to enable/disable download the stable Clash.Meta kernel
-clash_meta_stable="enable"
+# to enable/disable download the stable mihomo kernel
+mihomo_stable="enable"
 
 # Updating files from URLs
 upfile() {
@@ -121,7 +121,7 @@ reload() {
 
   case "${bin_name}" in
     "clash")
-      if [ "${clash_option}" = "meta" ]; then
+      if [ "${xclash_option}" = "mihomo" ]; then
         endpoint="http://${ip_port}/configs?force=true"
       else
         endpoint="http://${ip_port}/configs"
@@ -219,8 +219,8 @@ upgeox() {
   [ -z "${geodata_mode}" ] && geodata_mode=false
   case "${bin_name}" in
     clash)
-      geoip_file="${box_dir}/clash/$(if [[ "${clash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [[ "${clash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
+      geoip_file="${box_dir}/clash/$(if [[ "${xclash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
+      geoip_url="https://github.com/$(if [[ "${xclash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
       geosite_file="${box_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
@@ -353,13 +353,13 @@ upkernel() {
       upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
       ;;
     "clash")
-      # if meta flag is false, download clash premium/dev
-      if [ "${clash_option}" = "meta" ]; then
+      # if mihomo flag is false, download clash premium/dev
+      if [ "${xclash_option}" = "mihomo" ]; then
         # set download link
-        download_link="https://github.com/MetaCubeX/Clash.Meta/releases"
+        download_link="https://github.com/MetaCubeX/mihomo/releases"
 
-        if [ "${clash_meta_stable}" = "enable" ]; then
-          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/Clash.Meta/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+        if [ "${mihomo_stable}" = "enable" ]; then
+          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
           tag="$latest_version"
         else
           if [ "$use_ghproxy" == true ]; then
@@ -369,12 +369,12 @@ upkernel() {
           latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
         fi
         # set the filename based on platform and architecture
-        filename="clash.meta-${platform}-${arch}-${latest_version}"
+        filename="mihomo-${platform}-${arch}-${latest_version}"
         # download and update the file
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
       else
-        log Warning "clash.${clash_option} Repository has been deleted"
+        log Warning "clash.${xclash_option} Repository has been deleted"
         # filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
         # log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         # upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
@@ -415,8 +415,8 @@ xkernel() {
       fi
 
       mkdir -p "${bin_dir}/xclash"
-      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/xclash/${bin_name}_${clash_option}"; then
-        ln -sf "${bin_dir}/xclash/${bin_name}_${clash_option}" "${bin_dir}/${bin_name}"
+      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/xclash/${xclash_option}"; then
+        ln -sf "${bin_dir}/xclash/${xclash_option}" "${bin_dir}/${bin_name}"
 
         if [ -f "${box_pid}" ]; then
           restart_box
