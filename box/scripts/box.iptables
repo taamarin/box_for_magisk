@@ -54,7 +54,7 @@ misc_info() {
         log Info "tun_device: $tun_device"
       fi
       if [ -n "${fake_ip_range}" ] && [ "${bin_name}" = "sing-box" ]; then
-        log Debug "fakeip inet(v4/v6)_range: ${fake_ip_range}, ${fake_ip6_range}"
+        log Debug "fake-ip-range: ${fake_ip_range}, ${fake_ip6_range}"
       fi
       ;;
     *) 
@@ -65,9 +65,13 @@ misc_info() {
 
 sync_port() {
   if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
-    netstat -tnulp | grep -q "${tproxy_port}" || log Warning "tproxy_port: ${tproxy_port} out of sync with config"
+    if command -v netstat &> /dev/null; then
+      netstat -tnulp | grep -q "${tproxy_port}" || log Warning "tproxy_port: ${tproxy_port} out of sync with config"
+    fi
   elif [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-    ifconfig | grep -q "${tun_device}" || log Warning "tun_device: '${tun_device}' not found"
+    if command -v ifconfig &> /dev/null; then
+      ifconfig | grep -q "${tun_device}" || log Warning "tun_device: '${tun_device}' not found"
+    fi
   fi
 }
 

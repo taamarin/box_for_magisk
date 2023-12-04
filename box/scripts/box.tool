@@ -521,36 +521,6 @@ upyacd() {
   fi
 }
 
-# Function for detecting ports used by a process
-port_detection() {
-  sleep 1
-  # Use 'command' function to check availability of 'ss'
-  if command -v ss > /dev/null ; then
-    # Use 'awk' with a regular expression to match the process ID
-    ports=$(ss -antup | busybox awk -v PID="$(busybox pidof "${bin_name}")" '$7 ~ PID {print $5}' | busybox awk -F ':' '{print $2}' | sort -u) >/dev/null 2>&1
-    # Make a note of the detected ports
-    if busybox pidof "${bin_name}" >/dev/null 2>&1; then
-      if [ -t 1 ]; then
-        echo -n "${orange}${current_time} [Debug]: ${bin_name} port detected:${normal}"
-      else
-        echo -n "${current_time} [Debug]: ${bin_name} port detected:" | tee -a "${box_log}" >> /dev/null 2>&1
-      fi
-      # write ports
-      while read -r port; do
-        sleep 0.5
-        [ -t 1 ] && (echo -n "${red}${port} $normal") || (echo -n "${port} " | tee -a "${box_log}" >> /dev/null 2>&1)
-      done <<< "${ports}"
-      # Add a newline to the output if running in terminal
-      [ -t 1 ] && echo -e "\033[1;31m""\033[0m" || echo "" >> "${box_log}" 2>&1
-    else
-      return 1
-    fi
-  else
-    log Debug "ss command not found, skipping port detection." >&2
-    return 1
-  fi
-}
-
 # Function to limit cgroup memcg
 cgroup_blkio() {
   # Check if the cgroup blkio path is set and exists.
@@ -660,6 +630,9 @@ cgroup_cpuset() {
   return 0
 }
 
+ip_port=$(if [ "${bin_name}" = "clash" ]; then busybox awk '/external-controller:/ {print $2}' "${clash_config}"; else find /data/adb/box/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F':' '/experimental/,/\}/' {} \; | sed -n 's/.*"external_controller": "\(.*\)",/\1/p'; fi;)
+secret=""
+
 case "$1" in
   check)
     check
@@ -687,7 +660,6 @@ case "$1" in
     if [ -f "${box_pid}" ]; then
       if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
         reload
-        open_dashboard
       fi
     fi
     ;;
@@ -701,7 +673,6 @@ case "$1" in
     if [ -f "${box_pid}" ]; then
       if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
         reload
-        open_dashboard
       fi
     fi
     ;;
@@ -710,15 +681,9 @@ case "$1" in
     ;;
   upyacd)
     upyacd
-    if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
-      open_dashboard
-    fi
     ;;
   upyq|upcurl)
     $1
-    ;;
-  port)
-    port_detection
     ;;
   reload)
     reload
@@ -735,6 +700,6 @@ case "$1" in
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|reload|all${normal}}"
     ;;
 esac

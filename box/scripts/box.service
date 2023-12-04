@@ -411,8 +411,6 @@ box_cgroup() {
         log Warning "cgroups ${cgroup_attr} is turned off"
         sed -i -E "/cgroup_${cgroup_attr}/ s/(true)/false/" "${settings}"
       fi
-    else
-      log Info "${bin_name} cgroup ${cgroup_attr}: ${cgroup_value}"
     fi
   }
   set_cgroup_config "memcg" "${cgroup_memcg}"
@@ -432,7 +430,7 @@ box_bin_status() {
   fi
 
   log Info "${bin_name} service is running."
-  log Info "ProxyMode: ${proxy_mode}, $(if [ "${proxy_mode}" != "tun" ]; then echo NetworkMode: ${network_mode}; fi)"
+  log Info "Proxy-mode: ${proxy_mode}, $(if [ "${proxy_mode}" != "tun" ]; then echo Network-mode: ${network_mode}; fi)"
 
   # Get the memory usage of the binary
   rss=$(grep VmRSS /proc/$PID/status | busybox awk '{ print $2 }')
@@ -508,14 +506,14 @@ start_box() {
     echo -e "${yellow}$(getprop persist.sys.timezone)${normal}"
     echo -e "${yellow}$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)${normal}"
     echo -e "${yellow}$(date)${normal}"
-    echo -e "${yellow}${box_version}${normal}"
+    echo -e "${yellow}${box_version}, $(getprop ro.product.cpu.abi)${normal}"
     echo -e "${white}--------------------------------------------${normal}"
   else
     {
       echo "$(getprop persist.sys.timezone)"
       echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)"
       echo "$(date)"
-      echo "${box_version}"
+      echo "${box_version}, $(getprop ro.product.cpu.abi)"
       echo "--------------------------------------------"
     } | tee -a "${box_log}" > /dev/null 2>&1
   fi
@@ -578,12 +576,6 @@ start_box() {
   # Execute the box_cgroup, box_run_bin, box_detected_port, box_bin_alive,box_bin_status functions
   box_run_bin
   box_cgroup
-  # $bin_name detected port
-  if [ "${port_detect}" = "true" ]; then
-    ${scripts_dir}/box.tool port
-  else
-    log Info "${bin_name} skipped port detection."
-  fi
 
   count=0
   while [ $count -le 10 ]; do
@@ -592,9 +584,7 @@ start_box() {
     count=$((count + 1))
   done
   box_bin_status
-
-  # open the yacd in browser
-  open_dashboard
+  true
 }
 
 stop_box() {
@@ -662,7 +652,7 @@ force_stop() {
 
 # Check whether busybox is installed or not on the system using command -v
 if ! command -v busybox &> /dev/null; then
-  log Error "busybox command not found."
+  log Error "$(which busybox) command not found."
   exit 1
 fi
 
