@@ -324,7 +324,9 @@ prepare_clash() {
 box_run_bin() {
   log Info "client-list: [ ${bin_list[*]} ]"
   log Info "choose: ${bin_name}, start the service."
-  ulimit -SHn 65535
+  ulimit -SHn 1000000
+  # Use ulimit to limit the memory usage of a process to 200MB
+  # ulimit -v 200000  # Set the virtual memory limit in KB
   case "${bin_name}" in
     sing-box)
       prepare_singbox
