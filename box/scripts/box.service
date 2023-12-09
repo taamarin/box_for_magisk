@@ -124,15 +124,15 @@ box_check_bin() {
 }
 
 box_create_tun() {
-  # Creates a symlink for /dev/tun if it doesn't already exist
+  mkdir -p /dev/net
+  [ ! -L /dev/net/tun ] && ln -s /dev/tun /dev/net/tun
+
   if [ ! -c "/dev/net/tun" ]; then
-    if ! mkdir -p /dev/net || ! mknod /dev/net/tun c 10 200; then
-      log Warning "Cannot create /dev/net/tun. Possible reasons:"
-      log Warning "This script is not executed as root user."
-      log Warning "Your system does not support the TUN/TAP driver."
-      log Warning "Your system kernel version is not compatible with the TUN/TAP driver."
+      log Error "Cannot create /dev/net/tun. Possible reasons:"
+      log Warning " - Your system does not support the TUN/TAP driver."
+      log Warning " - Your system kernel version is not compatible with the TUN/TAP driver."
+      sed -i 's/network_mode=.*/network_mode="tproxy"/g' "${settings}"
       exit 1
-    fi
   fi
 }
 
@@ -145,6 +145,7 @@ prepare_singbox() {
     log Info "config ${sing_config}"
   fi
 
+  # check yq
   yq_command="yq"
   if ! command -v yq &>/dev/null; then
     if [ ! -e "${box_dir}/bin/yq" ]; then
@@ -153,56 +154,76 @@ prepare_singbox() {
     fi
     yq_command="${box_dir}/bin/yq"
   fi
+
   # delete Toggle comment, because yq doesn't work, Execute the sed command to uncomment the "/* ... */", "//" line
-  sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json
-  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-    if grep -q '"type": "tproxy"' "${sing_config}"; then
-      "${yq_command}" 'del(.inbounds[] | select(.type == "tproxy"))' -i --output-format=json "${sing_config}"
-    fi
-    # Checks if "type" is "tun" in configuration
-    if grep -q '"type": "tun"' "${sing_config}"; then
-      log Info "type [Tun] already exists in ${sing_config}"
-    else
-      # Add "tun" configuration if missing
-      "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "tun3","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
-      log Debug "[Tun] configuration has been added to ${sing_config}"
-    fi
-    # Checks if "type" is "redirect" in configuration
-    if [ "${network_mode}" = "mixed" ]; then
-      if grep -q '"type": "redirect"' "${sing_config}"; then
-        log Info "type [Redirect] already exists in ${sing_config}"
+  # sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d'
+
+  # format sing-box configuration
+  if ${bin_path} format -w -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
+    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+      if grep -q '"type": "tproxy"' "${sing_config}"; then
+        "${yq_command}" 'del(.inbounds[] | select(.type == "tproxy"))' -i --output-format=json "${sing_config}"
+      fi
+
+      # Checks if "type" is "tun" in configuration
+      if grep -q '"type": "tun"' "${sing_config}"; then
+        log Info "type [Tun] already exists in ${sing_config}"
+        if ! grep -q '"auto_route": true' "${sing_config}"; then
+          log Error 'please set/add "auto_route": true in inbounds[tun]'
+          exit 1
+        fi
       else
-        # Add "redirect" configuration if missing
-        "${yq_command}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-        log Debug "[Redirect] configuration has been added to ${sing_config}"
+        # Add "tun" configuration if missing
+        "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "utun","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
+        log Debug "[Tun] configuration has been added to ${sing_config}"
       fi
-    fi
-    sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${box_dir}/sing-box/"*.json
-    sed -i 's/auto_route": false/auto_route": true/g' "${box_dir}/sing-box/"*.json
-  else
-    if grep -q '"type": "tun"' "${sing_config}"; then
-      "${yq_command}" 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
-    fi
-    if grep -q '"type": "redirect"' "${sing_config}"; then
-      "${yq_command}" 'del(.inbounds[] | select(.type == "redirect"))' -i --output-format=json "${sing_config}"
-    fi
-    # Checks if "type" is "tproxy" in configuration
-    if grep -q '"type": "tproxy"' "${sing_config}"; then
-      log Info "type [Tproxy] already exists in ${sing_config}"
+
+      # add auto_detect_interface
+      "${yq_command}" '.route.auto_detect_interface = true' -i --output-format=json "${sing_config}"
+
+      # Checks if "type" is "redirect" in configuration
+      if [ "${network_mode}" = "mixed" ]; then
+        if grep -q '"type": "redirect"' "${sing_config}"; then
+          log Info "type [Redirect] already exists in ${sing_config}"
+        else
+          # Add "redirect" configuration if missing
+          "${yq_command}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+          log Debug "[Redirect] configuration has been added to ${sing_config}"
+        fi
+      fi
+      sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${box_dir}/sing-box/"*.json
+      sed -i 's/auto_route": false/auto_route": true/g' "${box_dir}/sing-box/"*.json
     else
-      # Add "tproxy" configuration if missing
-      "${yq_command}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-      log Debug "[Tproxy] configuration has been added to ${sing_config}"
-    fi
-    # sync tproxy port sing-box, Looping through each JSON file in the directory
-    for file in "${box_dir}/sing-box/"*.json; do
-      tproxy=$(sed -n 's/.*"type": "\(tproxy\)".*/\1/p' "${file}")
-      if [ -n "${tproxy}" ]; then
-        "${yq_command}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
+      if grep -q '"type": "tun"' "${sing_config}"; then
+        "${yq_command}" 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
       fi
-    done
-    sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "${box_dir}/sing-box/"*.json
-    sed -i 's/auto_route": true/auto_route": false/g' "${box_dir}/sing-box/"*.json
+      if grep -q '"type": "redirect"' "${sing_config}"; then
+        "${yq_command}" 'del(.inbounds[] | select(.type == "redirect"))' -i --output-format=json "${sing_config}"
+      fi
+
+      # Checks if "type" is "tproxy" in configuration
+      if grep -q '"type": "tproxy"' "${sing_config}"; then
+        log Info "type [Tproxy] already exists in ${sing_config}"
+      else
+        # Add "tproxy" configuration if missing
+        "${yq_command}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+        log Debug "[Tproxy] configuration has been added to ${sing_config}"
+      fi
+
+      # sync tproxy port sing-box, Looping through each JSON file in the directory
+      for file in "${box_dir}/sing-box/"*.json; do
+        tproxy=$(sed -n 's/.*"type": "\(tproxy\)".*/\1/p' "${file}")
+        if [ -n "${tproxy}" ]; then
+          "${yq_command}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
+        fi
+      done
+      sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "${box_dir}/sing-box/"*.json
+      sed -i 's/auto_route": true/auto_route": false/g' "${box_dir}/sing-box/"*.json
+    fi
+  else
+    log Error "$(<"${box_run}/${bin_name}.log")"
+    log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
+    exit 1
   fi
 }
 
@@ -259,10 +280,11 @@ prepare_clash() {
         '  strict-route: false' \
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
-        '  exclude-package: []' \ >> "${clash_config}"
-      log Debug "(tun) configuration has been added to ${clash_config}"
+        '  exclude-package: [] # blacklist' \
+        '  include-package: [] # whitelist' \ >> "${clash_config}"
+      log Debug "[tun] configuration has been added to ${clash_config}"
     else
-      log Info  "type (tun) already exists in ${clash_config}"
+      log Info  "type [tun] already exists in ${clash_config}"
     fi
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
