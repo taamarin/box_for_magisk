@@ -4,11 +4,9 @@ SKIPUNZIP=1
 SKIPMOUNT=false
 PROPFILE=true
 POSTFSDATA=false
-LATESTARTSERVICE=false
+LATESTARTSERVICE=true
 
-### INSTALLATION ###
 if [ "$BOOTMODE" != true ]; then
-  ui_print "-----------------------------------------------------------"
   ui_print "! Please install in Magisk Manager or KernelSU Manager"
   ui_print "! Install from recovery is NOT supported"
   abort "-----------------------------------------------------------"
@@ -16,7 +14,6 @@ elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ]; then
   abort "error: Please update your KernelSU and KernelSU Manager"
 fi
 
-# check android
 if [ "$API" -lt 28 ]; then
   ui_print "! Unsupported sdk: $API"
   abort "! Minimal supported sdk is 28 (Android 9)"
@@ -24,7 +21,6 @@ else
   ui_print "- Device sdk: $API"
 fi
 
-# check version
 service_dir="/data/adb/service.d"
 if [ "$KSU" = true ]; then
   ui_print "- kernelSU version: $KSU_VER ($KSU_VER_CODE)"
@@ -33,9 +29,7 @@ else
   ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 fi
 
-if [ ! -d "${service_dir}" ]; then
-  mkdir -p "${service_dir}"
-fi
+mkdir -p "${service_dir}"
 
 if [ -d "/data/adb/modules/box_for_magisk" ]; then
   rm -rf "/data/adb/modules/box_for_magisk"
@@ -43,7 +37,6 @@ if [ -d "/data/adb/modules/box_for_magisk" ]; then
 fi
 
 ui_print "- Installing Box for Magisk/KernelSU"
-ui_print "- Extract the ZIP file and skip the META-INF folder into the $MODPATH folder"
 unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >&2
 
 if [ -d "/data/adb/box" ]; then
@@ -74,41 +67,38 @@ set_perm_recursive /data/adb/box/scripts/  0 3005 0755 0700
 set_perm ${service_dir}/box_service.sh  0  0  0755
 set_perm $MODPATH/service.sh  0  0  0755
 set_perm $MODPATH/uninstall.sh  0  0  0755
-set_perm /data/adb/box/scripts/box.inotify  0  0  0755
-set_perm /data/adb/box/scripts/box.service  0  0  0755
-set_perm /data/adb/box/scripts/box.iptables  0  0  0755
-set_perm /data/adb/box/scripts/box.tool  0  0  0755
-set_perm /data/adb/box/scripts/start.sh  0  0  0755
+set_perm /data/adb/box/scripts/  0  0  0755
 
 # fix "set_perm_recursive /data/adb/box/scripts" not working on some phones.
 chmod ugo+x /data/adb/box/scripts/*
-rm -rf /data/adb/box/bin/.bin
 
 ui_print "-----------------------------------------------------------"
 ui_print "- Do you want to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb)? size: ±100MB."
 ui_print "- Make sure you have a good internet connection."
 ui_print "- [ Vol UP(+): Yes ]"
 ui_print "- [ Vol DOWN(-): No ]"
+
 while true ; do
   getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
   if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
-    ui_print "- it will take a while...."
+    ui_print "- It will take a while...."
     /data/adb/box/scripts/box.tool all
     break
   elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-    ui_print "- skip download Kernel and Geox"
+    ui_print "- Skip download Kernel and Geox"
     break
   fi
 done
 
 if [ "${backup_box}" = "true" ]; then
-  ui_print "- restore configuration xray, clash, sing-box, and v2fly"
+  ui_print "- Restore configuration xray, clash, sing-box, and v2fly"
   restore_config() {
     config_dir="$1"
-    if [ -d "${temp_dir}/$config_dir" ]; then
-      cp -rf "${temp_dir}/$config_dir/"* "/data/adb/box/$config_dir/"
+    if [ -d "${temp_dir}/${config_dir}" ]; then
+      cp -rf "${temp_dir}/${config_dir}/"* "/data/adb/box/${config_dir}/"
     fi
   }
+
   restore_config "clash"
   restore_config "xray"
   restore_config "v2fly"
@@ -116,11 +106,12 @@ if [ "${backup_box}" = "true" ]; then
 
   restore_kernel() {
     kernel_name="$1"
-    if [ ! -f "/data/adb/box/bin/$kernel_name" ] && [ -f "${temp_dir}/bin/$kernel_name" ]; then
-      ui_print "- restore $kernel_name kernel"
-      cp -rf "${temp_dir}/bin/$kernel_name" "/data/adb/box/bin/$kernel_name"
+    if [ ! -f "/data/adb/box/bin/$kernel_name" ] && [ -f "${temp_dir}/bin/${kernel_name}" ]; then
+      ui_print "- Restore ${kernel_name} kernel"
+      cp -rf "${temp_dir}/bin/${kernel_name}" "/data/adb/box/bin/${kernel_name}"
     fi
   }
+
   restore_kernel "curl"
   restore_kernel "yq"
   restore_kernel "xray"
@@ -129,7 +120,7 @@ if [ "${backup_box}" = "true" ]; then
   restore_kernel "xclash/mihomo"
   restore_kernel "xclash/premium"
 
-  ui_print "- restore logs, pid and uid.list"
+  ui_print "- Restore logs, pid and uid.list"
   cp "${temp_dir}/run/"* "/data/adb/box/run/"
 fi
 
@@ -140,8 +131,9 @@ fi
 [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 
 ui_print "- Delete leftover files"
+rm -rf /data/adb/box/bin/.bin
 rm -rf $MODPATH/box
 rm -f $MODPATH/box_service.sh
 
 ui_print "- Installation is complete, reboot your device"
-ui_print "- report issues to t.me.taamarin"
+ui_print "- Report issues to t.me.taamarin"
