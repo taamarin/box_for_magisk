@@ -484,32 +484,33 @@ xkernel() {
 }
 
 # Check and update yacd
-upyacd() {
-  # su -c /data/adb/box/scripts/box.tool upyacd
+upxui() {
+  # su -c /data/adb/box/scripts/box.tool upxui
+  xdashboard="${bin_name}/dashboard"
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
-    file_dashboard="${box_dir}/${bin_name}/dashboard.zip"
-    url="https://github.com/MetaCubeX/Yacd-meta/archive/gh-pages.zip"
+    file_dashboard="${box_dir}/${xdashboard}.zip"
+    url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
       url="https://ghproxy.com/${url}"
     fi
-    dir_name="Yacd-meta-gh-pages"
+    dir_name="metacubexd-gh-pages"
     log Debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
-      if [ ! -d "${box_dir}/${bin_name}/dashboard" ]; then
+      if [ ! -d "${box_dir}/${xdashboard}" ]; then
         log Info "dashboard folder not exist, creating it"
-        mkdir "${box_dir}/${bin_name}/dashboard"
+        mkdir "${box_dir}/${xdashboard}"
       else
-        rm -rf "${box_dir}/${bin_name}/dashboard/"*
+        rm -rf "${box_dir}/${xdashboard}/"*
       fi
       if command -v unzip >/dev/null 2>&1; then
         unzip_command="unzip"
       else
         unzip_command="busybox unzip"
       fi
-      "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${bin_name}/dashboard" >&2
-      mv -f "${box_dir}/${bin_name}/dashboard/$dir_name"/* "${box_dir}/${bin_name}/dashboard/"
+      "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${xdashboard}" >&2
+      mv -f "${box_dir}/${xdashboard}/$dir_name"/* "${box_dir}/${xdashboard}/"
       rm -f "${file_dashboard}"
-      rm -rf "${box_dir}/${bin_name}/dashboard/${dir_name}"
+      rm -rf "${box_dir}/${xdashboard}/${dir_name}"
     else
       log Error "Failed to download dashboard" >&2
       return 1
@@ -679,8 +680,8 @@ case "$1" in
   upkernel)
     upkernel
     ;;
-  upyacd)
-    upyacd
+  upxui)
+    upxui
     ;;
   upyq|upcurl)
     $1
@@ -695,11 +696,11 @@ case "$1" in
       upkernel
       upgeox
       upsubs
-      upyacd
+      upxui
     done
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|reload|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all${normal}}"
     ;;
 esac
