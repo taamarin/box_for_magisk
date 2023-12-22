@@ -21,7 +21,7 @@ upfile() {
   fi
   # Use ghproxy
   if [ "${use_ghproxy}" == true ] && [[ "${update_url}" == @(https://github.com/*|https://raw.githubusercontent.com/*|https://gist.github.com/*|https://gist.githubusercontent.com/*) ]]; then
-    update_url="https://ghproxy.com/${update_url}"
+    update_url="https://mirror.ghproxy.com/${update_url}"
   fi
   # request
   request="busybox wget"
