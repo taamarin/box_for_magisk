@@ -21,7 +21,7 @@ upfile() {
   fi
   # Use ghproxy
   if [ "${use_ghproxy}" == true ] && [[ "${update_url}" == @(https://github.com/*|https://raw.githubusercontent.com/*|https://gist.github.com/*|https://gist.githubusercontent.com/*) ]]; then
-    update_url="https://ghproxy.com/${update_url}"
+    update_url="https://mirror.ghproxy.com/${update_url}"
   fi
   # request
   request="busybox wget"
@@ -363,7 +363,7 @@ upkernel() {
           tag="$latest_version"
         else
           if [ "$use_ghproxy" == true ]; then
-            download_link="https://ghproxy.com/${download_link}"
+            download_link="https://mirror.ghproxy.com/${download_link}"
           fi
           tag="Prerelease-Alpha"
           latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
@@ -491,7 +491,7 @@ upxui() {
     file_dashboard="${box_dir}/${xdashboard}.zip"
     url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
-      url="https://ghproxy.com/${url}"
+      url="https://mirror.ghproxy.com/${url}"
     fi
     dir_name="metacubexd-gh-pages"
     log Debug "Download ${url}"
