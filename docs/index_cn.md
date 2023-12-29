@@ -32,7 +32,7 @@ su -c /data/adb/box/scripts/box.tool upcore
 
 ```shell
 # 更新 Clash 管理面板
-su -c /data/adb/box/scripts/box.tool upyacd
+su -c /data/adb/box/scripts/box.tool upxui
 ```
 
 或者，您可以将所有操作一次性执行(这可能造成不必要的存储空间浪费):
