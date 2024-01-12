@@ -138,11 +138,11 @@ if [ -z "$(find /data/adb/box/bin -type f)" ]; then
 fi
 
 if [ "$AP" = "true" ]; then
-  sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
+  sed -i 's/name=.*/name=Box for APatch/g' $MODPATH/module.prop
 elif [ "$KSU" = "true" ]; then
-  sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
+  sed -i 's/name=.*/name=Box for KernelSU/g' $MODPATH/module.prop
 else
-  sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
+  sed -i 's/name=.*/name=Box for Magisk/g' $MODPATH/module.prop
 fi
 
 ui_print "- Delete leftover files"
