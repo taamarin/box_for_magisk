@@ -137,7 +137,13 @@ if [ -z "$(find /data/adb/box/bin -type f)" ]; then
   sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but you need to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
 fi
 
-[ "$AP" = "true" ] && sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop || [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
+if [ "$AP" = "true" ]; then
+  sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
+elif [ "$KSU" = "true" ]; then
+  sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
+else
+  sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
+fi
 
 ui_print "- Delete leftover files"
 rm -rf /data/adb/box/bin/.bin
