@@ -6,6 +6,12 @@ PROPFILE=true
 POSTFSDATA=false
 LATESTARTSERVICE=true
 
+if [ -f "/data/adb/apd" ]; then
+  AP=true
+else
+  AP=false
+fi
+
 if [ "$BOOTMODE" != true ]; then
   ui_print "! Please install in Magisk Manager or KernelSU Manager"
   ui_print "! Install from recovery is NOT supported"
@@ -25,6 +31,9 @@ service_dir="/data/adb/service.d"
 if [ "$KSU" = true ]; then
   ui_print "- kernelSU version: $KSU_VER ($KSU_VER_CODE)"
   [ "$KSU_VER_CODE" -lt 10683 ] && service_dir="/data/adb/ksu/service.d"
+# temporary because APatch doesn't have version var yet
+elif [ "$AP" = true ]; then
+  ui_print "- You are using APatch"
 else
   ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 fi
@@ -128,7 +137,7 @@ if [ -z "$(find /data/adb/box/bin -type f)" ]; then
   sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but you need to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
 fi
 
-[ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
+[ "$AP" = "true" ] && sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop || [ "$KSU" = "true" ] && sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop || sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 
 ui_print "- Delete leftover files"
 rm -rf /data/adb/box/bin/.bin
