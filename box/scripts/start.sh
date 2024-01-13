@@ -6,8 +6,17 @@ file_settings="/data/adb/box/settings.ini"
 moddir="/data/adb/modules/box_for_root"
 [ -n "$(magisk -v | grep lite)" ] && moddir="/data/adb/lite_modules/box_for_root"
 
-busybox="/data/adb/magisk/busybox"
-[ -f "/data/adb/ksu/bin/busybox" ] && busybox="/data/adb/ksu/bin/busybox"
+
+if [ -f "/data/adb/ksu/bin/busybox" ]; then
+  # busybox KSU
+  busybox="/data/adb/ksu/bin/busybox"
+elif [ -f "/data/adb/ap/bin/busybox" ]; then
+  # busybox Apatch
+  busybox="/data/adb/ap/bin/busybox"
+else
+  # busybox Magisk
+  busybox="/data/adb/magisk/busybox"
+fi
 
 refresh_box() {
   if [ -f "/data/adb/box/run/box.pid" ]; then
