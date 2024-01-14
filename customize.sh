@@ -29,7 +29,8 @@ if [ "$KSU" = true ]; then
   ui_print "- kernelSU version: $KSU_VER ($KSU_VER_CODE)"
   [ "$KSU_VER_CODE" -lt 10683 ] && service_dir="/data/adb/ksu/service.d"
 elif [ "$Apatch" = true ]; then
-  ui_print "- You are using APatch"
+  Apatch_VER=$(cat "/data/adb/ap/version")
+  ui_print "- APatch version: $Apatch_VER"
 else
   ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 fi
