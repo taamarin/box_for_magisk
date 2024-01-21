@@ -6,15 +6,15 @@ PROPFILE=true
 POSTFSDATA=false
 LATESTARTSERVICE=true
 
-# cek Apatch folder
-[ -f "/data/adb/apd" ] && Apatch=true
-
 if [ "$BOOTMODE" != true ]; then
-  ui_print "! Please install in Magisk Manager or KernelSU Manager"
+  abort "-----------------------------------------------------------"
+  ui_print "! Please install in Magisk/KernelSU/APatch Manager"
   ui_print "! Install from recovery is NOT supported"
   abort "-----------------------------------------------------------"
 elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ]; then
-  abort "error: Please update your KernelSU and KernelSU Manager"
+  abort "-----------------------------------------------------------"
+  ui_print "! Please update your KernelSU and KernelSU Manager"
+  abort "-----------------------------------------------------------"
 fi
 
 if [ "$API" -lt 28 ]; then
@@ -25,12 +25,12 @@ else
 fi
 
 service_dir="/data/adb/service.d"
-if [ "$KSU" = true ]; then
+if [ "$KSU" = "true" ]; then
   ui_print "- kernelSU version: $KSU_VER ($KSU_VER_CODE)"
   [ "$KSU_VER_CODE" -lt 10683 ] && service_dir="/data/adb/ksu/service.d"
-elif [ "$Apatch" = true ]; then
-  Apatch_VER=$(cat "/data/adb/ap/version")
-  ui_print "- APatch version: $Apatch_VER"
+elif [ "$APATCH" = "true" ]; then
+  APATCH_VER=$(cat "/data/adb/ap/version")
+  ui_print "- APatch version: $APATCH_VER"
 else
   ui_print "- Magisk version: $MAGISK_VER ($MAGISK_VER_CODE)"
 fi
@@ -42,7 +42,7 @@ if [ -d "/data/adb/modules/box_for_magisk" ]; then
   ui_print "- Old module deleted."
 fi
 
-ui_print "- Installing Box for Magisk/KernelSU/Apatch"
+ui_print "- Installing Box for Magisk/KernelSU/APatch"
 unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >&2
 
 if [ -d "/data/adb/box" ]; then
@@ -136,8 +136,8 @@ fi
 
 if [ "$KSU" = "true" ]; then
   sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
-elif [ "$Apatch" = true ]; then
-  sed -i "s/name=.*/name=Box for Apatch/g" $MODPATH/module.prop
+elif [ "$APATCH" = "true" ]; then
+  sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
 else
   sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 fi
