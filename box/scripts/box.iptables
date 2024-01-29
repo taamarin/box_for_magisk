@@ -502,8 +502,8 @@ start_tproxy() {
       if [ "${gid_list}" != "" ] ; then
         # Route gids to Box
         for gid in ${gid_list[@]} ; do
-          ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-mark ${id}
-          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-mark ${id}
+          ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
+          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
         done
         [ "${iptables}" = "iptables -w 64" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} transparent proxy."
       fi
