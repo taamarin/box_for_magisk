@@ -87,8 +87,8 @@ ui_print "- [ Vol DOWN(-): No ]"
 START_TIME=$(date +%s)
 while true ; do
   NOW_TIME=$(date +%s)
-  timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > $TMPDIR/events
-  if [ $(( $NOW_TIME - $START_TIME )) -gt 9 ] ; then
+  timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
+  if [ $(( NOW_TIME - START_TIME )) -gt 9 ] ; then
     ui_print "- No input detected after 10 seconds"
     ui_print "- Downloading Kernel Anyway...."
     /data/adb/box/scripts/box.tool all
