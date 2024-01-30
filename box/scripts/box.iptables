@@ -383,8 +383,6 @@ start_tproxy() {
       fi
     done
   fi
-  # Append the BOX_EXTERNAL chain to the PREROUTING chain
-  ${iptables} -t mangle -A PREROUTING -j BOX_EXTERNAL
 
   ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i lo -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${fwmark}"
   ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i lo -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${fwmark}"
