@@ -1,7 +1,6 @@
 #!/system/bin/sh
 
-scripts=$(realpath "$0")
-scripts_dir=$(dirname "${scripts}")
+scripts_dir="${0%/*}"
 source /data/adb/box/settings.ini
 
 PROPFILE="/data/adb/modules/box_for_root/module.prop"

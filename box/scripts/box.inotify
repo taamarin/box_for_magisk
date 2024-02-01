@@ -1,8 +1,6 @@
 #!/system/bin/sh
 
-scripts=$(realpath "$0")
-scripts_dir=$(dirname "${scripts}")
-
+scripts_dir="${0%/*}"
 service_path="${scripts_dir}/box.service"
 iptables_path="${scripts_dir}/box.iptables"
 data_box="/data/adb/box"

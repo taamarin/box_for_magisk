@@ -1,17 +1,19 @@
 #!/system/bin/sh
 
-scripts_dir="/data/adb/box/scripts"
+scripts_dir="${0%/*}"
 file_settings="/data/adb/box/settings.ini"
 
 moddir="/data/adb/modules/box_for_root"
-[ -n "$(magisk -v | grep lite)" ] && moddir="/data/adb/lite_modules/box_for_root"
-
+moddir="/data/adb/modules/box_for_root"
+if [ -n "$(magisk -v | grep lite &> /dev/null )" ]; then
+  moddir="/data/adb/lite_modules/box_for_root"
+fi
 
 if [ -f "/data/adb/ksu/bin/busybox" ]; then
   # busybox KSU
   busybox="/data/adb/ksu/bin/busybox"
 elif [ -f "/data/adb/ap/bin/busybox" ]; then
-  # busybox Apatch
+  # busybox APatch
   busybox="/data/adb/ap/bin/busybox"
 else
   # busybox Magisk
