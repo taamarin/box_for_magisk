@@ -158,6 +158,14 @@ prepare_singbox() {
   # sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json
 
   # format sing-box configuration
+  # experimental cache for sing-box 1.8.0 and above
+  if [ $("$bin_path" version | head -n1 | cut -b18,20,22) -gt 179 ]; then
+    if grep -q '"cache_file": "cache.db"' "${sing_config}"; then
+      ${yq_command} 'del(.experimental)' -i -o=json ${sing_config}
+      ${yq_command} '.experimental += {"cache_file": {"enabled": true, "path": "cache.db"}, "clash_api": {"external_controller": "127.0.0.1:9090", "external_ui": "/data/adb/box/sing-box/dashboard"}}' -i -o=json ${sing_config}
+    fi
+  fi
+
   if ${bin_path} format -w -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
   # if sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json 2>&1; then
     if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
