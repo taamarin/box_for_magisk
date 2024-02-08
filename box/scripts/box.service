@@ -159,10 +159,11 @@ prepare_singbox() {
 
   # format sing-box configuration
   # experimental cache for sing-box 1.8.0 and above
-  if [ $("$bin_path" version | head -n1 | cut -d" " -f3 | cut -d "." -f1-2 | sed -e 's/\.//g') -gt 17 ]; then
+  if [ $(echo "${version_output}" | head -n1 | cut -d" " -f3 | cut -d "." -f1-2 | tr -d -c 0-9) -gt 17 ]; then
     if grep -q '"cache_file": "cache.db"' "${sing_config}"; then
+      log Warning "clash_api cache file is deprecated, editing configuration."
       ${yq_command} 'del(.experimental)' -i -o=json ${sing_config}
-      ${yq_command} '.experimental += {"cache_file": {"enabled": true, "path": "cache.db"}, "clash_api": {"external_controller": "127.0.0.1:9090", "external_ui": "/data/adb/box/sing-box/dashboard"}}' -i -o=json ${sing_config}
+      ${yq_command} '.experimental += {"cache_file": {"enabled": true, "path": "cache.db"}, "clash_api": {"external_controller": "0.0.0.0:9090", "external_ui": "/data/adb/box/sing-box/dashboard"}}' -i -o=json ${sing_config}
     fi
   fi
 
