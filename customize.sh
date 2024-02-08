@@ -90,18 +90,21 @@ while true ; do
   timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
   if [ $(( NOW_TIME - START_TIME )) -gt 9 ] ; then
     ui_print "- No input detected after 10 seconds"
-    ui_print "- Downloading Kernel Anyway...."
-    /data/adb/box/scripts/box.tool all
-    break
-  else
-    if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
-      ui_print "- It will take a while...."
+    if "${backup_box}"; then
+      ui_print "- Old kernel detected, skip download...."
+      break
+    else
+      ui_print "- Downloading Kernel Anyway...."
       /data/adb/box/scripts/box.tool all
       break
-    elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
-      ui_print "- Skip download Kernel and Geox"
-      break
     fi
+  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
+    ui_print "- It will take a while...."
+    /data/adb/box/scripts/box.tool all
+    break
+  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
+    ui_print "- Skip download Kernel and Geox"
+    break
   fi
 done
 
