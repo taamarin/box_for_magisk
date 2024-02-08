@@ -455,7 +455,7 @@ box_bin_status() {
 
   stack=$(if [ "${bin_name}" != "clash" ]; then find "/data/adb/box/sing-box" -type f -name "*.json" -exec busybox awk -F'"' '/"stack"/{print $4}' {} +; else busybox awk '!/^ *#/ && /stack: / { print $2;found=1; exit}' "${clash_config}"; fi)
 
-  log Info "${bin_name} service is running."
+  TOAST=1 log Info "${bin_name} service is running."
   log Info "proxy: ${proxy_mode} | $(if [ "${proxy_mode}" != "tun" ]; then echo network: ${network_mode}; fi) | $(if [[ "${proxy_mode}" == "tun" || ${network_mode} == "mixed" ]]; then echo stack: ${stack}; fi)"
 
   # Get the memory usage of the binary
@@ -633,7 +633,7 @@ stop_box() {
       rm -f "${box_pid}"
     fi
     log Warning "${bin_name} shutting down, service is stopped."
-    log Warning "${bin_name} disconnected."
+    TOAST=1 log Warning "${bin_name} disconnected."
     [ -t 1 ] && echo -e "${white}--------------------------------------------${normal}"
   else
     log Warning "${bin_name} Not stopped; may still be shutting down or failed to shut down."
