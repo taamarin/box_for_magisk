@@ -157,16 +157,51 @@ prepare_singbox() {
   # delete Toggle comment, because yq doesn't work, Execute the sed command to uncomment the "/* ... */", "//" line
   # sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json
 
-  # format sing-box configuration
-  # experimental cache for sing-box 1.8.0 and above
+  # Hunt down deprecated functions in sing-box 1.8.0 and above
+  # Formatting to remove comment because yq won't work with comments.
+  # Actually no comments allowed in json files so we must obey that.
+  "${bin_path}" format -w -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "/dev/null" 2>&1
+
+  # Now the hunt begins
   if [ $(echo "${version_output}" | head -n1 | cut -d" " -f3 | cut -d "." -f1-2 | tr -d -c 0-9) -gt 17 ]; then
-    if grep -q '"cache_file": "cache.db"' "${sing_config}"; then
-      log Warning "clash_api cache file is deprecated, editing configuration."
-      ${yq_command} 'del(.experimental)' -i -o=json ${sing_config}
-      ${yq_command} '.experimental += {"cache_file": {"enabled": true, "path": "cache.db"}, "clash_api": {"external_controller": "0.0.0.0:9090", "external_ui": "/data/adb/box/sing-box/dashboard"}}' -i -o=json ${sing_config}
+    del_cachefile(){
+      log Warning "deleting old cache_file from config."
+      "${yq_command}" 'del .experimental.clash_api.cache_file' -i -o=json "${sing_config}"
+    }
+    del_geosite(){
+      log Warning "deleting geosite.db from config."
+      "${yq_command}" 'del(.route | select(.. == "*geosite.db").geosite)' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.route.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.dns.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
+    }
+    del_geoip(){
+      log Warning "deleting geosite.db from config."
+      "${yq_command}" 'del(.route | select(.. == "*geoip.db").geoip)' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.route.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.dns.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
+    }
+
+    if grep -q '"cache_file": "cache.db"|geosite.db|geoip.db' "${sing_config}"; then
+      log Warning "Deprecated functions detected in config."
+
+      # consider backup old config to prevent things going worse
+      cp -af "${sing_config}" "${sing_config}.old"
+      
+      # It's time to nuke them down
+      if grep -q '"cache_file": "cache.db"' "${sing_config}"; then
+        del_cachefile
+      fi
+      if grep -q 'geosite' "${sing_config}"; then
+        del_geosite
+      fi
+      if grep -q 'geoip' "${sing_config}"; then
+        del_geoip
+      fi
+      log Warning "Old configuration saved to "${sing_config}.old"
     fi
   fi
 
+  # Formatting Once Again to look if there are some configuration mismatch
   if ${bin_path} format -w -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
   # if sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json 2>&1; then
     if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
