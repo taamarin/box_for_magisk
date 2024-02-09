@@ -170,18 +170,18 @@ prepare_singbox() {
     }
     del_geosite(){
       log Warning "deleting geosite.db from config."
-      "${yq_command}" 'del(.route | select(.. == "*geosite.db").geosite)' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.route.geosite)' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.route.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.dns.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
     }
     del_geoip(){
       log Warning "deleting geosite.db from config."
-      "${yq_command}" 'del(.route | select(.. == "*geoip.db").geoip)' -i -o=json "${sing_config}"
+      "${yq_command}" 'del(.route.geoip)' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.route.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.dns.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
     }
 
-    if grep -q '"cache_file": "cache.db"|geosite.db|geoip.db' "${sing_config}"; then
+    if grep -q '"cache_file": "cache.db"|"geosite"|"geoip"' "${sing_config}"; then
       log Warning "Deprecated functions detected in config."
 
       # consider backup old config to prevent things going worse
