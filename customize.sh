@@ -98,11 +98,11 @@ while true ; do
       /data/adb/box/scripts/box.tool all
       break
     fi
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
+  elif $(cat "$TMPDIR"/events | grep -q KEY_VOLUMEUP) ; then
     ui_print "- It will take a while...."
     /data/adb/box/scripts/box.tool all
     break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN) ; then
+  elif $(cat "$TMPDIR"/events | grep -q KEY_VOLUMEDOWN) ; then
     ui_print "- Skip download Kernel and Geox"
     break
   fi
