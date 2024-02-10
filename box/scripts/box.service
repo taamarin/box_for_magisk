@@ -169,13 +169,13 @@ prepare_singbox() {
       "${yq_command}" 'del .experimental.clash_api.cache_file, del .experimental.clash_api.store_selected' -i -o=json "${sing_config}"
     }
     del_geosite(){
-      log Warning "deleting geosite.db from config."
+      log Warning "deleting geosite related settings from config."
       "${yq_command}" 'del(.route.geosite)' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.route.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.dns.rules.[] | select(has("geosite")))' -i -o=json "${sing_config}"
     }
     del_geoip(){
-      log Warning "deleting geosite.db from config."
+      log Warning "deleting geoip related settings from config."
       "${yq_command}" 'del(.route.geoip)' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.route.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
       "${yq_command}" 'del(.dns.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
