@@ -166,7 +166,7 @@ prepare_singbox() {
   if [ $(echo "${version_output}" | head -n1 | tr -d -c 0-9 | cut -b 1-3) -gt 179 ]; then
     del_cachefile(){
       log Warning "deleting old cache_file from config."
-      "${yq_command}" 'del .experimental.clash_api.cache_file' -i -o=json "${sing_config}"
+      "${yq_command}" 'del .experimental.clash_api.cache_file, del .experimental.clash_api.store_selected' -i -o=json "${sing_config}"
     }
     del_geosite(){
       log Warning "deleting geosite.db from config."
