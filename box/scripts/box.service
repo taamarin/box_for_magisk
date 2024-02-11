@@ -181,7 +181,7 @@ prepare_singbox() {
       "${yq_command}" 'del(.dns.rules.[] | select(has("geoip")))' -i -o=json "${sing_config}"
     }
 
-    if grep -q '"cache_file": "cache.db"|"geosite"|"geoip"' "${sing_config}"; then
+    if grep -E '"cache_file": "cache.db"|"geosite"|"geoip"' "${sing_config}" > /dev/null 2>&1; then
       log Warning "Deprecated functions detected in config."
 
       # consider backup old config to prevent things going worse
