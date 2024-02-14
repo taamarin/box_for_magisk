@@ -174,7 +174,7 @@ intranet6=(
   fe80::/10
   ff00::/8
 )
-intranet6+=($(ip -6 address | busybox awk '/inet6/ && !/::1/ && !/fe80/ {print $2}'))
+intranet6+=($(ip -6 a | busybox awk '/inet6/ {print $2}' | busybox grep -vE "^fe80|^::1|^fd00"))
 
 forward() {
   ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
