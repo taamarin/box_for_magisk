@@ -6,7 +6,8 @@ source /data/adb/box/settings.ini
 # user agent
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
-use_ghproxy=false
+url_ghproxy="https://mirror.ghproxy.com"
+use_ghproxy="true"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
 
@@ -20,7 +21,7 @@ upfile() {
   fi
   # Use ghproxy
   if [ "${use_ghproxy}" == true ] && [[ "${update_url}" == @(https://github.com/*|https://raw.githubusercontent.com/*|https://gist.github.com/*|https://gist.githubusercontent.com/*) ]]; then
-    update_url="https://mirror.ghproxy.com/${update_url}"
+    update_url="${url_ghproxy}/${update_url}"
   fi
   # request
   request="busybox wget"
@@ -172,10 +173,9 @@ upcurl() {
   mkdir -p "${bin_dir}/backup"
   [ -f "${bin_dir}/curl" ] && cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
 
-  local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | grep -o "[0-9.]*" | head -1)
-  [ -z "${latest_version}" ] && latest_version="8.4.0"
+  local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
 
-  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-static-${arch}-${latest_version}.tar.xz"
+  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-${latest_version}.tar.xz"
 
   log Debug "Download ${download_link}"
   upfile "${bin_dir}/curl.tar.xz" "${download_link}"
@@ -333,7 +333,7 @@ upkernel() {
     cp "${bin_dir}/${bin_name}" "${bin_dir}/backup/${bin_name}.bak" >/dev/null 2>&1
   fi
   case $(uname -m) in
-    "aarch64") arch="arm64"; platform="android" ;;
+    "aarch64") if [ "${bin_name}" = "clash" ]; then arch="arm64-v8"; else arch="arm64"; fi; platform="android" ;;
     "armv7l"|"armv8l") arch="armv7"; platform="linux" ;;
     "i686") arch="386"; platform="linux" ;;
     "x86_64") arch="amd64"; platform="linux" ;;
@@ -346,8 +346,8 @@ upkernel() {
       api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
 
-      latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | grep -o "v[0-9].*" | head -1 | cut -d'"' -f1)
-      download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
+      latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
+      download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-android-${arch}.tar.gz"
       log Debug "download ${download_link}"
       upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
       ;;
@@ -358,23 +358,23 @@ upkernel() {
         download_link="https://github.com/MetaCubeX/mihomo/releases"
 
         if [ "${mihomo_stable}" = "enable" ]; then
-          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
           tag="$latest_version"
         else
           if [ "$use_ghproxy" == true ]; then
-            download_link="https://mirror.ghproxy.com/${download_link}"
+            download_link="${url_ghproxy}/${download_link}"
           fi
           tag="Prerelease-Alpha"
-          latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | grep -oE "alpha-[0-9a-z]+" | head -1)
+          latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
         fi
         # set the filename based on platform and architecture
-        filename="mihomo-${platform}-${arch}-${latest_version}"
+        filename="mihomo-android-${arch}-${latest_version}"
         # download and update the file
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
       else
         log Warning "clash.${xclash_option} Repository has been deleted"
-        # filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+        # filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | busybox grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
         # log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         # upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
       fi
@@ -383,7 +383,7 @@ upkernel() {
       [ "${bin_name}" = "xray" ] && bin='Xray' || bin='v2ray'
       api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | grep -o "v[0-9.]*" | head -1)
+      latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
 
       case $(uname -m) in
         "i386") download_file="$bin-linux-32.zip" ;;
@@ -432,7 +432,7 @@ xkernel() {
         tar_command="busybox tar"
       fi
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
-        mv "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}"
+        mv "${bin_dir}/sing-box-${latest_version#v}-android-${arch}/sing-box" "${bin_dir}/${bin_name}"
         if [ -f "${box_pid}" ]; then
           rm -rf /data/adb/box/sing-box/cache.db
           restart_box
@@ -442,8 +442,8 @@ xkernel() {
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
-      [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ] && \
-        rm -r "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
+      [ -d "${bin_dir}/sing-box-${latest_version#v}-android-${arch}" ] && \
+        rm -r "${bin_dir}/sing-box-${latest_version#v}-android-${arch}"
       ;;
     "v2fly"|"xray")
       bin="xray"
@@ -490,7 +490,7 @@ upxui() {
     file_dashboard="${box_dir}/${xdashboard}.zip"
     url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
-      url="https://mirror.ghproxy.com/${url}"
+      url="${url_ghproxy}/${url}"
     fi
     dir_name="metacubexd-gh-pages"
     log Debug "Download ${url}"

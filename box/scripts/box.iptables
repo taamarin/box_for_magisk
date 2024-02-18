@@ -23,7 +23,7 @@ case "${bin_name}" in
     ;;
   "sing-box")
     if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-      tun_device=$(find "${box_dir}/sing-box/" -maxdepth 1 -type f -name "*.json" -exec grep -o '"interface_name": "[^"]*' {} + | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
+      tun_device=$(find "${box_dir}/sing-box/" -maxdepth 1 -type f -name "*.json" -exec busybox grep -oE '"interface_name": "[^"]*' {} + | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
       if [ -z "$tun_device" ]; then
         tun_device="tun0"
       fi
@@ -157,7 +157,7 @@ intranet=(
   255.255.255.0/24
   # 255.255.255.255/32
 )
-intranet+=($(ip address | busybox awk '/inet / && !/127\.0\.0\.1/ {print $2}'))
+intranet+=($(ip -4 a | busybox awk '/inet/ {print $2}' | busybox grep -vE "^127.0.0.1"))
 
 intranet6=(
   ::/128
