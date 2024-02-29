@@ -26,7 +26,7 @@ Pastikan Anda terhubung ke internet dan jalankan perintah berikut untuk memperba
 
 ```shell
 # perbarui kernel yang dipilih, sesuai dengan `bin_name`
-su -c /data/adb/box/scripts/box.tool upcore
+su -c /data/adb/box/scripts/box.tool upkernel
 ```
 
 Jika Anda menggunakan `clash/sing-box` sebagai kernel yang dipilih, Anda mungkin juga perlu menjalankan perintah berikut untuk dapat menggunakan panel kontro(dashboard):
