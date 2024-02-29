@@ -25,7 +25,7 @@
 
 ```shell
 # 更新选定的内核
-su -c /data/adb/box/scripts/box.tool upcore
+su -c /data/adb/box/scripts/box.tool upkernel
 ```
 
 如果您使用 `clash` 作为你的选定内核，您可能还需要执行如下指令开启控制面板:

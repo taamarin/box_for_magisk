@@ -25,7 +25,7 @@ Make sure you are connected to the internet and run the following command to upd
 
 ```shell
 # Update the selected kernel, based on `${bin_name}`.
-su -c /data/adb/box/scripts/box.tool upcore
+su -c /data/adb/box/scripts/box.tool upkernel
 ```
 
 If you are using `clash/sing-box` as the selected kernel, you may also need to run the following command to open the control panel:
