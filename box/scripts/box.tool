@@ -347,7 +347,7 @@ upkernel() {
       url_down="https://github.com/SagerNet/sing-box/releases"
 
       latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
-      download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-android-${arch}.tar.gz"
+      download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
       upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
       ;;
@@ -360,6 +360,7 @@ upkernel() {
         if [ "${mihomo_stable}" = "enable" ]; then
           latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
           tag="$latest_version"
+          arch=${arch%-v8}
         else
           if [ "$use_ghproxy" == true ]; then
             download_link="${url_ghproxy}/${download_link}"
@@ -368,7 +369,7 @@ upkernel() {
           latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
         fi
         # set the filename based on platform and architecture
-        filename="mihomo-android-${arch}-${latest_version}"
+        filename="mihomo-${platform}-${arch}-${latest_version}"
         # download and update the file
         log Debug "download ${download_link}/download/${tag}/${filename}.gz"
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
@@ -432,7 +433,7 @@ xkernel() {
         tar_command="busybox tar"
       fi
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
-        mv "${bin_dir}/sing-box-${latest_version#v}-android-${arch}/sing-box" "${bin_dir}/${bin_name}"
+        mv "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}"
         if [ -f "${box_pid}" ]; then
           rm -rf /data/adb/box/sing-box/cache.db
           restart_box
@@ -442,8 +443,8 @@ xkernel() {
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
-      [ -d "${bin_dir}/sing-box-${latest_version#v}-android-${arch}" ] && \
-        rm -r "${bin_dir}/sing-box-${latest_version#v}-android-${arch}"
+      [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ] && \
+        rm -r "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
       ;;
     "v2fly"|"xray")
       bin="xray"
