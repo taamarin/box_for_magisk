@@ -55,7 +55,7 @@ jobs:
         if: ${{  success() }}
         env:
           CHAT_ID: "-1001597117128"
-          MESSAGE_THREAD_ID: "218356"
+          MESSAGE_THREAD_ID: "282263"
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}

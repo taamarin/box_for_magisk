@@ -17,12 +17,12 @@ elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ]; then
   abort "-----------------------------------------------------------"
 fi
 
-if [ "$API" -lt 28 ]; then
-  ui_print "! Unsupported sdk: $API"
-  abort "! Minimal supported sdk is 28 (Android 9)"
-else
-  ui_print "- Device sdk: $API"
-fi
+# if [ "$API" -lt 28 ]; then
+  # ui_print "! Unsupported sdk: $API"
+  # abort "! Minimal supported sdk is 28 (Android 9)"
+# else
+  # ui_print "- Device sdk: $API"
+# fi
 
 service_dir="/data/adb/service.d"
 if [ "$KSU" = "true" ]; then

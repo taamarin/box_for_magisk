@@ -17,10 +17,10 @@ MSG_TEMPLATE = """
 
 {commit}
 
-[Github](https://github.com/taamarin/box_for_root)
+[Github](https://github.com/taamarin/box_for_magisk)
 [Releases](https://github.com/taamarin/box_for_magisk/releases)
 
-#module #ksu #magisk #bfr #debug
+#module #ksu #apatch #magisk #bfr #debug
 """.strip()
 
 def get_caption():
