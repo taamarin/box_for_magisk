@@ -17,12 +17,12 @@ case "${bin_name}" in
     clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
     fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
     clash_dns_port=$(busybox awk '!/^ *#/ && /listen:/ { split($0, arr, ":"); print arr[3]; found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
-    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+    if [[ "${network_mode}" == @(mixed|tun) ]]; then
       tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
     fi
     ;;
   "sing-box")
-    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+    if [[ "${network_mode}" == @(mixed|tun) ]]; then
       tun_device=$(find "${box_dir}/sing-box/" -maxdepth 1 -type f -name "*.json" -exec busybox grep -oE '"interface_name": "[^"]*' {} + | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
       if [ -z "$tun_device" ]; then
         tun_device="tun0"
@@ -32,8 +32,8 @@ case "${bin_name}" in
     fake_ip6_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet6_range/ {print $4}' {} +)
     ;;
   "xray" | "v2fly")
-    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-      log Error "$bin_name does not support proxy_mode: tun or network_mode: mixed"
+    if [[ "${network_mode}" == @(mixed|tun) ]]; then
+      log Error "$bin_name does not support network_mode: mixed|tun"
       exit 1
     fi
     ;;
@@ -49,7 +49,7 @@ misc_info() {
       log Debug "enhanced-mode: $clash_enhanced_mode, fake-ip-range: $fake_ip_range, listen-port: $clash_dns_port, mode: $clash_mode"
       ;;
     clash|sing-box)
-      if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+      if [[ "${network_mode}" == @(mixed|tun) ]]; then
         log Info "tun_device: $tun_device"
       fi
       if [ -n "${fake_ip_range}" ] && [ "${bin_name}" = "sing-box" ]; then
@@ -63,13 +63,13 @@ misc_info() {
 }
 
 sync_port() {
-  if [[ "${network_mode}" == "tproxy" && "${proxy_mode}" != "tun" ]]; then
+  if [[ "${network_mode}" == "tproxy" ]]; then
     if command -v netstat &> /dev/null; then
-      netstat -tnulp | grep -q "${tproxy_port}" || log Warning "tproxy_port: ${tproxy_port} out of sync with config"
+      netstat -tnulp | busybox grep -q "${tproxy_port}" || log Warning "tproxy_port: ${tproxy_port} out of sync with config"
     fi
-  elif [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+  elif [[ "${network_mode}" == @(mixed|tun) ]]; then
     if command -v ifconfig &> /dev/null; then
-      ifconfig | grep -q "${tun_device}" || log Warning "tun_device: '${tun_device}' not found"
+      ifconfig | busybox grep -q "${tun_device}" || log Warning "tun_device: '${tun_device}' not found"
     fi
   fi
 }
@@ -155,7 +155,7 @@ intranet=(
   240.0.0.0/4
   255.0.0.0/4
   255.255.255.0/24
-  # 255.255.255.255/32
+  255.255.255.255/32
 )
 intranet+=($(ip -4 a | busybox awk '/inet/ {print $2}' | busybox grep -vE "^127.0.0.1"))
 
@@ -351,6 +351,10 @@ start_tproxy() {
   ${iptables} -t mangle -N BOX_EXTERNAL 2>/dev/null
   ${iptables} -t mangle -F BOX_EXTERNAL
 
+  # TTL
+  # ${iptables} -t mangle -A BOX_EXTERNAL -m ttl --ttl-lt 32 -j DROP
+  # ${iptables} -t mangle -D BOX_EXTERNAL -m ttl --ttl-lt 32 -j DROP
+
   # Bypass box itself
   # ${iptables} -t mangle -A BOX_EXTERNAL -m mark --mark ${routing_mark} -j RETURN
 
@@ -382,6 +386,8 @@ start_tproxy() {
       fi
     done
   fi
+  # Append the BOX_EXTERNAL chain to the PREROUTING chain
+  # ${iptables} -t mangle -A PREROUTING -j BOX_EXTERNAL
 
   ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -i lo -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${fwmark}"
   ${iptables} -t mangle -A BOX_EXTERNAL -p udp -i lo -j TPROXY --on-port "${tproxy_port}" --tproxy-mark "${fwmark}"
@@ -635,7 +641,7 @@ cleanup_iptables() {
   done
 }
 
-if [ "${proxy_mode}" != "tun" ]; then
+if [[ "${network_mode}" == @(redirect|mixed|tproxy) ]]; then
   case "$1" in
     enable)
       misc_info
@@ -697,7 +703,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      sync_port
+      # sync_port
       bin_alive && log Info "${bin_name} connected."
       ;;
     renew)
@@ -761,7 +767,7 @@ if [ "${proxy_mode}" != "tun" ]; then
           exit 1
         ;;
       esac
-      sync_port
+      # sync_port
       log Info "restart iptables transparent proxy rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;
@@ -797,7 +803,7 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      sync_port
+      # sync_port
       bin_alive && log Info "${bin_name} connected."
       ;;
     renew)
@@ -819,7 +825,7 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      sync_port
+      # sync_port
       log Info "Restart iptables tun rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;

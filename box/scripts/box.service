@@ -145,68 +145,62 @@ prepare_singbox() {
   fi
 
   # check yq
-  yq_command="yq"
+  yq="yq"
   if ! command -v yq &>/dev/null; then
     if [ ! -e "${box_dir}/bin/yq" ]; then
       log Debug "yq file not found, start to download from github"
       ${scripts_dir}/box.tool upyq
     fi
-    yq_command="${box_dir}/bin/yq"
+    yq="${box_dir}/bin/yq"
   fi
-
-  # delete Toggle comment, because yq doesn't work, Execute the sed command to uncomment the "/* ... */", "//" line
-  # sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json
 
   # format sing-box configuration
   if ${bin_path} format -w -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-  # if sed -i '/\/\*/,/\*\//d; /^[[:space:]]*\/\//d; /^( *\/\/|\/\*.*\*\/)$/d' "${box_dir}/sing-box/"*.json 2>&1; then
-    if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
-      if grep -q '"type": "tproxy"' "${sing_config}"; then
-        "${yq_command}" 'del(.inbounds[] | select(.type == "tproxy"))' -i --output-format=json "${sing_config}"
-      fi
-
+    if [[ "${network_mode}" == @(mixed|tun) ]]; then
       # Checks if "type" is "tun" in configuration
-      if grep -q '"type": "tun"' "${sing_config}"; then
+      if busybox grep -q '"type": "tun"' "${sing_config}"; then
         log Info "type [Tun] already exists in ${sing_config}"
-        if ! grep -q '"auto_route": true' "${sing_config}"; then
-          log Error 'please set/add "auto_route": true in inbounds[tun]'
-          exit 1
-        fi
+        ${yq} eval '(.inbounds[] | select(.type == "tun") | .auto_route) |= true' -i --output-format=json "${sing_config}"
       else
         # Add "tun" configuration if missing
-        "${yq_command}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "utun","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
+        "${yq}" '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "utun","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "mixed","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
         log Debug "[Tun] configuration has been added to ${sing_config}"
       fi
 
       # add auto_detect_interface
-      "${yq_command}" '.route.auto_detect_interface = true' -i --output-format=json "${sing_config}"
+      "${yq}" '.route.auto_detect_interface = true' -i --output-format=json "${sing_config}"
 
       # Checks if "type" is "redirect" in configuration
       if [ "${network_mode}" = "mixed" ]; then
-        if grep -q '"type": "redirect"' "${sing_config}"; then
+        if busybox grep -q '"type": "redirect"' "${sing_config}"; then
           log Info "type [Redirect] already exists in ${sing_config}"
         else
           # Add "redirect" configuration if missing
-          "${yq_command}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+          "${yq}" '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
           log Debug "[Redirect] configuration has been added to ${sing_config}"
         fi
       fi
+
+      # add exclude_package/include_package for tun
+      # "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
+      # "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
+      # [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
+      # for package in "${packages_list[@]}"; do
+        # "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
+      # done
+ 
       sed -i 's/"auto_detect_interface": false/"auto_detect_interface": true/g' "${box_dir}/sing-box/"*.json
       sed -i 's/auto_route": false/auto_route": true/g' "${box_dir}/sing-box/"*.json
     else
-      if grep -q '"type": "tun"' "${sing_config}"; then
-        "${yq_command}" 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
-      fi
-      if grep -q '"type": "redirect"' "${sing_config}"; then
-        "${yq_command}" 'del(.inbounds[] | select(.type == "redirect"))' -i --output-format=json "${sing_config}"
-      fi
+      # Checks if "type" is "tun" in configuration
+      [ busybox grep -q '"type": "tun"' "${sing_config}" ] && sed -i 's/auto_route": true/auto_route": false/g' "${box_dir}/sing-box/"*.json
 
       # Checks if "type" is "tproxy" in configuration
-      if grep -q '"type": "tproxy"' "${sing_config}"; then
+      if busybox grep -q '"type": "tproxy"' "${sing_config}"; then
         log Info "type [Tproxy] already exists in ${sing_config}"
       else
         # Add "tproxy" configuration if missing
-        "${yq_command}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
+        "${yq}" '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
         log Debug "[Tproxy] configuration has been added to ${sing_config}"
       fi
 
@@ -214,7 +208,7 @@ prepare_singbox() {
       for file in "${box_dir}/sing-box/"*.json; do
         tproxy=$(sed -n 's/.*"type": "\(tproxy\)".*/\1/p' "${file}")
         if [ -n "${tproxy}" ]; then
-          "${yq_command}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
+          "${yq}" -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
         fi
       done
       sed -i 's/"auto_detect_interface": true/"auto_detect_interface": false/g' "${box_dir}/sing-box/"*.json
@@ -264,7 +258,7 @@ prepare_clash() {
     printf "\nredir-port: ${redir_port}" >> "${clash_config}"
   fi
 
-  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+  if [[ "${network_mode}" == @(mixed|tun) ]]; then
     clash_tun_status=$(busybox awk '!/^ *#/ && /tun:/ { getline; split($0, arr, ": "); print arr[2]; found=1; exit } END{ if (!found) print "" }' "${clash_config}" 2>/dev/null)
     # write TUN settings, if not in $clash_config
     if [ -z "${clash_tun_status}" ]; then
@@ -272,7 +266,7 @@ prepare_clash() {
         '  enable: true' \
         '  mtu: 9000' \
         '  device: utun' \
-        '  stack: system # gvisor / system / lwip' \
+        '  stack: mixed # system # gvisor / system / lwip' \
         '  dns-hijack:' \
         '    - any:53' \
         '    - tcp://any:53' \
@@ -280,12 +274,25 @@ prepare_clash() {
         '  strict-route: false' \
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
-        '  exclude-package: [] # blacklist' \
-        '  include-package: [] # whitelist' \ >> "${clash_config}"
+        '  exclude-package: []' \
+        '  include-package: []' \ >> "${clash_config}"
       log Debug "[tun] configuration has been added to ${clash_config}"
     else
       log Info  "type [tun] already exists in ${clash_config}"
     fi
+
+    # add exclude-package/include-package for tun
+    # package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
+    # list_package="${package:-\"\"}"
+    # if [ "${proxy_mode}" = "whitelist" ]; then
+      # mode="include-package"
+    # elif [ "${proxy_mode}" = "blacklist" ]; then
+      # mode="exclude-package"
+    # fi
+    # sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
+    # sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
+    # sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
+
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
     sed -i "/tun:/ {n;s/enable: true/enable: false/}" "${clash_config}"
@@ -293,12 +300,11 @@ prepare_clash() {
 
   # Reads the enable value from the tun configuration
   clash_tun_status=$(busybox awk -F ': ' '/^tun: *$/{getline; print $2}' "${clash_config}")
-  if [ "${clash_tun_status}" != "true" ]; then
+  if [ "${clash_tun_status}" = "false" ]; then
     # sync tproxy port
     sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
     sed -i -E "s/(redir-port: )[0-9]+/\1${redir_port}/" "${clash_config}"
   else
-    [ "${proxy_mode}" != "tun" ] && sed -i 's/network_mode=.*/network_mode="mixed"/g' "${settings}"
     # remove tproxy port >>> 0
     sed -i -E "s/(tproxy-port: )[0-9]+/\10/" "${clash_config}"
     # sync redir port
@@ -312,7 +318,7 @@ prepare_clash() {
     log Debug "enhanced-mode: fake-ip add success"
   fi
 
-  if [ "${proxy_mode}" != "tun" ]; then
+  if [[ "${network_mode}" == @(mixed|tproxy|redirect) ]]; then
     if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Warning "${proxy_mode} only works in enhanced-mode: redir-host xclash[mihomo]"
       log Warning "auto replace fake-ip to redir-host"
@@ -331,7 +337,7 @@ box_run_bin() {
     sing-box)
       prepare_singbox
       if ${bin_path} check -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -344,7 +350,7 @@ box_run_bin() {
     clash)
       prepare_clash
       if ${bin_path} -t -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" -d "${box_dir}/${bin_name}" -f "${clash_config}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -356,8 +362,9 @@ box_run_bin() {
       ;;
     xray)
       # set network_mode variable value to "tproxy"
-      sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
-      [ "${proxy_mode}" = "tun" ] && sed -i 's/\(proxy_mode=\)\"[^\"]*\"/\1"blacklist"/g' ${settings}
+      if [[ "${network_mode}" == @(mixed|tun) ]]; then
+        sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+      fi
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
@@ -375,7 +382,7 @@ box_run_bin() {
       # run xray
       export XRAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} -test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -confdir "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -387,8 +394,9 @@ box_run_bin() {
       ;;
     v2fly)
       # set network_mode variable value to "tproxy"
-      sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
-      [ "${proxy_mode}" = "tun" ] && sed -i 's/\(proxy_mode=\)\"[^\"]*\"/\1"blacklist"/g' ${settings}
+      if [[ "${network_mode}" == @(mixed|tun) ]]; then
+        sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+      fi
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
@@ -405,7 +413,7 @@ box_run_bin() {
       # run v2ray
       export V2RAY_LOCATION_ASSET="${box_dir}/${bin_name}"
       if ${bin_path} test -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" taskset "${mask_cpuset}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -d "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
@@ -454,9 +462,9 @@ box_bin_status() {
   fi
 
   stack=$(if [ "${bin_name}" != "clash" ]; then find "/data/adb/box/sing-box" -type f -name "*.json" -exec busybox awk -F'"' '/"stack"/{print $4}' {} +; else busybox awk '!/^ *#/ && /stack: / { print $2;found=1; exit}' "${clash_config}"; fi)
-
   TOAST=1 log Info "${bin_name} service is running."
-  log Info "proxy: ${proxy_mode} | $(if [ "${proxy_mode}" != "tun" ]; then echo network: ${network_mode}; fi) | $(if [[ "${proxy_mode}" == "tun" || ${network_mode} == "mixed" ]]; then echo stack: ${stack}; fi)"
+
+  log Info "proxy: ${proxy_mode} + network: ${network_mode} + $(if [[ "${network_mode}" == @(mixed|tun) ]]; then echo "stack: ${stack}"; fi)"
 
   # Get the memory usage of the binary
   rss=$(grep VmRSS /proc/$PID/status | busybox awk '{ print $2 }')
@@ -572,8 +580,19 @@ start_box() {
       ;;
   esac
 
+  # apk manager check
+  versionName=$(dumpsys package xyz.chz.bfm | grep versionName | busybox awk -F '=' '{print $2}' | sed 's/-.*//')
+  if [[ -n "${versionName}" && $(echo "${versionName}" | busybox awk '{print ($1 < 1.13)}') -eq 1 ]]; then
+    log Error "Update BFR Manager Apps, Use version 1.13.+"
+    log Error "current version: ${versionName}"
+    exit 1
+  else
+    [ -n "${versionName}" ] && log Info "BFR Manager: ${versionName}"
+  fi
+  
   # busybox check
   busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | busybox grep -oE '[0-9.]*')
+  # busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | grep -oE [0-9.]*")
   if [ "$(echo "${busybox_code}" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" -lt "$(echo "1.36.1" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" ]; then
     log Info "Current $(which busybox) v${busybox_code}"
     log Warning "Please update your busybox to v1.36.1+"
@@ -590,7 +609,7 @@ start_box() {
   box_check_logs
 
   # Execute the box_create_tun functions
-  if [[ "${network_mode}" == "mixed" || "${proxy_mode}" == "tun" ]]; then
+  if [[ "${network_mode}" == @(mixed|tun) ]]; then
     box_create_tun
   fi
 
@@ -634,6 +653,7 @@ stop_box() {
     fi
     log Warning "${bin_name} shutting down, service is stopped."
     TOAST=1 log Warning "${bin_name} disconnected."
+
     [ -t 1 ] && echo -e "${white}--------------------------------------------${normal}"
   else
     log Warning "${bin_name} Not stopped; may still be shutting down or failed to shut down."
