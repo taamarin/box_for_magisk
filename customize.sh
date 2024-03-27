@@ -57,7 +57,6 @@ else
 fi
 
 ui_print "- Create directories"
-mkdir -p $MODPATH/system/bin/
 mkdir -p /data/adb/box/
 mkdir -p /data/adb/box/run/
 mkdir -p /data/adb/box/bin/xclash/
