@@ -163,7 +163,7 @@ reload() {
 upcurl() {
   local arch
   case $(uname -m) in
-    "aarch64") arch="arm64" ;;
+    "aarch64") arch="aarch64" ;;
     "armv7l"|"armv8l") arch="armv7" ;;
     "i686") arch="i686" ;;
     "x86_64") arch="amd64" ;;
@@ -360,7 +360,6 @@ upkernel() {
         if [ "${mihomo_stable}" = "enable" ]; then
           latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
           tag="$latest_version"
-          arch=${arch%-v8}
         else
           if [ "$use_ghproxy" == true ]; then
             download_link="${url_ghproxy}/${download_link}"
