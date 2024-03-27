@@ -144,7 +144,8 @@ fi
 
 if [ "$KSU" = "true" ]; then
   sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
-  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
+  bin_name=$(grep -o 'bin_name="[^"]*' /data/adb/box/settings.ini | sed 's/bin_name="//')
+  [ "$bin_name" == "clash" ] && unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
 else
