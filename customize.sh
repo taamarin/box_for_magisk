@@ -43,7 +43,7 @@ if [ -d "/data/adb/modules/box_for_magisk" ]; then
 fi
 
 ui_print "- Installing Box for Magisk/KernelSU/APatch"
-unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >&2
+unzip -o "$ZIPFILE" -x 'META-INF/*' -x 'webroot/*' -d "$MODPATH" >&2
 
 if [ -d "/data/adb/box" ]; then
   ui_print "- Backup box"
@@ -145,6 +145,7 @@ fi
 
 if [ "$KSU" = "true" ]; then
   sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
+  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
 else
