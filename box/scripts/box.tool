@@ -630,8 +630,47 @@ cgroup_cpuset() {
   return 0
 }
 
-ip_port=$(if [ "${bin_name}" = "clash" ]; then busybox awk '/external-controller:/ {print $2}' "${clash_config}"; else find /data/adb/box/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F':' '/experimental/,/\}/' {} \; | sed -n 's/.*"external_controller": "\(.*\)",/\1/p'; fi;)
+ip_port=$(if [ "${bin_name}" = "clash" ]; then busybox awk '/external-controller:/ {print $2}' "${clash_config}"; else find /data/adb/box/sing-box/ -type f -name 'config.json' -exec busybox awk -F'[:,]' '/external_controller/ {print $2":"$3}' {} \; | sed 's/^[ \t]*//;s/"//g'; fi;)
 secret=""
+
+webroot() {
+path_webroot="/data/adb/modules/box_for_root/webroot/index.html"
+touch -n > $path_webroot
+  if [[ "${bin_name}" = @(clash|sing-box) ]]; then
+    echo -e '
+  <!DOCTYPE html>
+  <script>
+      document.location = 'http://127.0.0.1:9090/ui/'
+  </script>
+  </html>
+  ' > $path_webroot
+    sed -i "s#document\.location =.*#document.location = 'http://$ip_port/ui/'#" $path_webroot
+  else
+   echo -e '
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Unsupported Dashboard</title>
+      <style>
+          body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              padding: 50px;
+          }
+          h1 {
+              color: red;
+          }
+      </style>
+  </head>
+  <body>
+      <h1>Unsupported Dashboard</h1>
+      <p>Sorry, xray/v2ray does not support the necessary Dashboard features.</p>
+  </body>
+  </html>' > $path_webroot
+  fi
+}
 
 bond1() {
   su -mm -c "cmd wifi force-low-latency-mode enabled"
@@ -699,6 +738,9 @@ case "$1" in
   reload)
     reload
     ;;
+  webroot)
+    webroot
+    ;;
   all)
     upyq
     upcurl
@@ -711,6 +753,6 @@ case "$1" in
     ;;
   *)
     echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|bond0|bond1|all${normal}}"
+    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|bond0|bond1|all${normal}}"
     ;;
 esac

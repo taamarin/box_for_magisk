@@ -685,6 +685,10 @@ if ! command -v busybox &> /dev/null; then
   exit 1
 fi
 
+if command -v ksud &>/dev/null; then
+ $scripts_dir/box.tool webroot >/dev/null 2>&1
+fi
+
 case "$1" in
   start)
     stop_box >> /dev/null 2>&1

@@ -43,7 +43,7 @@ if [ -d "/data/adb/modules/box_for_magisk" ]; then
 fi
 
 ui_print "- Installing Box for Magisk/KernelSU/APatch"
-unzip -o "$ZIPFILE" -x 'META-INF/*' -d "$MODPATH" >&2
+unzip -o "$ZIPFILE" -x 'META-INF/*' -x 'webroot/*' -d "$MODPATH" >&2
 
 if [ -d "/data/adb/box" ]; then
   ui_print "- Backup box"
@@ -57,7 +57,6 @@ else
 fi
 
 ui_print "- Create directories"
-mkdir -p $MODPATH/system/bin/
 mkdir -p /data/adb/box/
 mkdir -p /data/adb/box/run/
 mkdir -p /data/adb/box/bin/xclash/
@@ -71,11 +70,12 @@ set_perm_recursive $MODPATH 0 0 0755 0644
 set_perm_recursive /data/adb/box/ 0 3005 0755 0644
 set_perm_recursive /data/adb/box/scripts/  0 3005 0755 0700
 set_perm ${service_dir}/box_service.sh  0  0  0755
-set_perm $MODPATH/service.sh  0  0  0755
 set_perm $MODPATH/uninstall.sh  0  0  0755
 set_perm /data/adb/box/scripts/  0  0  0755
 
 # fix "set_perm_recursive /data/adb/box/scripts" not working on some phones.
+chmod ugo+x ${service_dir}/box_service.sh
+chmod ugo+x $MODPATH/uninstall.sh
 chmod ugo+x /data/adb/box/scripts/*
 
 ui_print "-----------------------------------------------------------"
@@ -90,8 +90,6 @@ while true ; do
   timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
   if [ $(( NOW_TIME - START_TIME )) -gt 9 ] ; then
     ui_print "- No input detected after 10 seconds"
-    # ui_print "- Downloading Kernel Anyway...."
-    # /data/adb/box/scripts/box.tool all
     break
   else
     if $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP) ; then
@@ -145,6 +143,7 @@ fi
 
 if [ "$KSU" = "true" ]; then
   sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
+  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
 else
