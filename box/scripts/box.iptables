@@ -118,21 +118,21 @@ disable_ipv6() {
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=1
 
   ip -6 rule add unreachable pref "${pref}"
-
 } >> /dev/null 2>&1
 
 ipv6_enable() {
   sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv6.conf.all.forwarding=1
 
-  sysctl -w net.ipv6.conf.all.accept_ra=1
-  sysctl -w net.ipv6.conf.wlan0.accept_ra=1
+  sysctl -w net.ipv6.conf.all.accept_ra=2
+  sysctl -w net.ipv6.conf.wlan0.accept_ra=2
   sysctl -w net.ipv6.conf.all.disable_ipv6=0
   sysctl -w net.ipv6.conf.default.disable_ipv6=0
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=0
 
   ip -6 rule del unreachable pref "${pref}"
 
+  $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
 } >> /dev/null 2>&1
 
 intranet=(
@@ -611,6 +611,10 @@ cleanup_iptables() {
       stop_tproxy
       forward -D
     } >> /dev/null 2>&1
+
+    if [ "${iptables}" = "$IP6V" ]; then
+      ${iptables} -D OUTPUT -p udp --destination-port 53 -j DROP
+    fi
   done
 }
 
