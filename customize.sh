@@ -146,6 +146,7 @@ if [ "$KSU" = "true" ]; then
   unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
+  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 else
   sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 fi
