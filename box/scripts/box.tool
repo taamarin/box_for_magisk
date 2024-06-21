@@ -43,7 +43,7 @@ upfile() {
 # Restart the binary, after stopping and running again
 restart_box() {
   "${scripts_dir}/box.service" restart
-  # PIDS=("clash" "xray" "sing-box" "v2fly")
+  # PIDS=("clash" "xray" "sing-box" "v2fly" "hysteria")
   PIDS=(${bin_name})
   PID=""
   i=0
@@ -98,6 +98,9 @@ check() {
         log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
       fi
       ;;
+    hysteria)
+      true
+      ;;
     *)
       log Error "<${bin_name}> unknown binary."
       exit 1
@@ -145,7 +148,7 @@ reload() {
         return 1
       fi
       ;;
-    "xray"|"v2fly")
+    "xray"|"v2fly"|"hysteria")
       if [ -f "${box_pid}" ]; then
         if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
           restart_box
@@ -315,7 +318,7 @@ upsubs() {
         return 0
       fi
       ;;
-    "xray"|"v2fly"|"sing-box")
+    "xray"|"v2fly"|"sing-box"|"hysteria")
       log Warning "${bin_name} does not support subscriptions.."
       return 1
       ;;
@@ -396,7 +399,10 @@ upkernel() {
       download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       log Debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       upfile "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && xkernel
-    ;;
+      ;;
+    "hysteria")
+      true
+      ;;
     *)
       log Error "<${bin_name}> unknown binary."
       exit 1
@@ -470,6 +476,9 @@ xkernel() {
         log Error "Failed to extract ${box_dir}/${file_kernel}.zip."
       fi
       rm -rf "${bin_dir}/update"
+      ;;
+    "hysteria")
+      true
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -672,16 +681,40 @@ touch -n > $path_webroot
   fi
 }
 
-bond1() {
-  su -mm -c "cmd wifi force-low-latency-mode enabled"
-  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=1"
-  su -mm -c "ip link set dev wlan0 txqueuelen 4000"
+bond0() {
+  # Menonaktifkan mode low latency untuk TCP
+  sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+  log Debug "tcp low latency: 0"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 3000 untuk semua interface wireless (wlan*)
+  for dev in /sys/class/net/wlan*; do ip link set dev $(basename $dev) txqueuelen 3000; done
+  log Debug "wlan* txqueuelen: 3000"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 1000 untuk semua interface rmnet_data*
+  for txqueuelen in /sys/class/net/rmnet_data*; do txqueuelen_name=$(basename $txqueuelen); ip link set dev $txqueuelen_name txqueuelen 1000; done
+  log Debug "rmnet_data* txqueuelen: 1000"
+
+  # Mengatur MTU (Maximum Transmission Unit) menjadi 1500 untuk semua interface rmnet_data*
+  for mtu in /sys/class/net/rmnet_data*; do mtu_name=$(basename $mtu); ip link set dev $mtu_name mtu 1500; done
+  log Debug "rmnet_data* mtu: 1500"
 }
 
-bond0() {
-  su -mm -c "cmd wifi force-low-latency-mode disabled"
-  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=0"
-  su -mm -c "ip link set dev wlan0 txqueuelen 3000"
+bond1() {
+  # Mengaktifkan mode low latency untuk TCP
+  sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+  log Debug "tcp low latency: 1"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 4000 untuk semua interface wireless (wlan*)
+  for dev in /sys/class/net/wlan*; do ip link set dev $(basename $dev) txqueuelen 4000; done
+  log Debug "wlan* txqueuelen: 4000"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 2000 untuk semua interface rmnet_data*
+  for txqueuelen in /sys/class/net/rmnet_data*; do txqueuelen_name=$(basename $txqueuelen); ip link set dev $txqueuelen_name txqueuelen 2000; done
+  log Debug "rmnet_data* txqueuelen: 2000"
+
+  # Mengatur MTU (Maximum Transmission Unit) menjadi 9000 untuk semua interface rmnet_data*
+  for mtu in /sys/class/net/rmnet_data*; do mtu_name=$(basename $mtu); ip link set dev $mtu_name mtu 9000; done
+  log Debug "rmnet_data* mtu: 9000"
 }
 
 case "$1" in
