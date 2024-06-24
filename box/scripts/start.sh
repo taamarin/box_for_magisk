@@ -4,7 +4,7 @@ scripts_dir="${0%/*}"
 file_settings="/data/adb/box/settings.ini"
 
 moddir="/data/adb/modules/box_for_root"
-moddir="/data/adb/modules/box_for_root"
+
 if [ -n "$(magisk -v | grep lite &> /dev/null )" ]; then
   moddir="/data/adb/lite_modules/box_for_root"
 fi
