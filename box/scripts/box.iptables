@@ -348,20 +348,22 @@ start_tproxy() {
 
   # Skip traffic already handled by TProxy
   # If the interface of the default route has a public IPv4 or IPv6 address assigned by the ISP, omitting these rules will result in abnormal proxy behavior for local traffic, which may cause the entire network to run slower
-  if [[ "${bin_name}" == @(xray|v2fly|clash|hysteria) ]]; then
-    [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-mark ${fwmark}
-    ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-mark ${fwmark}
-    ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
-  fi
+  # if [[ "${bin_name}" == @(xray|v2fly|clash|hysteria) ]]; then
+    # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-mark ${fwmark}
+    # ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-mark ${fwmark}
+    # ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
+  # fi
 
-  # Bypass intranet
-  if [[ "${bin_name}" == @(clash|hysteria) ]]; then
-    [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j RETURN
-    ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j RETURN
+  if [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+      # Bypass TCP DNS requests if network mode is not 'enhance'
+      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j RETURN
+      # Bypass UDP DNS requests
+      ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j RETURN
   else
-    # Route DNS request to Box
-    [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
-    ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
+      # Route TCP DNS requests to Box if network mode is not 'enhance'
+      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
+      # Route UDP DNS requests to Box
+      ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
   fi
  
   # Bypass intranet
@@ -410,14 +412,17 @@ start_tproxy() {
     [ "${iptables}" = "$IPV" ] && log Info "${ignore_out_list[*]} ignore transparent proxy."
   fi
 
-  # Bypass intranet Clash
-  if [[ "${bin_name}" == @(clash|hysteria) ]]; then
-    [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j RETURN
-    ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j RETURN
+  if [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+      # If network_mode is not "enhance", do not apply iptables for TCP port 53
+      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j RETURN
+      # For UDP port 53, always skip the iptables rule
+      ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j RETURN
   else
-    # Route DNS request to Box
-    [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j MARK --set-xmark ${fwmark}
-    ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-xmark ${fwmark}
+      # Route DNS requests to Box
+      # If network_mode is not "enhance", mark TCP port 53 packets
+      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j MARK --set-xmark ${fwmark}
+      # Mark UDP port 53 packets
+      ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j MARK --set-xmark ${fwmark}
   fi
 
   if [ "${iptables}" = "$IPV" ]; then
@@ -494,11 +499,11 @@ start_tproxy() {
 
   ${iptables} -t mangle -I OUTPUT -j BOX_LOCAL
 
-  # ${iptables} -t mangle -N DIVERT
-  # ${iptables} -t mangle -F DIVERT
-  # ${iptables} -t mangle -A DIVERT -j MARK --set-mark "${fwmark}"
-  # ${iptables} -t mangle -A DIVERT -j ACCEPT
-  # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
+  ${iptables} -t mangle -N DIVERT
+  ${iptables} -t mangle -F DIVERT
+  ${iptables} -t mangle -A DIVERT -j MARK --set-mark "${fwmark}"
+  ${iptables} -t mangle -A DIVERT -j ACCEPT
+  [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
 
   # Disable QUIC
   if [ "${quic}" = "disable" ]; then
@@ -572,7 +577,7 @@ stop_tproxy() {
 
   # flush QUIC
   ${iptables} -D OUTPUT -p udp -m multiport --dport 443,80 -j REJECT
-  ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT  
+  ${iptables} -D OUTPUT -p udp --dport 443 -j REJECT
   ${iptables} -D OUTPUT -p udp --dport 80 -j REJECT
 
   if [ "${iptables}" = "$IPV" ]; then
