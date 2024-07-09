@@ -8,6 +8,7 @@ table="2024"
 pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
+tun_forward="enabled"
 
 iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
 required_version="v1.6.1"
@@ -174,15 +175,108 @@ intranet6=(
 )
 intranet6+=($(ip -6 a | busybox awk '/inet6/ {print $2}' | busybox grep -vE "^fe80|^::1|^fd00"))
 
-forward() {
-  ${iptables} $1 FORWARD -i "${tun_device}" -j ACCEPT
-  ${iptables} $1 FORWARD -o "${tun_device}" -j ACCEPT
+# Function to probe for the tun device
+probe_tun_device() {
+  ifconfig | grep -q "${tun_device}" || return 1
+}
 
+# Function to get the tun device index from rt_tables
+probe_tun_index() {
+  while [ ! -f "/data/misc/net/rt_tables" ]; do
+    sleep 1
+  done
+  while read -r index name; do
+    if [ "${name}" = "${tun_device}" ]; then
+      tun_table_index=${index}
+      return 0
+    fi
+  done < /data/misc/net/rt_tables
+  return 1
+}
+
+# Function to manage IP rules for the tun device
+tun_forward_ip_rules() {
+local action=$1
+ipv4_rules=(
+  "iif lo goto 6000 pref 5000"
+  "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
+  "iif ${tun_device} goto 6000 pref 5020"
+  "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
+  "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
+  "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
+  "nop pref 6000"
+)
+
+ipv6_rules=(
+  "iif lo goto 6000 pref 5000"
+  "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
+  # "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
+  # "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
+  # "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
+  "iif ${tun_device} goto 6000 pref 5020"
+  "nop pref 6000"
+)
+
+  if [ "${iptables}" = "$IPV" ]; then
+    for rule in "${ipv4_rules[@]}"; do
+      ip -4 rule "${action}" ${rule}
+    done
+  else
+    for rule in "${ipv6_rules[@]}"; do
+      ip -6 rule "${action}" ${rule}
+    done
+  fi
+}
+
+# Function to delete IP rules for the tun device
+tun_forward_ip_rules_del() {
+  for pref in 5000 5010 5020 5030 5040 5050 6000; do
+    ip -4 rule del pref $pref
+    ip -6 rule del pref $pref
+  done
+}
+
+sing_tun_ip_rules() {
+  ip -4 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
+  ip -4 rule $1 lookup main pref 7000
+
+  ip -6 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
+  ip -6 rule $1 lookup main pref 7000
+}
+
+# Function to modify the FORWARD chain for the specified tun device using iptables
+forward() {
+  local action=$1
+  ${iptables} "${action}" FORWARD -i "${tun_device}" -j ACCEPT
+  ${iptables} "${action}" FORWARD -o "${tun_device}" -j ACCEPT
+
+  sysctl -w net.ipv4.ip_forward=1
   sysctl -w net.ipv4.conf.default.rp_filter=2
   sysctl -w net.ipv4.conf.all.rp_filter=2
+
+  probe_tun_index
+  if [ "${tun_forward}" = "enable" ] ; then
+    if probe_tun_device; then
+      if [ "${action}" = "-I" ]; then
+        tun_forward_ip_rules_del
+        tun_forward_ip_rules "${action}"
+        sing_tun_ip_rules "add">> /dev/null 2>&1
+      else
+        tun_forward_ip_rules_del
+        tun_forward_ip_rules "${action}"
+        sing_tun_ip_rules "del" >> /dev/null 2>&1
+      fi
+      return 0
+    else
+      tun_forward_ip_rules_del
+      tun_forward_ip_rules -D
+      sing_tun_ip_rules "del" >> /dev/null 2>&1
+      log Error "tun device not found"
+      return 1
+    fi
+  fi
 } >> /dev/null 2>&1
 
-# box redirect
 start_redirect() {
   if [ "${iptables}" = "$IPV" ]; then
     ${iptables} -t nat -N BOX_EXTERNAL
@@ -196,8 +290,16 @@ start_redirect() {
       ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
       ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
       #  Other types of inbound should be added here to receive DNS traffic instead of sniffing
-      #  ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
-      #  ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
+      # ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
+      # ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
+    fi
+
+    # Fix ICMP (ping)
+    # This does not guarantee that the ping result is valid
+    # Just that it returns a result
+    if [ -n "${fake_ip_range}" ]; then
+      ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
     fi
 
     # Allow access to intranet subnets
@@ -313,8 +415,8 @@ stop_redirect() {
   fi
 
   if [ "${iptables}" = "$IPV" ]; then
-    # ${iptables} -t nat -D BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-    # ${iptables} -t nat -D BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    ${iptables} -t nat -D BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    ${iptables} -t nat -D BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
     ${iptables} -t nat -F BOX_EXTERNAL
     ${iptables} -t nat -X BOX_EXTERNAL
     ${iptables} -t nat -F BOX_LOCAL
@@ -322,7 +424,6 @@ stop_redirect() {
   fi
 }
 
-# box tproxy
 start_tproxy() {
   if [ "${iptables}" = "$IPV" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
@@ -698,6 +799,8 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
 
           iptables="$IPV"
           forward -I || forward -D >> /dev/null 2>&1
+          [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
+
           if start_redirect; then
             log Info "Creating iptables transparent proxy rules done."
           else
@@ -807,6 +910,7 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
+      [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
       [ $1 = "renew" ] && log Info "Restart iptables tun rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;
