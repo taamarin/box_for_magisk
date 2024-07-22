@@ -401,7 +401,33 @@ upkernel() {
       upfile "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && xkernel
       ;;
     "hysteria")
-      true
+      local arch
+      case $(uname -m) in
+        "aarch64") arch="arm64" ;;
+        "armv7l" | "armv8l") arch="armv7" ;;
+        "i686") arch="386" ;;
+        "x86_64") arch="amd64" ;;
+        *)
+          log Warning "Unsupported architecture: $(uname -m)"
+          return 1
+          ;;
+      esac
+
+      # Create backup directory if it doesn't exist
+      mkdir -p "${bin_dir}/backup"
+
+      # Backup existing Hysteria binary if it exists
+      if [ -f "${bin_dir}/hysteria" ]; then
+        cp "${bin_dir}/hysteria" "${bin_dir}/backup/hysteria.bak" >/dev/null 2>&1
+      fi
+
+      # Fetch the latest version of Hysteria from GitHub releases
+      local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/apernet/hysteria/releases" | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
+
+      local download_link="https://github.com/apernet/hysteria/releases/download/app%2Fv${latest_version}/hysteria-android-${arch}"
+
+      log Debug "Downloading ${download_link}"
+      upfile "${bin_dir}/hysteria" "${download_link}" && xkernel
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -478,7 +504,11 @@ xkernel() {
       rm -rf "${bin_dir}/update"
       ;;
     "hysteria")
-      true
+      if [ -f "${box_pid}" ]; then
+        restart_box
+      else
+        log Debug "${bin_name} does not need to be restarted."
+      fi
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
