@@ -9,12 +9,13 @@ pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
 tun_forward="enabled"
+fake_ip_range=""
 
 iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
 required_version="v1.6.1"
 if [ "$(printf '%s\n' "$required_version" "$iptables_version" | sort -V | head -n1)" = "$required_version" ]; then
-  IPV="iptables -w 100"
-  IP6V="ip6tables -w 100"
+  IPV="iptables -w 32"
+  IP6V="ip6tables -w 32"
 else
   IPV="iptables"
   IP6V="ip6tables"
@@ -25,7 +26,7 @@ case "${bin_name}" in
   "clash")
     clash_mode=$(busybox awk '!/^ *#/ && /mode: / { print $2;found=1; exit } END{ if(!found) print "rules" }' "${clash_config}" 2>/dev/null)
     clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
-    fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
+    [ ${clash_enhanced_mode} != "fake-ip" ] && fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
     clash_dns_port=$(busybox awk '!/^ *#/ && /listen:/ { split($0, arr, ":"); print arr[3]; found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
     if [[ "${network_mode}" == @(mixed|tun) ]]; then
       tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
@@ -43,8 +44,8 @@ case "${bin_name}" in
     ;;
   "xray" | "v2fly" | "hysteria" )
     if [[ "${network_mode}" != "tproxy" ]]; then
-      log Error "$bin_name does not support network_mode: $network_mode"
-      exit 1
+      log Warning "$bin_name does not support network_mode: $network_mode, return to TProxy"
+      sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
     fi
     ;;
   *)

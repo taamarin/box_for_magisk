@@ -215,12 +215,12 @@ prepare_singbox() {
     fi
 
     # add exclude_package/include_package for tun
-    # "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
-    # "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
-    # [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
-    # for package in "${packages_list[@]}"; do
-      # "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
-    # done
+    "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
+    "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
+    [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
+    for package in "${packages_list[@]}"; do
+      "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
+    done
 
     # Add "redirect" configuration based on network_mode
     if [[ "${network_mode}" == @(mixed|enhance|redirect) ]]; then
@@ -296,12 +296,13 @@ prepare_clash() {
         '  enable: true' \
         '  mtu: 9000' \
         '  device: utun' \
-        '  stack: system # mixed / gvisor / system / lwip' \
+        '  stack: mixed # system / gvisor / system / lwip' \
         '  dns-hijack:' \
         '    - any:53' \
         '    - tcp://any:53' \
         '  auto-route: true' \
-        '  strict-route: false' \
+        '  strict-route: true' \
+        '  auto-redirect: true' \
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
         '  exclude-package: []' \
@@ -312,17 +313,19 @@ prepare_clash() {
     fi
 
     # add exclude-package/include-package for tun
-    # package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
-    # list_package="${package:-\"\"}"
-    # if [ "${proxy_mode}" = "whitelist" ]; then
-      # mode="include-package"
-    # elif [ "${proxy_mode}" = "blacklist" ]; then
-      # mode="exclude-package"
-    # fi
-    # sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
-    # sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
-    # sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
-
+    package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
+    list_package="${package:-}"
+    if [ "${proxy_mode}" = "whitelist" ]; then
+      mode="include-package"
+    elif [ "${proxy_mode}" = "blacklist" ]; then
+      mode="exclude-package"
+    fi
+    sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
+    sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
+    # Add packages to the configuration if list_package is not empty
+    if [ -n "${list_package}" ]; then
+      sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
+    fi
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
     sed -i "/tun:/ {n;s/enable: true/enable: false/}" "${clash_config}"
@@ -403,6 +406,7 @@ box_run_bin() {
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
 
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
@@ -435,6 +439,7 @@ box_run_bin() {
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
 
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
