@@ -27,7 +27,8 @@ case "${bin_name}" in
     clash_mode=$(busybox awk '!/^ *#/ && /mode: / { print $2;found=1; exit } END{ if(!found) print "rules" }' "${clash_config}" 2>/dev/null)
     clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2;found=1; exit } END{ if(!found) print "fake-ip" }' "${clash_config}" 2>/dev/null)
     [ ${clash_enhanced_mode} != "fake-ip" ] && fake_ip_range=$(busybox awk '!/^ *#/ && /fake-ip-range:/ { print $2; found=1; exit } END { if (!found) print "198.18.0.1/16" }' "${clash_config}" 2>/dev/null)
-    clash_dns_port=$(busybox awk '!/^ *#/ && /listen:/ { split($0, arr, ":"); print arr[3]; found=1; exit } END{ if(!found) print "1053" }' "${clash_config}" 2>/dev/null)
+    clash_dns_port=$(sed -n '/^dns:/,/^[^ ]/p' "${clash_config}" | grep -E '^[^#]*listen:.*:[0-9]+' | grep -Eo '[0-9]+' | tail -n 1)
+    clash_dns_port=${clash_dns_port:-1053}
     if [[ "${network_mode}" == @(mixed|tun) ]]; then
       tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
     fi
