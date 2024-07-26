@@ -115,10 +115,23 @@ box_check_bin() {
     log Error "${bin_path} is not executable."
     exit 1
   fi
+
+  local version_output
   case "${bin_name}" in
-    clash) version_output=$("${bin_path}" -v) >/dev/null 2>&1 || return 1;;
-    *) version_output=$("${bin_path}" version) >/dev/null 2>&1 || return 1;;
+    clash)
+      version_output=$("${bin_path}" -v 2>/dev/null) || {
+        log Error "${bin_name} version information not available."
+        exit 1
+        }
+      ;;
+    *)
+      version_output=$("${bin_path}" version 2>/dev/null) || {
+        log Error "${bin_name} version information not available."
+        exit 1
+        }
+      ;;
   esac
+
   log Info "${version_output}"
 }
 
@@ -644,10 +657,7 @@ start_box() {
 
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
   box_permission
-  if ! box_check_bin; then
-    log Error "${bin_name} version information not available."
-    exit 1
-  fi
+  box_check_bin
   box_check_logs
 
   # Execute the box_create_tun functions
