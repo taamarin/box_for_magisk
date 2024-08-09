@@ -14,8 +14,8 @@ fake_ip_range=""
 iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
 required_version="v1.6.1"
 if [ "$(printf '%s\n' "$required_version" "$iptables_version" | sort -V | head -n1)" = "$required_version" ]; then
-  IPV="iptables -w 32"
-  IP6V="ip6tables -w 32"
+  IPV="iptables -w 64"
+  IP6V="ip6tables -w 64"
 else
   IPV="iptables"
   IP6V="ip6tables"
@@ -36,10 +36,12 @@ case "${bin_name}" in
   "sing-box")
     if [[ "${network_mode}" == @(mixed|tun) ]]; then
       tun_device=$(find "${box_dir}/sing-box/" -maxdepth 1 -type f -name "*.json" -exec busybox grep -oE '"interface_name": "[^"]*' {} + | busybox awk -F'"' '{print $4}' 2>/dev/null | head -n 1)
+
       if [ -z "$tun_device" ]; then
         tun_device="tun0"
       fi
     fi
+
     fake_ip_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet4_range/ {print $4}' {} +)
     fake_ip6_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet6_range/ {print $4}' {} +)
     ;;
@@ -212,9 +214,9 @@ ipv4_rules=(
 ipv6_rules=(
   "iif lo goto 6000 pref 5000"
   "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-  # "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
-  # "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
-  # "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
+  # "from 2001:db8::/32 lookup ${tun_table_index} pref 5030"
+  # "from fc00::/7 lookup ${tun_table_index} pref 5040"
+  # "from fd00::/8 lookup ${tun_table_index} pref 5050"
   "iif ${tun_device} goto 6000 pref 5020"
   "nop pref 6000"
 )
@@ -232,9 +234,9 @@ ipv6_rules=(
 
 # Function to delete IP rules for the tun device
 tun_forward_ip_rules_del() {
-  for pref in 5000 5010 5020 5030 5040 5050 6000; do
-    ip -4 rule del pref $pref
-    ip -6 rule del pref $pref
+  for preff in 5000 5010 5020 5030 5040 5050 6000; do
+    ip -4 rule del pref $preff
+    ip -6 rule del pref $preff
   done
 }
 
@@ -249,6 +251,7 @@ sing_tun_ip_rules() {
 # Function to modify the FORWARD chain for the specified tun device using iptables
 forward() {
   local action=$1
+
   ${iptables} "${action}" FORWARD -i "${tun_device}" -j ACCEPT
   ${iptables} "${action}" FORWARD -o "${tun_device}" -j ACCEPT
 
@@ -257,26 +260,25 @@ forward() {
   sysctl -w net.ipv4.conf.all.rp_filter=2
 
   probe_tun_index
-  if [ "${tun_forward}" = "enable" ] ; then
+
+  if [ "${tun_forward}" = "enable" ]; then
     if probe_tun_device; then
+      tun_forward_ip_rules_del
+      tun_forward_ip_rules "${action}"
       if [ "${action}" = "-I" ]; then
-        tun_forward_ip_rules_del
-        tun_forward_ip_rules "${action}"
-        sing_tun_ip_rules "add">> /dev/null 2>&1
+        sing_tun_ip_rules "add"
       else
-        tun_forward_ip_rules_del
-        tun_forward_ip_rules "${action}"
-        sing_tun_ip_rules "del" >> /dev/null 2>&1
+        sing_tun_ip_rules "del"
       fi
-      return 0
     else
       tun_forward_ip_rules_del
       tun_forward_ip_rules -D
-      sing_tun_ip_rules "del" >> /dev/null 2>&1
+      sing_tun_ip_rules "del"
       log Error "tun device not found"
       return 1
     fi
   fi
+  return 0
 } >> /dev/null 2>&1
 
 start_redirect() {
@@ -299,9 +301,11 @@ start_redirect() {
     # Fix ICMP (ping)
     # This does not guarantee that the ping result is valid
     # Just that it returns a result
-    if [ -n "${fake_ip_range}" ]; then
-      ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-      ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    if [[ "${bin_name}" == @(clash|sing-box) ]]; then
+      if [ -n "${fake_ip_range}" ]; then
+        ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+        ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      fi
     fi
 
     # Allow access to intranet subnets
@@ -324,7 +328,7 @@ start_redirect() {
 
     if [ "${ignore_out_list}" != "" ]; then
       for ignore in "${ignore_out_list[@]}"; do
-        ${iptables} -t nat -I BOX_LOCAL -o "${ignore}" -j RETURN
+        ${iptables} -t nat -A BOX_LOCAL -o "${ignore}" -j RETURN
       done
       [ ${network_mode} = "enhance" ] || log Info "${ignore_out_list[*]} ignore transparent proxy."
     fi
@@ -345,7 +349,7 @@ start_redirect() {
           # loop through the UID list
           while read -r appid; do
             # add iptables rules for returning packets
-            ${iptables} -t nat -I BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
+            ${iptables} -t nat -A BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
           done < "${uid_list[@]}"
           # Allow !app
           ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
@@ -354,9 +358,11 @@ start_redirect() {
         if [ "${gid_list}" != "" ] ; then
           # Bypass gids
           for gid in ${gid_list[@]} ; do
-            ${iptables} -t nat -I BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
+            ${iptables} -t nat -A BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
           done
-          [ ${network_mode} = "enhance" ] || [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
+          [ ${network_mode} = "enhance" ] || {
+            [ "${iptables}" = "$IPV" ] &&  log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
+          }
         fi
         ;;
       whitelist)
@@ -641,9 +647,11 @@ fi
     fi
     # Fix ICMP (ping), this does not guarantee that the ping result is valid (proxies such as clash do not support forwarding ICMP),
     # just that it returns a result, "--to-destination" can be set to a reachable address.
-    if [ -n "${fake_ip_range}" ]; then
-      ${iptables} -t nat -I OUTPUT -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-      ${iptables} -t nat -I PREROUTING -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+    if [[ "${bin_name}" == @(clash|sing-box) ]]; then
+      if [ -n "${fake_ip_range}" ]; then
+        ${iptables} -t nat -I OUTPUT -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+        ${iptables} -t nat -I PREROUTING -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      fi
     fi
   fi
 }

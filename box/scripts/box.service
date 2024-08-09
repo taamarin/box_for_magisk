@@ -77,6 +77,7 @@ xclash() {
     fi
   fi
   log Info "xclash [ $xclash_option ] setup completed"
+  return 0
 }
 
 box_ownership() {
