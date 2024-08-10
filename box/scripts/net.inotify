@@ -5,91 +5,48 @@ events=$1
 # monitor_file=$3
 
 export PATH="/data/adb/magisk:/data/adb/ksu/bin:/data/adb/ap/bin:$PATH:/system/bin"
+
 iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
 required_version="v1.6.1"
-if [ "$(printf '%s\n' "$required_version" "$iptables_version" | sort -V | head -n1)" = "$required_version" ]; then
-  IPV="iptables -w 64"
-  IP6V="ip6tables -w 64"
+
+if [ "$(printf '%s\n' "${required_version}" "${iptables_version}" | sort -V | head -n1)" = "${required_version}" ]; then
+  IPV="iptables -w 100"
+  IP6V="ip6tables -w 100"
 else
   IPV="iptables"
   IP6V="ip6tables"
 fi
-iptables=$IPV
-ip6tables=$IP6V
+
+iptables="${IPV}"
+ip6tables="${IP6V}"
+logs="/data/adb/box/run/net.log"
 
 rules_add() {
-  # Retrieve all local IPv4 addresses except loopback (127.0.0.1)
+  date > "${logs}"
   ip -4 a | busybox awk '/inet/ {print $2}' | grep -vE "^127.0.0.1" | while read -r local_ipv4 ; do
-      echo "Checking IPv4 address: $local_ipv4" >> /data/adb/box/run/net.inotify.log
-      # Check if a rule for the local IPv4 address already exists in the mangle table
-      if ! iptables -t mangle -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-          echo "Adding IPv4 address $local_ipv4 to mangle tables." >> /data/adb/box/run/net.inotify.log
-          # If not, add a rule to prevent traffic to the local IPv4 address from going external
-          ${iptables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
-          ${iptables} -t mangle -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
-      fi
-      # Check if a rule for the local IPv4 address already exists in the nat table
-      if ! iptables -t nat -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-          echo "Adding IPv4 address $local_ipv4 to nat tables." >> /data/adb/box/run/net.inotify.log
-          # If not, add a rule to prevent NAT on the local IPv4 address
-          ${iptables} -t nat -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
-          ${iptables} -t nat -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
-      fi
+    if ! iptables -t mangle -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
+      echo "adding IPv4 address $local_ipv4 to mangle tables." >> "${logs}"
+      ${iptables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
+      ${iptables} -t mangle -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
+    fi
+    if ! iptables -t nat -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
+      echo "adding IPv4 address $local_ipv4 to nat tables." >> "${logs}"
+      ${iptables} -t nat -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
+      ${iptables} -t nat -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
+    fi
   done
 
-  # Retrieve all local IPv6 addresses except link-local (fe80::) and loopback (::1)
-  ip -6 a | busybox awk '/inet6/ {print $2}' | grep -vE "^fe80|^::1" | while read -r local_ipv6 ; do
-      echo "Checking IPv6 address: $local_ipv6" >> /data/adb/box/run/net.inotify.log
-      # Check if a rule for the local IPv6 address already exists in the mangle table
-      if ! ip6tables -t mangle -nL BOX_LOCAL | grep -q $local_ipv6 > /dev/null 2>&1 ; then
-          echo "Adding IPv6 address $local_ipv6 to mangle tables." >> /data/adb/box/run/net.inotify.log
-          # If not, add a rule to prevent traffic to the local IPv6 address from going external
-          ${ip6tables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv6 -j RETURN
-          ${ip6tables} -t mangle -I BOX_LOCAL 4 -d $local_ipv6 -j RETURN
-      fi
-  done
-}
-
-rules_delete() {
-  # Retrieve all local IPv4 addresses except loopback (127.0.0.1)
-  ip -4 a | busybox awk '/inet/ {print $2}' | grep -vE "^127.0.0.1" | while read -r local_ipv4 ; do
-      echo "Checking IPv4 address for deletion: $local_ipv4" >> /data/adb/box/run/net.inotify.log
-      # Check if a rule for the local IPv4 address exists in the mangle table
-      if iptables -t mangle -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-          echo "Deleting IPv4 address $local_ipv4 from mangle tables." >> /data/adb/box/run/net.inotify.log
-          # If exists, delete the rule
-          ${iptables} -t mangle -D BOX_EXTERNAL -d $local_ipv4 -j RETURN
-          ${iptables} -t mangle -D BOX_LOCAL -d $local_ipv4 -j RETURN
-      fi
-      # Check if a rule for the local IPv4 address exists in the nat table
-      if iptables -t nat -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-          echo "Deleting IPv4 address $local_ipv4 from nat tables." >> /data/adb/box/run/net.inotify.log
-          # If exists, delete the rule
-          ${iptables} -t nat -D BOX_EXTERNAL -d $local_ipv4 -j RETURN
-          ${iptables} -t nat -D BOX_LOCAL -d $local_ipv4 -j RETURN
-      fi
-  done
-
-  # Retrieve all local IPv6 addresses except link-local (fe80::) and loopback (::1)
-  ip -6 a | busybox awk '/inet6/ {print $2}' | grep -vE "^fe80|^::1" | while read -r local_ipv6 ; do
-      echo "Checking IPv6 address for deletion: $local_ipv6" >> /data/adb/box/run/net.inotify.log
-      # Check if a rule for the local IPv6 address exists in the mangle table
-      if ip6tables -t mangle -nL BOX_LOCAL | grep -q $local_ipv6 > /dev/null 2>&1 ; then
-          echo "Deleting IPv6 address $local_ipv6 from mangle tables." >> /data/adb/box/run/net.inotify.log
-          # If exists, delete the rule
-          ${ip6tables} -t mangle -D BOX_EXTERNAL -d $local_ipv6 -j RETURN
-          ${ip6tables} -t mangle -D BOX_LOCAL -d $local_ipv6 -j RETURN
-      fi
+  ip -6 a | busybox awk '/inet6/ {print $2}' | grep -vE "^fe80|^::1|^fd00" | while read -r local_ipv6 ; do
+    if ! ip6tables -t mangle -nL BOX_LOCAL | grep -q $local_ipv6 > /dev/null 2>&1 ; then
+      echo "adding IPv6 address $local_ipv6 to mangle tables." >> "${logs}"
+      ${ip6tables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv6 -j RETURN
+      ${ip6tables} -t mangle -I BOX_LOCAL 4 -d $local_ipv6 -j RETURN
+    fi
   done
 }
 
 if [ "$events" = "w" ]; then
-  date > /data/adb/box/run/net.inotify.log
-  if [ -f /data/adb/box/run/box.pid ] ; then
+  if [ -f "/data/adb/box/run/box.pid" ]; then
     rules_add
-    rm -f /data/adb/box/run/net
-  elif [ ! -f /data/adb/box/run/net ]; then
-    rules_delete
-    touch /data/adb/box/run/net
   fi
 fi

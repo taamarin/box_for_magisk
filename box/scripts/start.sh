@@ -36,15 +36,7 @@ enable_iptables() {
   fi
 }
 
-start_inotifyd() {
-  PIDs=($($busybox pidof inotifyd))
-  for PID in "${PIDs[@]}"; do
-    if grep -q "box.inotify" "/proc/$PID/cmdline"; then
-      kill -9 "$PID"
-    fi
-  done
-  inotifyd "${scripts_dir}/box.inotify" "${moddir}" > "/dev/null" 2>&1 &
-
+net_inotifyd() {
   while [ ! -f /data/misc/net/rt_tables ] ; do
     sleep 3
   done
@@ -54,8 +46,23 @@ start_inotifyd() {
   inotifyd "${scripts_dir}/net.inotify" "${net_dir}" > "/dev/null" 2>&1 &
 }
 
+start_inotifyd() {
+  PIDs=($($busybox pidof inotifyd))
+  for PID in "${PIDs[@]}"; do
+    if grep -q -e "box.inotify" -e "net.inotify" "/proc/$PID/cmdline"; then
+      kill -9 "$PID"
+    fi
+    # if grep -q "box.inotify" "/proc/$PID/cmdline"; then
+      # kill -9 "$PID"
+    # fi
+  done
+  inotifyd "${scripts_dir}/box.inotify" "${moddir}" > "/dev/null" 2>&1 &
+  net_inotifyd
+}
+
 mkdir -p /data/adb/box/run/
 if [ -f "/data/adb/box/manual" ]; then
+  net_inotifyd
   exit 1
 fi
 
