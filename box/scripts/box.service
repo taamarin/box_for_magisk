@@ -647,8 +647,7 @@ start_box() {
   fi
   
   # busybox check
-  busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | busybox grep -oE '[0-9.]*')
-  # busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | grep -oE [0-9.]*")
+  busybox_code=$(busybox | busybox awk '{print $2}' | busybox grep -oE '[0-9.]*' | head -n 1)
   if [ "$(echo "${busybox_code}" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" -lt "$(echo "1.36.1" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" ]; then
     log Info "Current $(which busybox) v${busybox_code}"
     log Warning "Please update your busybox to v1.36.1+"
