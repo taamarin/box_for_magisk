@@ -9,6 +9,7 @@ pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
 tun_forward="enabled"
+clash_dns_forward="true"
 fake_ip_range=""
 
 iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
@@ -451,7 +452,7 @@ start_tproxy() {
     # ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
   # fi
 
-  if [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+  if [ "${clash_dns_forward}" = "true" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j RETURN
       ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j RETURN
   else
@@ -503,7 +504,7 @@ start_tproxy() {
     [ "${iptables}" = "$IPV" ] && log Info "${ignore_out_list[*]} ignore transparent proxy."
   fi
 
-  if [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+  if [ "${clash_dns_forward}" = "true" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j RETURN
       ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j RETURN
   else
@@ -604,7 +605,7 @@ if [ ${network_mode} != "enhance" ]; then
 fi
 
   if [ "${iptables}" = "$IPV" ]; then
-    if [ "${bin_name}" = "clash" ]; then
+    if [ "${clash_dns_forward}" = "true" ] && [ "${bin_name}" = "clash" ]; then
       ${iptables} -t nat -N CLASH_DNS_EXTERNAL
       ${iptables} -t nat -F CLASH_DNS_EXTERNAL
       ${iptables} -t nat -A CLASH_DNS_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
