@@ -23,25 +23,17 @@ logs="/data/adb/box/run/net.log"
 
 rules_add() {
   date > "${logs}"
+  iptables -t mangle -F LOCAL_IP_V4
+
   ip -4 a | busybox awk '/inet/ {print $2}' | grep -vE "^127.0.0.1" | while read -r local_ipv4 ; do
-    if ! iptables -t mangle -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-      echo "adding IPv4 address $local_ipv4 to mangle tables." >> "${logs}"
-      ${iptables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
-      ${iptables} -t mangle -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
-    fi
-    if ! iptables -t nat -nL BOX_LOCAL | grep -q $local_ipv4 > /dev/null 2>&1 ; then
-      echo "adding IPv4 address $local_ipv4 to nat tables." >> "${logs}"
-      ${iptables} -t nat -I BOX_EXTERNAL 3 -d $local_ipv4 -j RETURN
-      ${iptables} -t nat -I BOX_LOCAL 4 -d $local_ipv4 -j RETURN
-    fi
+    ${iptables} -t mangle -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
+    ${iptables} -t nat -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
   done
 
+  ip6tables -t mangle -F LOCAL_IP_V6
+
   ip -6 a | busybox awk '/inet6/ {print $2}' | grep -vE "^fe80|^::1|^fd00" | while read -r local_ipv6 ; do
-    if ! ip6tables -t mangle -nL BOX_LOCAL | grep -q $local_ipv6 > /dev/null 2>&1 ; then
-      echo "adding IPv6 address $local_ipv6 to mangle tables." >> "${logs}"
-      ${ip6tables} -t mangle -I BOX_EXTERNAL 3 -d $local_ipv6 -j RETURN
-      ${ip6tables} -t mangle -I BOX_LOCAL 4 -d $local_ipv6 -j RETURN
-    fi
+    ${ip6tables} -t mangle -A LOCAL_IP_V6 -d $local_ipv6 -j ACCEPT
   done
 }
 
