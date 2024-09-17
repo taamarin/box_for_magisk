@@ -7,7 +7,7 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 url_ghproxy="https://mirror.ghproxy.com"
-use_ghproxy="true"
+use_ghproxy="false"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
 singbox_stable="disable"

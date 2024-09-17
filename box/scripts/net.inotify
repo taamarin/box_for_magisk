@@ -19,21 +19,21 @@ fi
 
 iptables="${IPV}"
 ip6tables="${IP6V}"
-logs="/data/adb/box/run/net.log"
+logs="/data/adb/box/run"
 
 rules_add() {
   date > "${logs}"
   iptables -t mangle -F LOCAL_IP_V4
-
   ip -4 a | busybox awk '/inet/ {print $2}' | grep -vE "^127.0.0.1" | while read -r local_ipv4 ; do
     ${iptables} -t mangle -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
     ${iptables} -t nat -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
+    [ $? = "0" ] && echo "[Info]: local ip is $local_ipv4, anti-loopback rule has been inserted" >> ${logs}/net.log 2>> ${logs}/net_error.log
   done
 
   ip6tables -t mangle -F LOCAL_IP_V6
-
   ip -6 a | busybox awk '/inet6/ {print $2}' | grep -vE "^fe80|^::1|^fd00" | while read -r local_ipv6 ; do
     ${ip6tables} -t mangle -A LOCAL_IP_V6 -d $local_ipv6 -j ACCEPT
+    [ $? = "0" ] && echo "[Info]: local ip is $local_ipv6, anti-loopback rule has been inserted" >> ${logs}/net.log 2>> ${logs}/net_error.log
   done
 }
 
