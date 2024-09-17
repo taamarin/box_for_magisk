@@ -542,11 +542,11 @@ upxui() {
   xdashboard="${bin_name}/dashboard"
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${xdashboard}.zip"
-    url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
+    url="https://github.com/CHIZI-0618/yacd/archive/refs/heads/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
       url="${url_ghproxy}/${url}"
     fi
-    dir_name="metacubexd-gh-pages"
+    dir_name="yacd-gh-pages"
     log Debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
