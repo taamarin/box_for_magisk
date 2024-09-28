@@ -8,7 +8,7 @@ table="2024"
 pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
-tun_forward="enabled"
+tun_forward="enable"
 clash_dns_forward="true"
 fake_ip_range=""
 
@@ -786,7 +786,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
 
           iptables="$IPV"
           forward -I || forward -D >> /dev/null 2>&1
-          [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
+          [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
 
           if start_redirect; then
             log Info "Creating iptables transparent proxy rules done."
@@ -897,7 +897,7 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
+      [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
       [ $1 = "renew" ] && log Info "Restart iptables tun rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;
