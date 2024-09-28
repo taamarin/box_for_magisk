@@ -8,13 +8,16 @@ table="2024"
 pref="100"
 # disable / enable quic using iptables rules 
 quic="enable"
-tun_forward="enabled"
+tun_forward="enable"
 clash_dns_forward="true"
 fake_ip_range=""
 
-iptables_version=$(iptables --version | busybox awk '/^iptables/ {print $2}')
-required_version="v1.6.1"
-if [ "$(printf '%s\n' "$required_version" "$iptables_version" | sort -V | head -n1)" = "$required_version" ]; then
+ipt1=$(iptables --version | busybox awk '/^iptables/ {print $2}')
+ipt2="v1.6.1"
+var1=$(echo "$ipt1" | busybox sed 's/v//g; s/\.//g')
+var2=$(echo "$ipt2" | busybox sed 's/v//g; s/\.//g')
+
+if [ "$var1" -ge "$var2" ]; then
   IPV="iptables -w 64"
   IP6V="ip6tables -w 64"
 else
@@ -22,7 +25,6 @@ else
   IP6V="ip6tables"
 fi
 
-# Looking for value from "fake-ip-range: / listen: / enhanced-mode: / tun-device:" block in YAML / JSON configuration file
 case "${bin_name}" in
   "clash")
     clash_mode=$(busybox awk '!/^ *#/ && /mode: / { print $2;found=1; exit } END{ if(!found) print "rules" }' "${clash_config}" 2>/dev/null)
@@ -123,6 +125,7 @@ disable_ipv6() {
   sysctl -w net.ipv6.conf.default.disable_ipv6=1
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=1
 
+  # add: block Askes ipv6 completely
   # ip -6 rule add unreachable pref "${pref}"
 } >> /dev/null 2>&1
 
@@ -136,6 +139,7 @@ ipv6_enable() {
   sysctl -w net.ipv6.conf.default.disable_ipv6=0
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=0
 
+  # del: block Askes ipv6 completely
   # ip -6 rule del unreachable pref "${pref}"
 
   $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
@@ -180,12 +184,10 @@ intranet6=(
 )
 intranet6+=($(ip -6 a | busybox awk '/inet6/ {print $2}' | busybox grep -vE "^fe80|^::1|^fd00"))
 
-# Function to probe for the tun device
 probe_tun_device() {
   ifconfig | grep -q "${tun_device}" || return 1
 }
 
-# Function to get the tun device index from rt_tables
 probe_tun_index() {
   while [ ! -f "/data/misc/net/rt_tables" ]; do
     sleep 1
@@ -199,7 +201,6 @@ probe_tun_index() {
   return 1
 }
 
-# Function to manage IP rules for the tun device
 tun_forward_ip_rules() {
 local action=$1
 ipv4_rules=(
@@ -233,7 +234,6 @@ ipv6_rules=(
   fi
 }
 
-# Function to delete IP rules for the tun device
 tun_forward_ip_rules_del() {
   for preff in 5000 5010 5020 5030 5040 5050 6000; do
     ip -4 rule del pref $preff
@@ -249,7 +249,6 @@ sing_tun_ip_rules() {
   ip -6 rule $1 lookup main pref 7000
 }
 
-# Function to modify the FORWARD chain for the specified tun device using iptables
 forward() {
   local action=$1
 
@@ -294,27 +293,28 @@ start_redirect() {
     if [ "${bin_name}" = "clash" ]; then
       ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
       ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
+    # else
       #  Other types of inbound should be added here to receive DNS traffic instead of sniffing
       # ${iptables} -t nat -A BOX_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
       # ${iptables} -t nat -A BOX_LOCAL -p udp --dport 53 -j REDIRECT --to-ports "${redir_port}"
     fi
 
     # Fix ICMP (ping). This does not guarantee that the ping result is valid. Just that it returns a result
-    if [[ "${bin_name}" == @(clash|sing-box) ]]; then
-      if [ -n "${fake_ip_range}" ]; then
-        ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-        ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
-      fi
-    fi
-
-    # Allow access to intranet subnets
-    for subnet in "${intranet[@]}"; do
-      ${iptables} -t nat -A BOX_EXTERNAL -d "${subnet}" -j RETURN
-      ${iptables} -t nat -A BOX_LOCAL -d "${subnet}" -j RETURN
-    done
+    # if [[ "${bin_name}" == @(clash|sing-box) ]]; then
+      # if [ -n "${fake_ip_range}" ]; then
+        # ${iptables} -t nat -A BOX_EXTERNAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+        # ${iptables} -t nat -A BOX_LOCAL -d "${fake_ip_range}" -p icmp -j DNAT --to-destination 127.0.0.1
+      # fi
+    # fi
 
     ${iptables} -t nat -N LOCAL_IP_V4
     ${iptables} -t nat -F LOCAL_IP_V4
+    
+    for subnet in ${intranet[@]} ; do
+      ${iptables} -t nat -A BOX_EXTERNAL -d ${subnet} -j RETURN
+      ${iptables} -t nat -A BOX_LOCAL -d ${subnet} -j RETURN
+    done
+    
     ${iptables} -t nat -A BOX_EXTERNAL -j LOCAL_IP_V4
     ${iptables} -t nat -A BOX_LOCAL -j LOCAL_IP_V4
 
@@ -430,7 +430,6 @@ start_tproxy() {
   if [ "${iptables}" = "$IPV" ]; then
     ip rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip route add local default dev lo table "${table}"
-    # ip -6 rule add unreachable pref "${pref}"
   else
     ip -6 rule add fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip -6 route add local default dev lo table "${table}"
@@ -716,11 +715,9 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
         log Error "Failed to check BOX user group. Please ensure ${bin_name} kernel is started."
       }
 
-      # find uuid apps/game
       find_packages_uid
-
-      # cleanup iptables ipv4/6
       cleanup_iptables
+
       [ $1 = "renew" ] && log Warning "cleaning up iptables transparent proxy rules."
 
       case "${network_mode}" in
@@ -786,7 +783,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
 
           iptables="$IPV"
           forward -I || forward -D >> /dev/null 2>&1
-          [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
+          [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
 
           if start_redirect; then
             log Info "Creating iptables transparent proxy rules done."
@@ -851,7 +848,6 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
       probe_user_group || log Error "Failed to check BOX user group. Please ensure ${bin_name} kernel is started."
       log Warning "Cleaning up iptables transparent proxy rules."
 
-      # cleanup iptables ipv4/6
       cleanup_iptables
 
       log Warning "Cleaning up iptables transparent proxy rules done."
@@ -872,7 +868,6 @@ else
         log Error "Failed to check BOX user group. Please ensure ${bin_name} kernel is started."
       }
 
-      # Cleanup iptables ipv4/6
       cleanup_iptables
       [ $1 = "renew" ] && log Warning "Cleaning up tun rules."
       iptables="$IPV"
@@ -897,7 +892,7 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      [ "${tun_forward}" = "enabled" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
+      [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
       [ $1 = "renew" ] && log Info "Restart iptables tun rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;
@@ -906,7 +901,6 @@ else
       probe_user_group || log Error "Failed to check BOX user group. Please ensure ${bin_name} kernel is started."
       log Warning "Cleaning up tun rules."
 
-      # Cleanup iptables ipv4/6
       cleanup_iptables
 
       log Warning "Cleaning up tun rules done."
