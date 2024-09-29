@@ -600,6 +600,16 @@ start_box() {
     } | tee -a "${box_log}" > /dev/null 2>&1
   fi
 
+  # private dns mode
+  current_pdm=$(settings get global private_dns_mode)
+  log Debug "Current private_dns_mode: ${current_pdm}"
+
+  # Checks if current_pdm is not equal to "off"
+  if [[ "${current_pdm}" != "off" ]]; then
+    log Warning "Auto off private_dns_mode"
+    settings put global private_dns_mode off
+  fi
+
   # Update iptables if bin_name is still running
   # PIDS=("clash" "xray" "sing-box" "v2fly")
   PIDS=("${bin_list[@]}")
