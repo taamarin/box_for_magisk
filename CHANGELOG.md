@@ -1,3 +1,5 @@
+#### Changelog v1.7.3
++ Minor fix
 #### Changelog v1.7.2
 + add USB Tethering `ncm+` to ap_list
 + independent local IP anti-loopback rules
