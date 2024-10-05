@@ -12,8 +12,8 @@ var1=$(echo "$ipt1" | busybox sed 's/v//g; s/\.//g')
 var2=$(echo "$ipt2" | busybox sed 's/v//g; s/\.//g')
 
 if [ "$var1" -ge "$var2" ]; then
-  IPV="iptables -w 64"
-  IP6V="ip6tables -w 64"
+  IPV="iptables -w 100"
+  IP6V="ip6tables -w 100"
 else
   IPV="iptables"
   IP6V="ip6tables"
@@ -24,12 +24,14 @@ ip6tables="${IP6V}"
 logs="/data/adb/box/run"
 
 rules_add() {
-  date > "${logs}"
+  date > "${logs}/net.log"
   iptables -t mangle -F LOCAL_IP_V4
   ip -4 a | busybox awk '/inet/ {print $2}' | grep -vE "^127.0.0.1" | while read -r local_ipv4 ; do
     ${iptables} -t mangle -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
+    rv1=$?
     ${iptables} -t nat -A LOCAL_IP_V4 -d $local_ipv4 -j ACCEPT
-    [ $? = "0" ] && echo "[Info]: local ip is $local_ipv4, anti-loopback rule has been inserted" >> ${logs}/net.log 2>> ${logs}/net_error.log
+    rv2=$?
+    ( [ $rv1 = "0" ] || [ $rv2 = "0" ] ) && echo "[Info]: local ip is $local_ipv4, anti-loopback rule has been inserted" >> ${logs}/net.log 2>> ${logs}/net_error.log
   done
 
   ip6tables -t mangle -F LOCAL_IP_V6
