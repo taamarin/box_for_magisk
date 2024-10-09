@@ -7,7 +7,7 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 url_ghproxy="https://mirror.ghproxy.com"
-use_ghproxy="false"
+use_ghproxy="true"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
 singbox_stable="disable"
@@ -542,11 +542,11 @@ upxui() {
   xdashboard="${bin_name}/dashboard"
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${xdashboard}.zip"
-    url="https://github.com/CHIZI-0618/yacd/archive/refs/heads/gh-pages.zip"
+    url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
       url="${url_ghproxy}/${url}"
     fi
-    dir_name="yacd-gh-pages"
+    dir_name="metacubexd-gh-pages"
     log Debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
