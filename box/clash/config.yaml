@@ -32,7 +32,6 @@ ipv6: false
 external-controller: 0.0.0.0:9090 
 # secret: "123456"
 external-ui: /data/adb/box/clash/dashboard
-# external-ui-url: "https://github.com/MetaCubeX/metacubexd/archive/refs/heads/gh-pages.zip" # 自定义外部用户界面下载地址 
 # tcp-concurrent: false
 
 # 目前仅用于 API 的 https
