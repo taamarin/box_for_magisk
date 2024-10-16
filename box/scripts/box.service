@@ -46,16 +46,17 @@ box_run_crontab() {
   chmod 0755 "${box_run}/root"
 
   if [ "${run_crontab}" = "true" ]; then
-    log Debug "Cron job enabled"
-    echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
-    log Debug "Interval crontab geox and subs: ${interva_update}."
-    log Info "${bin_name} geox updates: ${update_geo}."
-    if [ "${bin_name}" = "clash" ]; then
-      log Info "${bin_name} subscription update: ${update_subscription}."
+    log Debug "crontab job enabled"
+    if [ "$update_subscription" = "true" ] || [ "$update_geo" = "true" ]; then
+      log Debug "Interval crontab: ${interva_update}."
+      echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
+      log Info "${bin_name} geox updates: ${update_geo}."
+      if [ "${bin_name}" = "clash" ]; then
+        log Info "${bin_name} subscription update: ${update_subscription}."
+      fi
     fi
   else
-    log Info "Cron Job disabled"
-    log Info "Crontab geox and subscription is disabled."
+    log Info "crontab Job disabled"
   fi
 }
 
