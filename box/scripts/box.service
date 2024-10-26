@@ -584,19 +584,15 @@ start_box() {
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
 
   if [ -t 1 ]; then
-    echo -e "${yellow}$(getprop persist.sys.timezone)${normal}"
-    echo -e "${yellow}$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)${normal}"
-    echo -e "${yellow}$(date)${normal}"
-    echo -e "${yellow}${box_version}${normal}"
-    echo -e "${yellow}$(getprop ro.product.cpu.abi)${normal}"
+    echo -e "${yellow}$(getprop persist.sys.timezone) $(date)${normal}"
+    echo -e "${yellow}$(getprop gsm.sim.operator.alpha) $(getprop gsm.network.type)${normal}"
+    echo -e "${yellow}${box_version}($(getprop ro.product.cpu.abi))${normal}"
     echo -e "${white}━━━━━━━━━━━━━━━━━━${normal}"
   else
     {
-      echo "$(getprop persist.sys.timezone)"
-      echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)"
-      echo "$(date)"
-      echo "${box_version}"
-      echo "$(getprop ro.product.cpu.abi)"
+      echo "$(getprop persist.sys.timezone) $(date)"
+      echo "$(getprop gsm.sim.operator.alpha) $(getprop gsm.network.type)"
+      echo "${box_version}($(getprop ro.product.cpu.abi))"
       echo "━━━━━━━━━━━━━━━━━━"
     } | tee -a "${box_log}" > /dev/null 2>&1
   fi

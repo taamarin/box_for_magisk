@@ -6,10 +6,10 @@ source /data/adb/box/settings.ini
 fwmark="16777216/16777216"
 table="2024"
 pref="100"
-# disable / enable quic using iptables rules 
+# disable or enable QUIC using iptables rules. Note that this may cause some websites to become inaccessible.
 quic="enable"
 tun_forward="enable"
-clash_dns_forward="true"
+clash_dns_forward="enable"
 fake_ip_range=""
 
 ipt1=$(iptables --version | busybox awk '/^iptables/ {print $2}')
@@ -75,7 +75,7 @@ box_etc() {
       ;;
   esac
   if [[ "${network_mode}" == @(mixed|tun) ]]; then
-    log Info "tun_device: $tun_device"
+    log Info "tun device: ($tun_device)"
   fi
 }
 
@@ -126,7 +126,10 @@ disable_ipv6() {
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=1
 
   # add: block Askes ipv6 completely
-  # ip -6 rule add unreachable pref "${pref}"
+  ip -6 rule add unreachable pref "${pref}"
+
+  # add: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
+  $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
 } >> /dev/null 2>&1
 
 ipv6_enable() {
@@ -140,9 +143,10 @@ ipv6_enable() {
   sysctl -w net.ipv6.conf.wlan0.disable_ipv6=0
 
   # del: block Askes ipv6 completely
-  # ip -6 rule del unreachable pref "${pref}"
+  ip -6 rule del unreachable pref "${pref}"
 
-  $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
+  # del: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
+  $IP6V -D OUTPUT -p udp --destination-port 53 -j DROP
 } >> /dev/null 2>&1
 
 intranet=(
@@ -185,7 +189,7 @@ intranet6=(
 intranet6+=($(ip -6 a | busybox awk '/inet6/ {print $2}' | busybox grep -vE "^fe80|^::1|^fd00"))
 
 probe_tun_device() {
-  ifconfig | grep -q "${tun_device}" || return 1
+  busybox ifconfig | grep -q "${tun_device}" || return 1
 }
 
 probe_tun_index() {
@@ -202,27 +206,27 @@ probe_tun_index() {
 }
 
 tun_forward_ip_rules() {
-local action=$1
-ipv4_rules=(
-  "iif lo goto 6000 pref 5000"
-  "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-  "iif ${tun_device} goto 6000 pref 5020"
-  "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
-  "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
-  "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
-  "nop pref 6000"
-)
-
-ipv6_rules=(
-  "iif lo goto 6000 pref 5000"
-  "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-  # "from 2001:db8::/32 lookup ${tun_table_index} pref 5030"
-  # "from fc00::/7 lookup ${tun_table_index} pref 5040"
-  # "from fd00::/8 lookup ${tun_table_index} pref 5050"
-  "iif ${tun_device} goto 6000 pref 5020"
-  "nop pref 6000"
-)
-
+  local action=$1
+  ipv4_rules=(
+    "iif lo goto 6000 pref 5000"
+    "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
+    "iif ${tun_device} goto 6000 pref 5020"
+    "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
+    "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
+    "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
+    "nop pref 6000"
+  )
+  
+  ipv6_rules=(
+    "iif lo goto 6000 pref 5000"
+    "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
+    # "from 2001:db8::/32 lookup ${tun_table_index} pref 5030"
+    # "from fc00::/7 lookup ${tun_table_index} pref 5040"
+    # "from fd00::/8 lookup ${tun_table_index} pref 5050"
+    "iif ${tun_device} goto 6000 pref 5020"
+    "nop pref 6000"
+  )
+  
   if [ "${iptables}" = "$IPV" ]; then
     for rule in "${ipv4_rules[@]}"; do
       ip -4 rule "${action}" ${rule}
@@ -270,15 +274,14 @@ forward() {
       else
         sing_tun_ip_rules "del"
       fi
+      return 0
     else
       tun_forward_ip_rules_del
       tun_forward_ip_rules -D
       sing_tun_ip_rules "del"
-      log Error "tun device not found"
       return 1
     fi
   fi
-  return 0
 } >> /dev/null 2>&1
 
 start_redirect() {
@@ -451,7 +454,7 @@ start_tproxy() {
     # ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
   # fi
 
-  if [ "${clash_dns_forward}" = "true" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+  if [ "${clash_dns_forward}" = "enable" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j RETURN
       ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j RETURN
   else
@@ -503,7 +506,7 @@ start_tproxy() {
     [ "${iptables}" = "$IPV" ] && log Info "${ignore_out_list[*]} ignore transparent proxy."
   fi
 
-  if [ "${clash_dns_forward}" = "true" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
+  if [ "${clash_dns_forward}" = "enable" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp --dport 53 -j RETURN
       ${iptables} -t mangle -A BOX_LOCAL -p udp --dport 53 -j RETURN
   else
@@ -604,7 +607,7 @@ if [ ${network_mode} != "enhance" ]; then
 fi
 
   if [ "${iptables}" = "$IPV" ]; then
-    if [ "${clash_dns_forward}" = "true" ] && [ "${bin_name}" = "clash" ]; then
+    if [ "${clash_dns_forward}" = "enable" ] && [ "${bin_name}" = "clash" ]; then
       ${iptables} -t nat -N CLASH_DNS_EXTERNAL
       ${iptables} -t nat -F CLASH_DNS_EXTERNAL
       ${iptables} -t nat -A CLASH_DNS_EXTERNAL -p udp --dport 53 -j REDIRECT --to-ports "${clash_dns_port}"
@@ -782,6 +785,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
           log Info "Creating iptables transparent proxy rules."
 
           iptables="$IPV"
+          probe_tun_device || log Error "tun device: (${tun_device}) not found"
           forward -I || forward -D >> /dev/null 2>&1
           [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
 
@@ -869,6 +873,7 @@ else
       }
 
       cleanup_iptables
+      probe_tun_device || log Error "tun device: (${tun_device}) not found"
       [ $1 = "renew" ] && log Warning "Cleaning up tun rules."
       iptables="$IPV"
       if forward -I; then
