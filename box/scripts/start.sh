@@ -62,6 +62,9 @@ start_inotifyd() {
 
 mkdir -p /data/adb/box/run/
 if [ -f "/data/adb/box/manual" ]; then
+  if [ -f "/data/adb/box/run/box.pid" ]; then
+      rm /data/adb/box/run/box.pid
+  fi
   net_inotifyd
   exit 1
 fi
