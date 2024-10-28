@@ -79,7 +79,7 @@ chmod ugo+x $MODPATH/uninstall.sh
 chmod ugo+x /data/adb/box/scripts/*
 
 ui_print "-----------------------------------------------------------"
-ui_print "- Do you want to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb)? size: ±100MB."
+ui_print "- Do you want to download Kernel(xray hysteria clash v2fly sing-box) and GeoX(geosite geoip mmdb)? size: ±100MB."
 ui_print "- Make sure you have a good internet connection."
 ui_print "- [ Vol UP(+): Yes ]"
 ui_print "- [ Vol DOWN(-): No ]"
@@ -104,7 +104,7 @@ while true ; do
 done
 
 if [ "${backup_box}" = "true" ]; then
-  ui_print "- Restore configuration xray, clash, sing-box, and v2fly"
+  ui_print "- Restore configuration xray, hysteria, clash, sing-box, and v2fly"
   restore_config() {
     config_dir="$1"
     if [ -d "${temp_dir}/${config_dir}" ]; then
@@ -116,6 +116,7 @@ if [ "${backup_box}" = "true" ]; then
   restore_config "xray"
   restore_config "v2fly"
   restore_config "sing-box"
+  restore_config "hysteria"
 
   restore_kernel() {
     kernel_name="$1"
@@ -130,6 +131,7 @@ if [ "${backup_box}" = "true" ]; then
   restore_kernel "xray"
   restore_kernel "sing-box"
   restore_kernel "v2fly"
+  restore_kernel "hysteria"
   restore_kernel "xclash/mihomo"
   restore_kernel "xclash/premium"
 
@@ -138,7 +140,7 @@ if [ "${backup_box}" = "true" ]; then
 fi
 
 if [ -z "$(find /data/adb/box/bin -type f)" ]; then
-  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but you need to download Kernel(xray clash v2fly sing-box) and GeoX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
+  sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but you need to download Kernel(xray hysteria clash v2fly sing-box) and GeoX(geosite geoip mmdb) manually ] /g' $MODPATH/module.prop
 fi
 
 if [ "$KSU" = "true" ]; then
@@ -146,6 +148,7 @@ if [ "$KSU" = "true" ]; then
   unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
+  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 else
   sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 fi

@@ -19,23 +19,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get tags
-        id: get_tags
+      - name: Update Module.prop
         run: |
-          echo "tag=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-          echo "version=$(git rev-parse --short HEAD)_$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
-          echo "versionCode=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+          sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')($(git log --oneline -n 1 | awk '{print $1}'))/g" module.prop
+          sed -i "s/versionCode=.*/versionCode=$(date +%Y%m%d)/g" module.prop
 
-      - name: update module.prop
-        run: |
-          sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
-          sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
-
-      - name: get version
+      - name: Get Version
         id: get_version
         run: |
           echo "version=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-
+        
       - name: Generate Asset
         run: |
           sudo mkdir -p /box_for_root
@@ -47,41 +40,25 @@ jobs:
           name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
           path: /box_for_root/
 
-  upload:
-    name: Telegram Upload Release
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4.1.0
-        with:
-          fetch-depth: 0
+      # - name: Download Debug Asset => (box_for_magisk_${{ steps.get_version.outputs.version }})
+        # uses: actions/download-artifact@v4
+        # with:
+          # name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
+          # path: /box_for_root/
 
-      - name: Get tags
-        id: get_tags
-        run: |
-          echo "tag=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-          echo "version=$(git rev-parse --short HEAD)_$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
-          echo "versionCode=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Get Version and Build
-        run: |
-          sed -i "s/${{ steps.get_tags.outputs.tag }}/&_${{ steps.get_tags.outputs.version }}_debug/g" module.prop
-          sed -i "s/versionCode=.*/versionCode=${{ steps.get_tags.outputs.versionCode }}/g" module.prop
-          sh build.sh
-
-      - name: upload to telegram
-        if: ${{  success() }}
-        env:
-          CHAT_ID: "-1001597117128"
-          MESSAGE_THREAD_ID: "282263"
-          API_ID: ${{ secrets.API_ID }}
-          API_HASH: ${{ secrets.API_HASH }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-        run: |
-          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            export VERSION=${{ steps.get_tags.outputs.tag }}_${{ steps.get_tags.outputs.version }}
-            export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
-            FILE=$(find -name "*.zip")
-            pip3 install telethon==1.31.1
-            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
-          fi
+      # - name: Upload To Telegram
+        # if: ${{  success() }}
+        # env:
+          # CHAT_ID: "-1001597117128"
+          # MESSAGE_THREAD_ID: "282263"
+          # API_ID: ${{ secrets.API_ID }}
+          # API_HASH: ${{ secrets.API_HASH }}
+          # BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        # run: |
+          # if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            # export VERSION=${{ steps.get_version.outputs.version }}
+            # export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
+            # FILE=$(find -name "*.zip")
+            # pip3 install telethon==1.31.1
+            # python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
+          # fi

@@ -46,16 +46,17 @@ box_run_crontab() {
   chmod 0755 "${box_run}/root"
 
   if [ "${run_crontab}" = "true" ]; then
-    log Debug "Cron job enabled"
-    echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
-    log Debug "Interval crontab geox and subs: ${interva_update}."
-    log Info "${bin_name} geox updates: ${update_geo}."
-    if [ "${bin_name}" = "clash" ]; then
-      log Info "${bin_name} subscription update: ${update_subscription}."
+    log Debug "crontab job enabled"
+    if [ "$update_subscription" = "true" ] || [ "$update_geo" = "true" ]; then
+      log Debug "Interval crontab: ${interva_update}."
+      echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
+      log Info "${bin_name} geox updates: ${update_geo}."
+      if [ "${bin_name}" = "clash" ]; then
+        log Info "${bin_name} subscription update: ${update_subscription}."
+      fi
     fi
   else
-    log Info "Cron Job disabled"
-    log Info "Crontab geox and subscription is disabled."
+    log Info "crontab Job disabled"
   fi
 }
 
@@ -77,6 +78,7 @@ xclash() {
     fi
   fi
   log Info "xclash [ $xclash_option ] setup completed"
+  return 0
 }
 
 box_ownership() {
@@ -115,10 +117,23 @@ box_check_bin() {
     log Error "${bin_path} is not executable."
     exit 1
   fi
+
+  local version_output
   case "${bin_name}" in
-    clash) version_output=$("${bin_path}" -v) >/dev/null 2>&1 || return 1 ;;
-    *) version_output=$("${bin_path}" version) >/dev/null 2>&1 || return 1 ;;
+    clash)
+      version_output=$("${bin_path}" -v 2>/dev/null) || {
+        log Error "${bin_name} version information not available."
+        exit 1
+        }
+      ;;
+    *)
+      version_output=$("${bin_path}" version 2>/dev/null) || {
+        log Error "${bin_name} version information not available."
+        exit 1
+        }
+      ;;
   esac
+
   log Info "${version_output}"
 }
 
@@ -138,17 +153,17 @@ box_create_tun() {
 prepare_singbox() {
   # Check configuration file
   if ! [ -f "${sing_config}" ]; then
-    log Error "configuration file ${sing_config} not found"
+    log Error "Configuration file ${sing_config} not found"
     exit 1
   else
-    log Info "config ${sing_config}"
+    log Info "Config ${sing_config} found"
   fi
 
   # Check yq
   yq="yq"
   if ! command -v yq &>/dev/null; then
     if [ ! -e "${box_dir}/bin/yq" ]; then
-      log Debug "yq file not found, start to download from github"
+      log Debug "yq file not found, starting download from GitHub"
       ${scripts_dir}/box.tool upyq
     fi
     yq="${box_dir}/bin/yq"
@@ -165,8 +180,23 @@ prepare_singbox() {
       # Check if "type" is "tun" in configuration
       if ! busybox grep -q '"type": "tun"' "${sing_config}"; then
         # Add "tun" configuration if missing
-        ${yq} '.inbounds += [{"type": "tun","tag": "tun-in","interface_name": "utun","inet4_address": "172.19.0.1/30","inet6_address": "fdfe:dcba:9876::1/126","mtu": 9000,"stack": "system","auto_route": true,"strict_route": false,"inet4_route_exclude_address": ["192.168.0.0/16"],"inet6_route_exclude_address": ["fc00::/7"],"sniff": true,"sniff_override_destination": false,"include_android_user": [0,10],"include_package": [],"exclude_package": []}]' -i --output-format=json "${sing_config}"
-        log Debug "[Tun] configuration has been added to ${sing_config}"
+        ${yq} '.inbounds += [{
+          "type": "tun",
+          "tag": "tun-in",
+          "interface_name": "utun9",
+          "address": ["172.18.0.1/30","fdfe:dcba:9876::1/126"],
+          "mtu": 9000,
+          "stack": "system",
+          "auto_route": true,
+          "strict_route": true,
+          "auto_redirect": true,
+          "sniff": true,
+          "sniff_override_destination": false,
+          "include_android_user": [0,10],
+          "include_package": [],
+          "exclude_package": []
+        }]' -i --output-format=json "${sing_config}"
+        log Debug "[Tun] configuration added to ${sing_config}"
       fi
     else
       # Set auto_route to false for non-"tun" network_mode
@@ -177,38 +207,61 @@ prepare_singbox() {
       # Check if "type" is "tproxy" in configuration
       if ! busybox grep -q '"type": "tproxy"' "${sing_config}"; then
         # Add "tproxy" configuration if missing
-        ${yq} '.inbounds += [{"type": "tproxy", "tag": "tproxy-in", "listen": "::", "listen_port": '"${tproxy_port}"', "sniff": true, "sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-        log Debug "[Tproxy] configuration has been added to ${sing_config}"
+        ${yq} '.inbounds += [{
+          "type": "tproxy",
+          "tag": "tproxy-in",
+          "listen": "::",
+          "listen_port": '"${tproxy_port}"',
+          "sniff": true,
+          "sniff_override_destination": false
+        }]' -i --output-format=json "${sing_config}"
+        log Debug "[Tproxy] configuration added to ${sing_config}"
       fi
 
-      # Sync tproxy port sing-box
+      # del tun
+      ${yq} 'del(.inbounds[] | select(.type == "tun"))' -i --output-format=json "${sing_config}"
+
+      # Sync tproxy port in sing-box configuration
       for file in "${box_dir}/sing-box/"*.json; do
-        tproxy=$(sed -n 's/.*"type": "\(tproxy\)".*/\1/p' "${file}")
-        if [ -n "${tproxy}" ]; then
-          ${yq} -o=json "(.inbounds[]? | select(.type == \"tproxy\") | .listen_port) = ${tproxy_port}" -i --output-format=json "${file}"
+        if busybox grep -q '"type": "tproxy"' "${file}"; then
+          ${yq} '(.inbounds[] | select(.type == "tproxy") | .listen_port) = '"${tproxy_port}" -i --output-format=json "${file}"
         fi
       done
     fi
 
     # add exclude_package/include_package for tun
-    # "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
-    # "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
-    # [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
-    # for package in "${packages_list[@]}"; do
-      # "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
-    # done
+    "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
+    "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
+    [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
+    for package in "${packages_list[@]}"; do
+      "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
+    done
 
     # Add "redirect" configuration based on network_mode
     if [[ "${network_mode}" == @(mixed|enhance|redirect) ]]; then
       if ! busybox grep -q '"type": "redirect"' "${sing_config}"; then
         # Add "redirect" configuration if missing
-        ${yq} '.inbounds += [{"type": "redirect","tag": "redirect-in","listen": "::","listen_port": '"${redir_port}"',"sniff": true,"sniff_override_destination": false}]' -i --output-format=json "${sing_config}"
-        log Debug "[Redirect] configuration has been added to ${sing_config}"
+        ${yq} '.inbounds += [{
+          "type": "redirect",
+          "tag": "redirect-in",
+          "listen": "::",
+          "listen_port": '"${redir_port}"',
+          "sniff": true,
+          "sniff_override_destination": false
+        }]' -i --output-format=json "${sing_config}"
+        log Debug "[Redirect] configuration added to ${sing_config}"
       fi
+
+      # Sync redir_port port in sing-box configuration
+      for file in "${box_dir}/sing-box/"*.json; do
+        if busybox grep -q '"type": "redirect"' "${file}"; then
+          ${yq} '(.inbounds[] | select(.type == "redirect") | .listen_port) = '"${redir_port}" -i --output-format=json "${file}"
+        fi
+      done
     fi
   else
     log Error "$(<"${box_run}/${bin_name}.log")"
-    log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
+    log Error "Configuration failed. Please check the ${box_run}/${bin_name}.log file."
     exit 1
   fi
 }
@@ -258,12 +311,13 @@ prepare_clash() {
         '  enable: true' \
         '  mtu: 9000' \
         '  device: utun' \
-        '  stack: system # mixed / gvisor / system / lwip' \
+        '  stack: mixed # system / gvisor / system / lwip' \
         '  dns-hijack:' \
         '    - any:53' \
         '    - tcp://any:53' \
         '  auto-route: true' \
-        '  strict-route: false' \
+        '  strict-route: true' \
+        '  auto-redirect: true' \
         '  auto-detect-interface: true' \
         '  include-android-user: [0, 10]' \
         '  exclude-package: []' \
@@ -274,17 +328,19 @@ prepare_clash() {
     fi
 
     # add exclude-package/include-package for tun
-    # package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
-    # list_package="${package:-\"\"}"
-    # if [ "${proxy_mode}" = "whitelist" ]; then
-      # mode="include-package"
-    # elif [ "${proxy_mode}" = "blacklist" ]; then
-      # mode="exclude-package"
-    # fi
-    # sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
-    # sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
-    # sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
-
+    package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
+    list_package="${package:-}"
+    if [ "${proxy_mode}" = "whitelist" ]; then
+      mode="include-package"
+    elif [ "${proxy_mode}" = "blacklist" ]; then
+      mode="exclude-package"
+    fi
+    sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
+    sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
+    # Add packages to the configuration if list_package is not empty
+    if [ -n "${list_package}" ]; then
+      sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
+    fi
     sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
   else
     sed -i "/tun:/ {n;s/enable: true/enable: false/}" "${clash_config}"
@@ -317,6 +373,20 @@ box_run_bin() {
   # Use ulimit to limit the memory usage of a process to 200MB
   # ulimit -v 200000  # Set the virtual memory limit in KB
   case "${bin_name}" in
+    hysteria)
+      # sync port
+      sed -i -e "/tcpTProxy:/,/listen:/s/listen: :.*/listen: :${tproxy_port}/" "${box_dir}/${bin_name}/config.yaml"
+      sed -i -e "/udpTProxy:/,/listen:/s/listen: :.*/listen: :${tproxy_port}/" "${box_dir}/${bin_name}/config.yaml"
+
+      # set network_mode variable value to "tproxy"
+      if [[ "${network_mode}" != "tproxy" ]]; then
+        sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+      fi
+      nohup busybox setuidgid ${box_user_group} ${bin_path} -c ${box_dir}/${bin_name}/config.yaml > "${bin_log}" 2>&1 &
+      PID=$!
+      echo -n $PID > "${box_pid}"
+      sleep 1
+      ;;
     sing-box)
       prepare_singbox
       if ${bin_path} check -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
@@ -351,6 +421,7 @@ box_run_bin() {
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
 
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
@@ -383,6 +454,7 @@ box_run_bin() {
 
       # sync port
       # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
 
       # check configuration file
       if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
@@ -498,7 +570,7 @@ box_bin_status() {
 
   # Save the process ID to the pid file
   if [ -n "$PID" ]; then
-    sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✔ $bin_name service is running!!! ] /g" "$PROPFILE"
+    sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 🥰 $bin_name service is running!!! ] /g" "$PROPFILE"
     echo -n "$PID" > "${box_pid}"
   fi
 }
@@ -506,25 +578,21 @@ box_bin_status() {
 start_box() {
   # Clear the log file and add the timestamp and delimiter
   # cd /data/adb/box/bin; chmod 755 *
-  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ☹ Module is working! but no service is running ] /g" "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 🤪 Module is working! but no service is running ] /g" "$PROPFILE"
 
   echo -n "" > "${box_log}"
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
 
   if [ -t 1 ]; then
-    echo -e "${yellow}$(getprop persist.sys.timezone)${normal}"
-    echo -e "${yellow}$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)${normal}"
-    echo -e "${yellow}$(date)${normal}"
-    echo -e "${yellow}${box_version}${normal}"
-    echo -e "${yellow}$(getprop ro.product.cpu.abi)${normal}"
+    echo -e "${yellow}$(getprop persist.sys.timezone) $(date)${normal}"
+    echo -e "${yellow}$(getprop gsm.sim.operator.alpha) $(getprop gsm.network.type)${normal}"
+    echo -e "${yellow}${box_version}($(getprop ro.product.cpu.abi))${normal}"
     echo -e "${white}━━━━━━━━━━━━━━━━━━${normal}"
   else
     {
-      echo "$(getprop persist.sys.timezone)"
-      echo "$(getprop gsm.sim.operator.alpha) / $(getprop gsm.network.type)"
-      echo "$(date)"
-      echo "${box_version}"
-      echo "$(getprop ro.product.cpu.abi)"
+      echo "$(getprop persist.sys.timezone) $(date)"
+      echo "$(getprop gsm.sim.operator.alpha) $(getprop gsm.network.type)"
+      echo "${box_version}($(getprop ro.product.cpu.abi))"
       echo "━━━━━━━━━━━━━━━━━━"
     } | tee -a "${box_log}" > /dev/null 2>&1
   fi
@@ -553,7 +621,7 @@ start_box() {
 
   # Checks if bin_name is defined
   case "${bin_name}" in
-    clash|xray|sing-box|v2fly)
+    clash|xray|sing-box|v2fly|hysteria)
       log Info "Good day"
       [ "${bin_name}" = "clash" ] && {
         xclash || exit 1
@@ -566,18 +634,17 @@ start_box() {
   esac
 
   # apk manager check
-  versionName=$(dumpsys package xyz.chz.bfm | grep versionName | busybox awk -F '=' '{print $2}' | sed 's/-.*//')
-  if [[ -n "${versionName}" && $(echo "${versionName}" | busybox awk '{print ($1 < 1.13)}') -eq 1 ]]; then
-    log Error "Update BFR Manager Apps, Use version 1.13.+"
-    log Error "current version: ${versionName}"
-    exit 1
-  else
-    [ -n "${versionName}" ] && log Info "BFR Manager: ${versionName}"
-  fi
-  
+  # versionName=$(dumpsys package xyz.chz.bfm | grep versionName | busybox awk -F '=' '{print $2}' | sed 's/-.*//')
+  # if [[ -n "${versionName}" && $(echo "${versionName}" | busybox awk '{print ($1 < 1.13)}') -eq 1 ]]; then
+    # log Error "Update BFR Manager Apps, Use version 1.13.+"
+    # log Error "current version: ${versionName}"
+    # exit 1
+  # else
+    # [ -n "${versionName}" ] && log Info "BFR Manager: ${versionName}"
+  # fi
+
   # busybox check
-  busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | busybox grep -oE '[0-9.]*')
-  # busybox_code=$(busybox | head -n 1 | busybox awk '{print $2}' | grep -oE [0-9.]*")
+  busybox_code=$(busybox | busybox grep -oE '[0-9.]*' | head -n 1)
   if [ "$(echo "${busybox_code}" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" -lt "$(echo "1.36.1" | busybox awk -F. '{printf "%03d%03d%03d\n", $1, $2, $3}')" ]; then
     log Info "Current $(which busybox) v${busybox_code}"
     log Warning "Please update your busybox to v1.36.1+"
@@ -587,10 +654,7 @@ start_box() {
 
   # Check permissions, check for bin existence, delete old logs, create a TUN if necessary, run box, and wait for 1 second
   box_permission
-  if ! box_check_bin; then
-    log Error "${bin_name} version information not available."
-    exit 1
-  fi
+  box_check_bin
   box_check_logs
 
   # Execute the box_create_tun functions
@@ -612,6 +676,24 @@ start_box() {
     count=$((count + 1))
   done
   box_bin_status
+
+  # OOM Killer
+  # box_pid=$(cat ${box_pid})
+  # # Setting oom_adj
+  # echo -17 > /proc/$box_pid/oom_adj
+  # if [ $? -eq 0 ]; then
+    # log Info "set oom_adj for PID $box_pid to -17"
+  # else
+    # log Error "failed to set oom_adj for PID $box_pid"
+  # fi
+  # # Setting process priorities
+  # renice -n -20 -p $box_pid
+  # if [ $? -eq 0 ]; then
+    # log Info "set priority for PID $box_pid to -20"
+  # else
+    # log Error "failed to set priority for PID $box_pid"
+  # fi
+
   true
 }
 
@@ -645,7 +727,7 @@ stop_box() {
     force_stop
   fi
 
-  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ ⏲ $current_time | ✘ $bin_name shutting down, service is stopped !!! ] /g" "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 😭 $bin_name shutting down, service is stopped !!! ] /g" "$PROPFILE"
 }
 
 stop_cron() {

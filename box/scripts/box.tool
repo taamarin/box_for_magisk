@@ -7,9 +7,10 @@ source /data/adb/box/settings.ini
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
 url_ghproxy="https://mirror.ghproxy.com"
-use_ghproxy="true"
+use_ghproxy="false"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
+singbox_stable="disable"
 
 # Updating files from URLs
 upfile() {
@@ -43,7 +44,7 @@ upfile() {
 # Restart the binary, after stopping and running again
 restart_box() {
   "${scripts_dir}/box.service" restart
-  # PIDS=("clash" "xray" "sing-box" "v2fly")
+  # PIDS=("clash" "xray" "sing-box" "v2fly" "hysteria")
   PIDS=(${bin_name})
   PID=""
   i=0
@@ -98,6 +99,9 @@ check() {
         log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
       fi
       ;;
+    hysteria)
+      true
+      ;;
     *)
       log Error "<${bin_name}> unknown binary."
       exit 1
@@ -145,7 +149,7 @@ reload() {
         return 1
       fi
       ;;
-    "xray"|"v2fly")
+    "xray"|"v2fly"|"hysteria")
       if [ -f "${box_pid}" ]; then
         if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
           restart_box
@@ -175,7 +179,7 @@ upcurl() {
 
   local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
 
-  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-${latest_version}.tar.xz"
+  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-glibc-${latest_version}.tar.xz"
 
   log Debug "Download ${download_link}"
   upfile "${bin_dir}/curl.tar.xz" "${download_link}"
@@ -315,7 +319,7 @@ upsubs() {
         return 0
       fi
       ;;
-    "xray"|"v2fly"|"sing-box")
+    "xray"|"v2fly"|"sing-box"|"hysteria")
       log Warning "${bin_name} does not support subscriptions.."
       return 1
       ;;
@@ -346,7 +350,21 @@ upkernel() {
       api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
 
-      latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
+      if [ "${singbox_stable}" = "disable" ]; then
+        # Pre-release
+        log Debug "download ${bin_name} Pre-release"
+        latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
+      else
+        # Latest
+        log Debug "download ${bin_name} Latest-stable"
+        latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}/latest" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+      fi
+
+      if [ -z "$latest_version" ]; then
+        log Error "Failed to get latest stable/beta/alpha version of sing-box"
+        return 1
+      fi
+
       download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
       log Debug "download ${download_link}"
       upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
@@ -396,7 +414,36 @@ upkernel() {
       download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       log Debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
       upfile "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && xkernel
-    ;;
+      ;;
+    "hysteria")
+      local arch
+      case $(uname -m) in
+        "aarch64") arch="arm64" ;;
+        "armv7l" | "armv8l") arch="armv7" ;;
+        "i686") arch="386" ;;
+        "x86_64") arch="amd64" ;;
+        *)
+          log Warning "Unsupported architecture: $(uname -m)"
+          return 1
+          ;;
+      esac
+
+      # Create backup directory if it doesn't exist
+      mkdir -p "${bin_dir}/backup"
+
+      # Backup existing Hysteria binary if it exists
+      if [ -f "${bin_dir}/hysteria" ]; then
+        cp "${bin_dir}/hysteria" "${bin_dir}/backup/hysteria.bak" >/dev/null 2>&1
+      fi
+
+      # Fetch the latest version of Hysteria from GitHub releases
+      local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/apernet/hysteria/releases" | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
+
+      local download_link="https://github.com/apernet/hysteria/releases/download/app%2Fv${latest_version}/hysteria-android-${arch}"
+
+      log Debug "Downloading ${download_link}"
+      upfile "${bin_dir}/hysteria" "${download_link}" && xkernel
+      ;;
     *)
       log Error "<${bin_name}> unknown binary."
       exit 1
@@ -471,6 +518,13 @@ xkernel() {
       fi
       rm -rf "${bin_dir}/update"
       ;;
+    "hysteria")
+      if [ -f "${box_pid}" ]; then
+        restart_box
+      else
+        log Debug "${bin_name} does not need to be restarted."
+      fi
+      ;;
     *)
       log Error "<${bin_name}> unknown binary."
       exit 1
@@ -488,11 +542,11 @@ upxui() {
   xdashboard="${bin_name}/dashboard"
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${xdashboard}.zip"
-    url="https://github.com/MetaCubeX/metacubexd/archive/gh-pages.zip"
+    url="https://github.com/CHIZI-0618/yacd/archive/refs/heads/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
       url="${url_ghproxy}/${url}"
     fi
-    dir_name="metacubexd-gh-pages"
+    dir_name="yacd-gh-pages"
     log Debug "Download ${url}"
     if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
@@ -672,16 +726,40 @@ touch -n > $path_webroot
   fi
 }
 
-bond1() {
-  su -mm -c "cmd wifi force-low-latency-mode enabled"
-  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=1"
-  su -mm -c "ip link set dev wlan0 txqueuelen 4000"
+bond0() {
+  # Menonaktifkan mode low latency untuk TCP
+  sysctl -w net.ipv4.tcp_low_latency=0 >/dev/null 2>&1
+  log Debug "tcp low latency: 0"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 3000 untuk semua interface wireless (wlan*)
+  for dev in /sys/class/net/wlan*; do ip link set dev $(basename $dev) txqueuelen 3000; done
+  log Debug "wlan* txqueuelen: 3000"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 1000 untuk semua interface rmnet_data*
+  for txqueuelen in /sys/class/net/rmnet_data*; do txqueuelen_name=$(basename $txqueuelen); ip link set dev $txqueuelen_name txqueuelen 1000; done
+  log Debug "rmnet_data* txqueuelen: 1000"
+
+  # Mengatur MTU (Maximum Transmission Unit) menjadi 1500 untuk semua interface rmnet_data*
+  for mtu in /sys/class/net/rmnet_data*; do mtu_name=$(basename $mtu); ip link set dev $mtu_name mtu 1500; done
+  log Debug "rmnet_data* mtu: 1500"
 }
 
-bond0() {
-  su -mm -c "cmd wifi force-low-latency-mode disabled"
-  su -mm -c "sysctl -w net.ipv4.tcp_low_latency=0"
-  su -mm -c "ip link set dev wlan0 txqueuelen 3000"
+bond1() {
+  # Mengaktifkan mode low latency untuk TCP
+  sysctl -w net.ipv4.tcp_low_latency=1 >/dev/null 2>&1
+  log Debug "tcp low latency: 1"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 4000 untuk semua interface wireless (wlan*)
+  for dev in /sys/class/net/wlan*; do ip link set dev $(basename $dev) txqueuelen 4000; done
+  log Debug "wlan* txqueuelen: 4000"
+
+  # Mengatur panjang antrian transmisi (txqueuelen) menjadi 2000 untuk semua interface rmnet_data*
+  for txqueuelen in /sys/class/net/rmnet_data*; do txqueuelen_name=$(basename $txqueuelen); ip link set dev $txqueuelen_name txqueuelen 2000; done
+  log Debug "rmnet_data* txqueuelen: 2000"
+
+  # Mengatur MTU (Maximum Transmission Unit) menjadi 9000 untuk semua interface rmnet_data*
+  for mtu in /sys/class/net/rmnet_data*; do mtu_name=$(basename $mtu); ip link set dev $mtu_name mtu 9000; done
+  log Debug "rmnet_data* mtu: 9000"
 }
 
 case "$1" in
