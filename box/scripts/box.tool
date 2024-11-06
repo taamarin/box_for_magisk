@@ -10,7 +10,7 @@ url_ghproxy="https://mirror.ghproxy.com"
 use_ghproxy="false"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
-singbox_stable="disable"
+singbox_stable="enable"
 
 # Updating files from URLs
 upfile() {
@@ -281,7 +281,8 @@ upsubs() {
             log Info "${update_file_name} saved"
             # If there is a yq command, extract the proxy information from the yml and output it to the clash_provide_config file
             if [ "${enhanced}" = "true" ]; then
-              if ${yq} '.proxies' "${update_file_name}" >/dev/null 2>&1; then
+              if ${yq} 'has("proxies")' "${update_file_name}" | grep -q "true"; then
+                ${yq} '.proxies' "${update_file_name}" >/dev/null 2>&1
                 ${yq} '.proxies' "${update_file_name}" > "${clash_provide_config}"
                 ${yq} -i '{"proxies": .}' "${clash_provide_config}"
 
@@ -300,6 +301,8 @@ upsubs() {
                 if [ -f "${update_file_name}.bak" ]; then
                   rm "${update_file_name}.bak"
                 fi
+              elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria://|trojan://"; then
+                mv "${update_file_name}" "${clash_provide_config}"
               else
                 log Error "${update_file_name} update subscription failed"
                 return 1

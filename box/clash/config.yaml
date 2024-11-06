@@ -208,11 +208,11 @@ dns:
 
 proxies:
 proxy-groups:
-
   - name: "PROXY"
     type: select
     use:
       - "provide"
+      - "provide-cloud"
     proxies:
       - "FALLBACK"
       - "URL-TEST"
@@ -221,11 +221,13 @@ proxy-groups:
     type: fallback
     use:
       - "provide"
+      - "provide-cloud"
 
   - name: "URL-TEST"
     type: url-test
     use:
       - "provide"
+      - "provide-cloud"
 
 proxy-providers:
   "provide":
@@ -239,18 +241,18 @@ proxy-providers:
       url: http://www.gstatic.com/generate_204
       interval: 3600
 
-  # "provide-cloud":
-    # type: http
-    # url: "your url"
-    # interval: 3600
-    # path: ./provide/cloud.yml
-    # # filter: 'xxx' # Supports regular expressions to filter by node name
-    # # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
-    # # exclude-type: 'ss|http' # Tidak mendukung ekspresi reguler, dipisahkan dengan '|', dikecualikan menurut jenis node
-    # health-check:
-      # enable: true
-      # url: http://www.gstatic.com/generate_204
-      # interval: 3600
+  "provide-cloud":
+    type: http
+    url: "https://proxy-list.cloudaccess.host/vless/api?cc=ID,US,JP,SG&cdn=true&tls=true&limit=10&format=raw"
+    interval: 3600
+    path: ./provide/cloud.yml
+    # filter: 'xxx' # Supports regular expressions to filter by node name
+    # exclude-filter: 'ctb' # Supports regular expressions to exclude based on node name
+    # exclude-type: 'ss|http' # Does not support regular expressions, separated by '|', excluded by node type
+    health-check:
+      enable: true
+      url: http://www.gstatic.com/generate_204
+      interval: 3600
 
 # rule-providers:
   # block:
