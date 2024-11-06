@@ -40,25 +40,32 @@ jobs:
           name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
           path: /box_for_root/
 
-      # - name: Download Debug Asset => (box_for_magisk_${{ steps.get_version.outputs.version }})
-        # uses: actions/download-artifact@v4
-        # with:
-          # name: "box_for_magisk_${{ steps.get_version.outputs.version }}"
-          # path: /box_for_root/
+  upload:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - uses: actions/checkout@v4.1.0
+        with:
+          fetch-depth: 0
 
-      # - name: Upload To Telegram
-        # if: ${{  success() }}
-        # env:
-          # CHAT_ID: "-1001597117128"
-          # MESSAGE_THREAD_ID: "282263"
-          # API_ID: ${{ secrets.API_ID }}
-          # API_HASH: ${{ secrets.API_HASH }}
-          # BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-        # run: |
-          # if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            # export VERSION=${{ steps.get_version.outputs.version }}
-            # export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
-            # FILE=$(find -name "*.zip")
-            # pip3 install telethon==1.31.1
-            # python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
-          # fi
+      - name: run build
+        run: |
+          sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')($(git log --oneline -n 1 | awk '{print $1}'))/g" module.prop
+          zip -r -o -X -ll box_for_root-$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}').zip ./ -x '.git/*' -x 'CHANGELOG.md' -x 'update.json' -x 'build.sh' -x '.github/*' -x 'docs/*'
+
+      - name: Upload To Telegram
+        env:
+          CHAT_ID: "-1001597117128"
+          MESSAGE_THREAD_ID: "282263"
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
+            export VERSION=$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')
+            export COMMIT=$(git log --oneline -n 15 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
+            FILE=$(find -name "*.zip")
+            pip3 install telethon==1.31.1
+            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
+          fi
