@@ -519,7 +519,7 @@ box_bin_status() {
   stack=$(if [ "${bin_name}" != "clash" ]; then find "/data/adb/box/sing-box" -type f -name "*.json" -exec busybox awk -F'"' '/"stack"/{print $4}' {} +; else busybox awk '!/^ *#/ && /stack: / { print $2;found=1; exit}' "${clash_config}"; fi)
   TOAST=1 log Info "${bin_name} service is running."
 
-  log Info "proxy: ${proxy_mode} + network: ${network_mode} + $(if [[ "${network_mode}" == @(mixed|tun) ]]; then echo "stack: ${stack}"; fi)"
+  log Info "$(printf "%s" "proxy: ${proxy_mode}" " + network: ${network_mode}" "$(if [[ "${network_mode}" == @(mixed|tun) ]]; then echo "stack: ${stack}"; fi)" | sed 's/ + $//')"
 
   # Get the memory usage of the binary
   rss=$(grep VmRSS /proc/$PID/status | busybox awk '{ print $2 }')
