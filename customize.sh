@@ -120,13 +120,12 @@ fi
 # Customize module name based on environment
 if [ "$KSU" = "true" ]; then
   sed -i "s/name=.*/name=Box for KernelSU/g" $MODPATH/module.prop
-  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 elif [ "$APATCH" = "true" ]; then
   sed -i "s/name=.*/name=Box for APatch/g" $MODPATH/module.prop
-  unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 else
   sed -i "s/name=.*/name=Box for Magisk/g" $MODPATH/module.prop
 fi
+unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 
 # Clean up temporary files
 ui_print "- Cleaning up leftover files"
