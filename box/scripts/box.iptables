@@ -127,9 +127,6 @@ disable_ipv6() {
 
   # add: block Askes ipv6 completely
   ip -6 rule add unreachable pref "${pref}"
-
-  # add: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
-  $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
 } >> /dev/null 2>&1
 
 ipv6_enable() {
@@ -145,8 +142,8 @@ ipv6_enable() {
   # del: block Askes ipv6 completely
   ip -6 rule del unreachable pref "${pref}"
 
-  # del: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
-  $IP6V -D OUTPUT -p udp --destination-port 53 -j DROP
+  # add: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
+  $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
 } >> /dev/null 2>&1
 
 intranet=(
