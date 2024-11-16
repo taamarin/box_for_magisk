@@ -420,17 +420,20 @@ box_run_bin() {
       fi
 
       # sync port
-      # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
-      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}"'' -i --output-format=yaml "${box_dir}/${bin_name}/config.yaml" >/dev/null 2>&1
+
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | select(.tag == "tproxy-in") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json" >/dev/null 2>&1
 
       # check configuration file
-      if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
-        log Error "configuration file not found: ${box_dir}/${bin_name}/config.toml or config.json"
-        rm -f "${box_pid}"
+      if [ ! -f "${box_dir}/${bin_name}/config.toml" ] && [ ! -f "${box_dir}/${bin_name}/config.json" ] && [ ! -f "${box_dir}/${bin_name}/config.yaml" ]; then
+        log Error "No configuration file found in ${box_dir}/${bin_name}/. Expected one of: config.toml, config.json, or config.yaml"
+        if [ -f "${box_pid}" ]; then
+          rm -f "${box_pid}"
+          log Info "PID file removed: ${box_pid}"
+        fi
         exit 1
       else
-        # Displays a configuration xray"
-        log Info "config ${box_dir}/${bin_name}/*.json, or *.toml"
+        log Info "Configuration file located in ${box_dir}/${bin_name}/ (one of: .toml, .json, or .yaml)"
       fi
 
       # run xray
@@ -453,16 +456,20 @@ box_run_bin() {
       fi
 
       # sync port
-      # sed -i "s/port = [0-9]*\.[0-9]*/port = ${tproxy_port}.0/" ${box_dir}/$bin_name/config.toml
-      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json"
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | .port) = '"${tproxy_port}"'' -i --output-format=yaml "${box_dir}/${bin_name}/config.yaml" >/dev/null 2>&1
+
+      ${box_dir}/bin/yq '(.inbounds[] | select(.protocol == "dokodemo-door") | select(.tag == "tproxy-in") | .port) = '"${tproxy_port}" -i --output-format=json "${box_dir}/${bin_name}/config.json" >/dev/null 2>&1
 
       # check configuration file
-      if ! [ -f "${box_dir}/${bin_name}/config.toml" ] && ! [ -f "${box_dir}/${bin_name}/config.json" ]; then
-        log Error "configuration file not found: ${box_dir}/${bin_name}/config.toml or config.json"
+      if [ ! -f "${box_dir}/${bin_name}/config.toml" ] && [ ! -f "${box_dir}/${bin_name}/config.json" ] && [ ! -f "${box_dir}/${bin_name}/config.yaml" ]; then
+        log Error "No configuration file found in ${box_dir}/${bin_name}/. Expected one of: config.toml, config.json, or config.yaml"
+        if [ -f "${box_pid}" ]; then
+          rm -f "${box_pid}"
+          log Info "PID file removed: ${box_pid}"
+        fi
         exit 1
       else
-        # Displays a configuration v2fly"
-        log Info "config ${box_dir}/${bin_name}/*.json, or *.toml"
+        log Info "Configuration file located in ${box_dir}/${bin_name}/ (one of: .toml, .json, or .yaml)"
       fi
 
       # run v2ray
