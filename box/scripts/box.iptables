@@ -340,7 +340,7 @@ start_redirect() {
 
   if [ "${iptables}" = "$IPV" ]; then
     case "${proxy_mode}" in
-      blacklist)
+      blacklist|black)
         if [ -z "$(cat "${uid_list[@]}")" ] ; then
           ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
           [ ${network_mode} = "enhance" ] || log Info "Transparent proxy for all apps."
@@ -349,7 +349,7 @@ start_redirect() {
             ${iptables} -t nat -A BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
           done < "${uid_list[@]}"
           ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
-          [ ${network_mode} = "enhance" ] || log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} no transparent proxy."
+          [ ${network_mode} = "enhance" ] || log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) no transparent proxy."
         fi
 
         if [ "${gid_list}" != "" ] ; then
@@ -357,11 +357,11 @@ start_redirect() {
             ${iptables} -t nat -A BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
           done
           [ ${network_mode} = "enhance" ] || {
-            [ "${iptables}" = "$IPV" ] &&  log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
+            [ "${iptables}" = "$IPV" ] &&  log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) no transparent proxy."
           }
         fi
         ;;
-      whitelist)
+      whitelist|white)
         if [ -z "$(cat "${uid_list[@]}")" ] ; then
           ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
           [ ${network_mode} = "enhance" ] || log Info "Transparent proxy for all apps."
@@ -371,18 +371,18 @@ start_redirect() {
           done < "${uid_list[@]}"
           ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j REDIRECT --to-ports "${redir_port}"
           ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j REDIRECT --to-ports "${redir_port}"
-          [ ${network_mode} = "enhance" ] || log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} transparent proxy."
+          [ ${network_mode} = "enhance" ] || log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) transparent proxy."
         fi
 
         if [ "${gid_list}" != "" ] ; then
           for gid in ${gid_list[@]} ; do
             ${iptables} -t nat -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j REDIRECT --to-ports ${redir_port}
           done
-          [ ${network_mode} = "enhance" ] || [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} transparent proxy."
+          [ ${network_mode} = "enhance" ] || [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) transparent proxy."
         fi
         ;;
       *)
-        log Warning "proxy-mode: ${proxy_mode} < error."
+        log Warning "proxy mode: ${proxy_mode} < error."
         ${iptables} -t nat -A BOX_LOCAL -p tcp -j REDIRECT --to-ports "${redir_port}"
         [ ${network_mode} = "enhance" ] || log Info "Transparent proxy for all apps."
         ;;
@@ -524,7 +524,7 @@ start_tproxy() {
   fi
 
   case "${proxy_mode}" in
-    blacklist)
+    blacklist|black)
       if [ -z "$(cat "${uid_list[@]}")" ] ; then
         [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
@@ -535,17 +535,17 @@ start_tproxy() {
         done < "${uid_list[@]}"
         [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" = "$IPV" ] && log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} no transparent proxy."
+        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) no transparent proxy."
       fi
 
       if [ "${gid_list}" != "" ] ; then
         for gid in ${gid_list[@]} ; do
           ${iptables} -t mangle -A BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
         done
-        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} no transparent proxy."
+        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) no transparent proxy."
       fi
       ;;
-    whitelist)
+    whitelist|white)
       if [ -z "$(cat "${uid_list[@]}")" ] ; then
         [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
@@ -559,7 +559,7 @@ start_tproxy() {
         ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
         [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
-        [ "${iptables}" = "$IPV" ] && log Info "proxy-mode: ${proxy_mode}, package ${packages_list[*]} transparent proxy."
+        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) transparent proxy."
       fi
 
       if [ "${gid_list}" != "" ] ; then
@@ -567,11 +567,11 @@ start_tproxy() {
           [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
           ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
         done
-        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID ${gid_list[*]} transparent proxy."
+        [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) transparent proxy."
       fi
       ;;
     *)
-      log Debug "proxy-mode: ${proxy_mode} < error"
+      log Debug "proxy mode: ${proxy_mode} < error"
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
       ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
       [ "${iptables}" = "$IPV" ] && log Info "transparent proxy for all apps."
@@ -873,6 +873,9 @@ else
       probe_tun_device || log Error "tun device: (${tun_device}) not found"
       [ $1 = "renew" ] && log Warning "Cleaning up tun rules."
       iptables="$IPV"
+
+      [ -n "${packages_list}" ] && log Debug "proxy mode: $proxy_mode (${packages_list[*]})"
+
       if forward -I; then
         log Info "Create iptables tun rules done."
       else

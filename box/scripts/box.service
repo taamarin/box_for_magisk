@@ -232,7 +232,7 @@ prepare_singbox() {
     # add exclude_package/include_package for tun
     "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
     "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
-    [ ${proxy_mode} = "blacklist" ] && local mode="exclude" || mode="include"
+    [[ ${proxy_mode} = "blacklist" || ${proxy_mode} = "black" ]] && local mode="exclude" || mode="include"
     for package in "${packages_list[@]}"; do
       "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
     done
@@ -330,9 +330,9 @@ prepare_clash() {
     # add exclude-package/include-package for tun
     package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
     list_package="${package:-}"
-    if [ "${proxy_mode}" = "whitelist" ]; then
+    if [ "${proxy_mode}" = "whitelist" ] || [ "${proxy_mode}" = "white" ]; then
       mode="include-package"
-    elif [ "${proxy_mode}" = "blacklist" ]; then
+    elif [ "${proxy_mode}" = "blacklist" ] || [ "${proxy_mode}" = "black" ]; then
       mode="exclude-package"
     fi
     sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
