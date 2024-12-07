@@ -232,7 +232,7 @@ prepare_singbox() {
     # add exclude_package/include_package for tun
     "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
     "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
-    [[ ${proxy_mode} = "blacklist" || ${proxy_mode} = "black" ]] && local mode="exclude" || mode="include"
+    [[ ${proxy_mode} = "blacklist" || ${proxy_mode} = "black" ]] && mode="exclude" || mode="include"
     for package in "${packages_list[@]}"; do
       "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
     done
@@ -329,21 +329,31 @@ prepare_clash() {
 
     # add exclude-package/include-package for tun
     package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
-    list_package="${package:-}"
-    if [ "${proxy_mode}" = "whitelist" ] || [ "${proxy_mode}" = "white" ]; then
-      mode="include-package"
-    elif [ "${proxy_mode}" = "blacklist" ] || [ "${proxy_mode}" = "black" ]; then
-      mode="exclude-package"
+    list_package="${package}"
+
+    if [[ "${proxy_mode}" = "whitelist" || "${proxy_mode}" = "white" ]]; then
+      mode="include"
+    elif [[ "${proxy_mode}" = "blacklist" || "${proxy_mode}" = "black" ]]; then
+      mode="exclude"
     fi
+
+    # Check if include-package is inside a tun block:
+    include_package_found=$(busybox awk '/^tun:/{f=1} f && /'"$mode-package:"'/{print $0; exit}' "$clash_config")
+    if [ -z "$include_package_found" ]; then
+        sed -i "/^tun:/a \  $mode-package: []" "$clash_config"
+    fi
+
     sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
     sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
+
     # Add packages to the configuration if list_package is not empty
     if [ -n "${list_package}" ]; then
-      sed -i "s/${mode}:.*/${mode}: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
+      sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
     fi
-    sed -i "/tun:/ {n;s/enable: false/enable: true/}" "${clash_config}"
+
+    sed -i "/tun:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
   else
-    sed -i "/tun:/ {n;s/enable: true/enable: false/}" "${clash_config}"
+    sed -i "/tun:/,/enable:/ { /enable: true/ s/enable: false/enable: false/ }" "${clash_config}"
   fi
 
   # sync tproxy/redir port
@@ -678,6 +688,12 @@ start_box() {
 
   # Execute box_run_crontab if run_crontab is not equal to "false"
   [ "${run_crontab}" = "true" ] && box_run_crontab || log Info "crontab disabled."
+
+  if [ -z "${proxy_mode}" ]; then
+    M1=$(busybox awk '!/^ *#/ && /mode:/{print $0}' "${pkg_config}")
+    [ -z $M1 ] && printf "\nmode:white" >> "${pkg_config}"
+    log Debug "prox mode is empty, add mode:white in ${pkg_config}"
+  fi
 
   # Execute the box_cgroup, box_run_bin, box_detected_port, box_bin_alive,box_bin_status functions
   box_run_bin
