@@ -353,7 +353,7 @@ prepare_clash() {
 
     sed -i "/tun:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
   else
-    sed -i "/tun:/,/enable:/ { /enable: true/ s/enable: false/enable: false/ }" "${clash_config}"
+    sed -i "/tun:/,/enable:/ { /enable: true/ s/enable: true/enable: false/ }" "${clash_config}"
   fi
 
   # sync tproxy/redir port
