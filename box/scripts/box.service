@@ -650,13 +650,6 @@ start_box() {
       ;;
   esac
 
-  # Check if the application with package name xyz.chz.bfm is installed
-  PACKAGE="xyz.chz.bfm"
-  if pm list packages | grep -q "$PACKAGE"; then
-      # If the application is found, show a notification
-      log Warning "Apps BOX Manager($PACKAGE) found!!!. It is not compatible with the module version."
-  fi
-
   # apk manager check
   # versionName=$(dumpsys package xyz.chz.bfm | grep versionName | busybox awk -F '=' '{print $2}' | sed 's/-.*//')
   # if [[ -n "${versionName}" && $(echo "${versionName}" | busybox awk '{print ($1 < 1.13)}') -eq 1 ]]; then
