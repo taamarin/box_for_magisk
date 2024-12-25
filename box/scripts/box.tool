@@ -12,6 +12,11 @@ use_ghproxy="false"
 mihomo_stable="enable"
 singbox_stable="enable"
 
+rev1="busybox wget --no-check-certificate -qO-"
+if which curl > /dev/null 2>&1; then
+  rev1="curl --insecure -sL"
+fi
+
 # Updating files from URLs
 upfile() {
   file="$1"
@@ -188,7 +193,7 @@ upcurl() {
   mkdir -p "${bin_dir}/backup"
   [ -f "${bin_dir}/curl" ] && cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
 
-  local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
+  local latest_version=$($rev1 "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
 
   local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-glibc-${latest_version}.tar.xz"
 
@@ -367,11 +372,11 @@ upkernel() {
       if [ "${singbox_stable}" = "disable" ]; then
         # Pre-release
         log Debug "download ${bin_name} Pre-release"
-        latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
+        latest_version=$($rev1 "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
       else
         # Latest
         log Debug "download ${bin_name} Latest-stable"
-        latest_version=$(busybox wget --no-check-certificate -qO- "${api_url}/latest" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+        latest_version=$($rev1 "${api_url}/latest" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
       fi
 
       if [ -z "$latest_version" ]; then
@@ -390,14 +395,14 @@ upkernel() {
         download_link="https://github.com/MetaCubeX/mihomo/releases"
 
         if [ "${mihomo_stable}" = "enable" ]; then
-          latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+          latest_version=$($rev1 "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
           tag="$latest_version"
         else
           if [ "$use_ghproxy" == true ]; then
             download_link="${url_ghproxy}/${download_link}"
           fi
           tag="Prerelease-Alpha"
-          latest_version=$(busybox wget --no-check-certificate -qO- "${download_link}/expanded_assets/${tag}" | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
+          latest_version=$($rev1 "${download_link}/expanded_assets/${tag}" | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
         fi
         # set the filename based on platform and architecture
         filename="mihomo-${platform}-${arch}-${latest_version}"
@@ -406,7 +411,7 @@ upkernel() {
         upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
       else
         log Warning "clash.${xclash_option} Repository has been deleted"
-        # filename=$(busybox wget --no-check-certificate -qO- "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | busybox grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
+        # filename=$($rev1 "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | busybox grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
         # log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
         # upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
       fi
@@ -415,7 +420,7 @@ upkernel() {
       [ "${bin_name}" = "xray" ] && bin='Xray' || bin='v2ray'
       api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
       # set download link and get the latest version
-      latest_version=$(busybox wget --no-check-certificate -qO- ${api_url} | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+      latest_version=$($rev1 ${api_url} | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
 
       case $(uname -m) in
         "i386") download_file="$bin-linux-32.zip" ;;
@@ -451,7 +456,7 @@ upkernel() {
       fi
 
       # Fetch the latest version of Hysteria from GitHub releases
-      local latest_version=$(busybox wget --no-check-certificate -qO- "https://api.github.com/repos/apernet/hysteria/releases" | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
+      local latest_version=$($rev1 "https://api.github.com/repos/apernet/hysteria/releases" | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
 
       local download_link="https://github.com/apernet/hysteria/releases/download/app%2Fv${latest_version}/hysteria-android-${arch}"
 
@@ -562,7 +567,14 @@ upxui() {
     fi
     dir_name="yacd-gh-pages"
     log Debug "Download ${url}"
-    if busybox wget --no-check-certificate "${url}" -O "${file_dashboard}" >&2; then
+
+    if which curl > /dev/null 2>&1; then
+      rev2="curl -L --insecure ${url} -o"
+    else
+      rev2="busybox wget --no-check-certificate ${url} -O"
+    fi
+
+    if $rev2 "${file_dashboard}" >&2; then
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
         log Info "dashboard folder not exist, creating it"
         mkdir "${box_dir}/${xdashboard}"
