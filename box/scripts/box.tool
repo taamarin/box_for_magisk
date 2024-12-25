@@ -25,12 +25,23 @@ upfile() {
     update_url="${url_ghproxy}/${update_url}"
   fi
   # request
-  request="busybox wget"
-  request+=" --no-check-certificate"
-  request+=" --user-agent ${user_agent}"
-  request+=" -O ${file}"
-  request+=" ${update_url}"
-  echo "${yellow}${request}${normal}"
+  if which curl > /dev/null 2>&1; then
+    # curl="$(which curl || echo /data/adb/box/bin/curl)"
+    request="curl"
+    request+=" -L"
+    request+=" --insecure"
+    request+=" --user-agent ${user_agent}"
+    request+=" -o ${file}"
+    request+=" ${update_url}"
+    echo "${yellow}${request}${normal}"
+  else
+    request="busybox wget"
+    request+=" --no-check-certificate"
+    request+=" --user-agent ${user_agent}"
+    request+=" -O ${file}"
+    request+=" ${update_url}"
+    echo "${yellow}${request}${normal}"
+  fi
   ${request} >&2 || {
     if [ -f "${file_bak}" ]; then
       mv "${file_bak}" "${file}" || true

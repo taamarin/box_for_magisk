@@ -114,6 +114,22 @@ if [ "${backup_box}" = "true" ]; then
   cp "${temp_dir}/run/"* "/data/adb/box/run/"
 fi
 
+# create_resolv() {
+  # # Check if the resolv.conf file exists
+  # if [ ! -f /system/etc/resolv.conf ]; then
+    # # Ensure the target directory exists before writing the file
+    # mkdir -p "$MODPATH/system/etc/security/cacerts/"
+    # # Create resolv.conf with the specified nameservers
+    # cat > "$MODPATH/system/etc/resolv.conf" <<EOF
+# # nameserver 8.8.8.8
+# # nameserver 1.1.1.1
+# # nameserver 114.114.114.114
+# EOF
+  # fi
+  # ui_print "- create $MODPATH/system/etcresolv.conf"
+# }
+# create_resolv
+
 # Update module description if no kernel binaries are found
 [ -z "$(find /data/adb/box/bin -type f)" ] && sed -Ei 's/^description=(\[.*][[:space:]]*)?/description=[ 😱 Module installed but manual Kernel download required ] /g' $MODPATH/module.prop
 
