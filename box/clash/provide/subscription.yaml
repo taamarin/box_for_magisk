@@ -1,18 +1,141 @@
 proxies:
-  - name: id-rysaputra18n19xz.me
-    server: 104.18.3.198
-    port: 80
-    type: vmess
-    uuid: 46ffa3e3-0f17-4f37-a20a-8fdccd18ce3e
-    alterId: 0
-    cipher: auto
-    tls: false
+  - name: "1 \U0001F1EE\U0001F1E9 ID PT Cloud Teknologi Nusantara CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
     skip-cert-verify: true
-    servername: id-rysaputra18n19xz.me
     network: ws
     ws-opts:
-      path: /vmess
+      path: /vl=MTAzLjEzMy4yMjMuNTE6MjA5Ng
       headers:
-        Host: id-rysaputra18n19xz.me
-    udp: true
-    xudp: true
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "2 \U0001F1EE\U0001F1E9 ID Akamai Connected Cloud CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MTcyLjIzMi4yMzkuMTUxOjU4Nw
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "3 \U0001F1EE\U0001F1E9 ID CV. Rumahweb Indonesia CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MjAzLjE5NC4xMTIuMTE5Ojg0NDM
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "4 \U0001F1EE\U0001F1E9 ID Google LLC CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MzUuMjE5LjE1LjkwOjQ0Mw
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "5 \U0001F1EE\U0001F1E9 ID Linknet-Fastnet ASN CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MTExLjk1LjQwLjE0OjMyNDE0
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "6 \U0001F1EE\U0001F1E9 ID PT Herza Digital Indonesia CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MTAzLjE2OC4xNDYuMTY5OjIwMTMy
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "7 \U0001F1EE\U0001F1E9 ID Google LLC CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MzUuMjE5LjUwLjk5OjQ0Mw
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "8 \U0001F1EE\U0001F1E9 ID CV. Rumahweb Indonesia CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MjAzLjE5NC4xMTIuMTE5OjIwNTM
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "9 \U0001F1EE\U0001F1E9 ID PT Cloud Teknologi Nusantara CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MTAzLjEzMy4yMjMuNTI6MjA5Ng
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false
+  - name: "10 \U0001F1EE\U0001F1E9 ID PT Cloud Hosting Indonesia CDN TLS"
+    server: free-proxy.jeelsboobz.cloud
+    port: 443
+    type: vless
+    uuid: Free-Proxy-JeelsBoobz
+    tls: true
+    servername: free-proxy.jeelsboobz.cloud
+    skip-cert-verify: true
+    network: ws
+    ws-opts:
+      path: /vl=MTAzLjE4Ni4xLjIwOTo4NDQz
+      headers:
+        Host: free-proxy.jeelsboobz.cloud
+    udp: false

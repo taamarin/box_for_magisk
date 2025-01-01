@@ -1,141 +1,196 @@
 {
-    "dns": {
-        "queryStrategy": "UseIP",
-        "servers": [
-            "8.8.8.8"
-        ],
-        "tag": "dns",
-        "hosts": {}
-    },
-    "inbounds": [
-        {
-            "port": 9898,
-            "protocol": "dokodemo-door",
-            "tag": "proxy-in",
-            "settings": {
-                "followRedirect": true,
-                "network": "tcp,udp"
-            },
-            "sniffing": {
-                "destOverride": [
-                    "http",
-                    "tls"
-                ],
-                "enabled": true,
-                "routeOnly": false
-            },
-            "streamSettings": {
-                "sockopt": {
-                    "tproxy": "tproxy"
-                }
-            }
-        }
-    ],
-    "log": {
-        "access": "none",
-        "dnsLog": true,
-        "loglevel": "error"
-    },
-    "outbounds": [
-        {
-            "protocol": "vmess",
-            "tag": "proxy",
-            "mux": {
-                "concurrency": 8,
-                "enabled": false
-            },
-            "settings": {
-                "vnext": [
-                    {
-                        "address": "104.18.3.198",
-                        "port": 443,
-                        "users": [
-                            {
-                                "alterId": 0,
-                                "encryption": "",
-                                "id": "",
-                                "security": "auto"
-                            }
-                        ]
-                    }
-                ]
-            },
-            "streamSettings": {
-                "network": "ws",
-                "security": "tls",
-                "tlsSettings": {
-                    "allowInsecure": true,
-                    "serverName": "u.taamarin.com"
-                },
-                "wsSettings": {
-                    "path": "/vmess",
-                    "headers": {
-                        "Host": "u.taamarin.com"
-                    }
-                }
-            }
-        },
-        {
-            "protocol": "freedom",
-            "tag": "direct",
-            "settings": {
-                "domainStrategy": "UseIP"
-            }
-        },
-        {
-            "protocol": "blackhole",
-            "tag": "block",
-            "settings": {
-                "response": {
-                    "type": "http"
-                }
-            }
-        },
-        {
-            "protocol": "dns",
-            "tag": "dns-out"
-        }
-    ],
-    "routing": {
-        "domainMatcher": "mph",
-        "domainStrategy": "IPIfNonMatch",
-        "rules": [
-            {
-                "inboundTag": [
-                    "proxy-in"
-                ],
-                "outboundTag": "dns-out",
-                "port": 53,
-                "type": "field"
-            },
-            {
-                "domain": [
-                    "regexp:^.*googlesyndication.com$",
-                    "regexp:^.*adtival\\.network$"
-                ],
-                "outboundTag": "proxy",
-                "type": "field"
-            },
-            {
-                "domain": [
-                    "geosite:youtube"
-                ],
-                "network": "udp",
-                "outboundTag": "block",
-                "type": "field"
-            },
-            {
-                "domain": [
-                    "geosite:category-ads-all"
-                ],
-                "outboundTag": "block",
-                "type": "field"
-            },
-            {
-                "network": "tcp,udp",
-                "outboundTag": "proxy",
-                "type": "field"
-            }
+  "dns": {
+    "queryStrategy": "UseIP",
+    "servers": [
+      "1.1.1.1",
+      {
+        "address": "1.1.1.1",
+        "domains": [
+          "domain:googleapis.cn",
+          "domain:gstatic.com"
         ]
+      },
+      {
+        "address": "223.5.5.5",
+        "domains": [
+          "domain:dns.alidns.com",
+          "domain:doh.pub",
+          "domain:dot.pub",
+          "domain:doh.360.cn",
+          "domain:dot.360.cn",
+          "geosite:cn",
+          "geosite:geolocation-cn"
+        ],
+        "expectIPs": [
+          "geoip:cn"
+        ],
+        "skipFallback": true
+      }
+    ],
+    "tag": "dns",
+    "hosts": {
+      "geosite:category-ads-all": "127.0.0.1",
+      "domain:googleapis.cn": "googleapis.com",
+      "dns.pub": [
+        "1.12.12.12",
+        "120.53.53.53"
+      ],
+      "dns.alidns.com": [
+        "223.5.5.5",
+        "223.6.6.6",
+        "2400:3200::1",
+        "2400:3200:baba::1"
+      ],
+      "one.one.one.one": [
+        "1.1.1.1",
+        "1.0.0.1",
+        "2606:4700:4700::1111",
+        "2606:4700:4700::1001"
+      ],
+      "dns.google": [
+        "8.8.8.8",
+        "8.8.4.4",
+        "2001:4860:4860::8888",
+        "2001:4860:4860::8844"
+      ]
     }
+  },
+  "inbounds": [
+    {
+      "port": 9898,
+      "protocol": "dokodemo-door",
+      "tag": "tproxy-in",
+      "settings": {
+        "followRedirect": true,
+        "network": "tcp,udp"
+      },
+      "sniffing": {
+        "destOverride": [
+          "http",
+          "tls"
+        ],
+        "enabled": true,
+        "routeOnly": false
+      },
+      "streamSettings": {
+        "sockopt": {
+          "tproxy": "tproxy"
+        }
+      }
+    }
+  ],
+  "log": {
+    "access": "none",
+    "dnsLog": true,
+    "loglevel": "error"
+  },
+  "outbounds": [
+    {
+      "protocol": "vmess",
+      "tag": "proxy",
+      "mux": {
+        "concurrency": 8,
+        "enabled": false
+      },
+      "settings": {
+        "vnext": [
+          {
+            "address": "u.taamarin.com",
+            "port": 443,
+            "users": [
+              {
+                "alterId": 0,
+                "encryption": "",
+                "flow": "",
+                "id": "",
+                "level": 8,
+                "security": "auto"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "allowInsecure": true,
+          "fingerprint": "",
+          "publicKey": "",
+          "serverName": "u.taamarin.com",
+          "shortId": "",
+          "show": false,
+          "spiderX": ""
+        },
+        "wsSettings": {
+          "path": "/vmess",
+          "headers": {
+            "Host": "u.taamarin.com"
+          }
+        }
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct",
+      "settings": {
+        "domainStrategy": "UseIP"
+      }
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block",
+      "settings": {
+        "response": {
+          "type": "http"
+        }
+      }
+    },
+    {
+      "protocol": "dns",
+      "tag": "dns-out"
+    }
+  ],
+  "routing": {
+    "domainMatcher": "mph",
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "inboundTag": [
+          "tproxy-in"
+        ],
+        "outboundTag": "dns-out",
+        "port": 53,
+        "type": "field"
+      },
+      {
+        "domain": [
+          "regexp:^.*googlesyndication.com$",
+          "regexp:^.*adtival\\.network$"
+        ],
+        "outboundTag": "proxy",
+        "type": "field"
+      },
+      {
+        "domain": [
+          "geosite:youtube"
+        ],
+        "network": "udp",
+        "outboundTag": "block",
+        "type": "field"
+      },
+      {
+        "domain": [
+          "geosite:category-ads-all"
+        ],
+        "outboundTag": "block",
+        "type": "field"
+      },
+      {
+        "network": "tcp,udp",
+        "outboundTag": "proxy",
+        "type": "field"
+      }
+    ]
+  }
 }

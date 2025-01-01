@@ -1,7 +1,7 @@
 id=box_for_root
 name=Box for Magisk/KernelSU
-version=v1.5.0
-versionCode=20240326
-author=t@amarin
+version=v1.8
+versionCode=20241222
+author=taamarin.t.me
 description=use sing-box, clash, v2ray, hysteria and xray for tunnel proxy on android device
 updateJson=https://github.com/taamarin/box_for_magisk/raw/master/update.json

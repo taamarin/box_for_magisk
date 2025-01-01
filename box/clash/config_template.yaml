@@ -283,7 +283,7 @@ geox-url:
   
 
 ntp:
-  enable: true
+  enable: false
   write-to-system: false # 是否同步至系统时间，需要 root/管理员权限
   server: time.apple.com
   port: 123
