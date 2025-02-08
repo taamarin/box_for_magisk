@@ -88,7 +88,7 @@ profile:
 
 tun:
   enable: false
-  device: utun
+  device: meta
   mtu: 9000
   stack: system # gvisor / lwip / system
   dns-hijack:

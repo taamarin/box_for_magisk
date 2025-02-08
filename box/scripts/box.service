@@ -137,18 +137,18 @@ box_check_bin() {
   log Info "${version_output}"
 }
 
-box_create_tun() {
-  mkdir -p /dev/net
-  [ ! -L /dev/net/tun ] && ln -s /dev/tun /dev/net/tun
+# create_tun_link() {
+  # mkdir -p /dev/net
+  # [ ! -L /dev/net/tun ] && ln -s /dev/tun /dev/net/tun
 
-  if [ ! -c "/dev/net/tun" ]; then
-      log Error "Cannot create /dev/net/tun. Possible reasons:"
-      log Warning "Your system does not support the TUN/TAP driver."
-      log Warning "Your system kernel version is not compatible with the TUN/TAP driver."
-      sed -i 's/network_mode=.*/network_mode="tproxy"/g' "${settings}"
-      exit 1
-  fi
-}
+  # if [ ! -c "/dev/net/tun" ]; then
+      # log Error "Cannot create /dev/net/tun. Possible reasons:"
+      # log Warning "Your system does not support the TUN/TAP driver."
+      # log Warning "Your system kernel version is not compatible with the TUN/TAP driver."
+      # sed -i 's/network_mode=.*/network_mode="tproxy"/g' "${settings}"
+      # exit 1
+  # fi
+# }
 
 prepare_singbox() {
   # Check configuration file
@@ -183,10 +183,10 @@ prepare_singbox() {
         ${yq} '.inbounds += [{
           "type": "tun",
           "tag": "tun-in",
-          "interface_name": "utun9",
+          "interface_name": "sing",
           "address": ["172.18.0.1/30","fdfe:dcba:9876::1/126"],
           "mtu": 9000,
-          "stack": "system",
+          "stack": "mixed",
           "auto_route": true,
           "strict_route": true,
           "auto_redirect": true,
@@ -310,8 +310,8 @@ prepare_clash() {
       printf '%s\n' '' 'tun:' \
         '  enable: true' \
         '  mtu: 9000' \
-        '  device: utun' \
-        '  stack: mixed # system / gvisor / system / lwip' \
+        '  device: meta' \
+        '  stack: mixed # / gvisor / system' \
         '  dns-hijack:' \
         '    - any:53' \
         '    - tcp://any:53' \
@@ -674,10 +674,10 @@ start_box() {
   box_check_bin
   box_check_logs
 
-  # Execute the box_create_tun functions
-  if [[ "${network_mode}" == @(mixed|tun) ]]; then
-    box_create_tun
-  fi
+  # Execute the create_tun_link functions
+  # if [[ "${network_mode}" == @(mixed|tun) ]]; then
+    # create_tun_link
+  # fi
 
   # Execute box_run_crontab if run_crontab is not equal to "false"
   [ "${run_crontab}" = "true" ] && box_run_crontab || log Info "crontab disabled."

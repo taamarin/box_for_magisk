@@ -37,7 +37,7 @@ case "${bin_name}" in
     clash_dns_port=${clash_dns_port:-1053}
 
     if [[ "${network_mode}" == @(mixed|tun) ]]; then
-      tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "utun" }' "${clash_config}" 2>/dev/null)
+      tun_device=$(busybox awk '!/^ *#/ && /device: / { print $2;found=1; exit } END{ if(!found) print "meta" }' "${clash_config}" 2>/dev/null)
     fi
     ;;
   "sing-box")
