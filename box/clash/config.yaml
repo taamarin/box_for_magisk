@@ -243,7 +243,7 @@ proxy-providers:
 
   "provide-cloud":
     type: http
-    url: "https://proxy-list.cloudaccess.host/vless/api?cc=ID,US,JP,SG&cdn=true&tls=true&limit=10&format=raw"
+    url: "https://nautica.foolvpn.me/api/v1/sub/?cc=ID&format=raw&limit=20&vpn=vless,trojan&port=443&domain=172.67.5.14"
     interval: 3600
     path: ./provide/cloud.yml
     # filter: 'xxx' # Supports regular expressions to filter by node name

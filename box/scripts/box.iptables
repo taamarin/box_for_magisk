@@ -12,14 +12,11 @@ tun_forward="enable"
 clash_dns_forward="enable"
 fake_ip_range=""
 
-ipt1=$(iptables --version | busybox awk '/^iptables/ {print $2}')
-ipt2="v1.6.1"
-var1=$(echo "$ipt1" | busybox sed 's/v//g; s/\.//g')
-var2=$(echo "$ipt2" | busybox sed 's/v//g; s/\.//g')
-
-if [ "$var1" -ge "$var2" ]; then
-  IPV="iptables -w 64"
-  IP6V="ip6tables -w 64"
+va1=$(getprop ro.build.version.release)
+va2="11"
+if [ "$va1" -ge "$va2" ]; then
+  IPV="iptables -w 100"
+  IP6V="ip6tables -w 100"
 else
   IPV="iptables"
   IP6V="ip6tables"
