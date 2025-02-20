@@ -54,8 +54,9 @@ fi
 # Directory creation and file extraction
 ui_print "- Create directories"
 mkdir -p /data/adb/box/ /data/adb/box/run/ /data/adb/box/bin/xclash/
-ui_print "- Extracting uninstall.sh and box_service.sh"
+ui_print "- Extracting uninstall.sh skip_mount and box_service.sh"
 unzip -j -o "$ZIPFILE" 'uninstall.sh' -d "$MODPATH" >&2
+unzip -j -o "$ZIPFILE" 'skip_mount' -d "$MODPATH" >&2
 unzip -j -o "$ZIPFILE" 'box_service.sh' -d "${service_dir}" >&2
 
 # Set permissions
