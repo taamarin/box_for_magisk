@@ -584,6 +584,12 @@ box_bin_status() {
   else
     log Info "${bin_name} running time: not available."
   fi
+  # local IP
+  localIP=$(ip -4 a | awk '/inet / && !/127.0.0.1/ { split($2, a, "/"); print a[1] }')
+  log Info "local IP: ${localIP}"
+  # local DNS
+  localDNS=($(dumpsys connectivity | awk -F'[ ,]' '/DnsAddresses:/ { for (i=1; i<=NF; i++) if ($i ~ /^\/.*$/) print substr($i, 2) }'))
+  log Info "local DNS: ${localDNS[*]}"
 
   # Save the process ID to the pid file
   if [ -n "$PID" ]; then
