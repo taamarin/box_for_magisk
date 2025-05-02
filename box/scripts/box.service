@@ -368,10 +368,11 @@ prepare_clash() {
   fi
 
   if [[ "${network_mode}" == @(mixed|tproxy|redirect|enhance) ]]; then
-    if [[ -n "${packages_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
-      log Warning "${proxy_mode} only works in enhanced-mode: redir-host xclash[mihomo]"
-      log Warning "auto replace fake-ip to redir-host"
+    if [[ -n "${packages_list[*]}" || -n "${ignore_out_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
+      log Warning "${proxy_mode} Only works in enhanced-mode: redir-host xclash[mihomo]"
+      log Warning "replace fake-ip to redir-host in clash config"
       sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
+      sed -i "/sniffer:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
     fi
   fi
 }
