@@ -23,10 +23,10 @@
 
 ## Features
 
-- Support for multiple proxy tools: `clash`, `sing-box`, `v2ray`, `hysteria`, and `xray`.
-- Transparent proxy for Android with root access.
-- Seamless integration with Magisk, KernelSU, and APatch.
-- Manage proxy services with ease.
+* Support for multiple proxy tools: `clash`, `sing-box`, `v2ray`, `hysteria`, and `xray`.
+* Transparent proxy for Android with root access.
+* Seamless integration with Magisk, KernelSU, and APatch.
+* Manage proxy services with ease.
 
 ## Apk Manager
 
@@ -40,9 +40,9 @@ You can use the **BFR Manager** app (optional) to manage Box for Root on your de
 
 The core files of the module are stored in the following directories:
 
-- `MODDIR=/data/adb/box`
-- `MODLOG=/data/adb/box/run`
-- `SETTINGS=/data/adb/box/settings.ini`
+* `MODDIR=/data/adb/box`
+* `MODLOG=/data/adb/box/run`
+* `SETTINGS=/data/adb/box/settings.ini`
 
 > **Note**: Before editing the `settings.ini` file located at `/data/adb/box/settings.ini`, ensure that BFR is turned off to avoid configuration issues.
 
@@ -51,21 +51,26 @@ The core files of the module are stored in the following directories:
 The following core services are collectively referred to as **BFR**. By default, the BFR service auto-starts after a system boot. You can manage the service through Magisk/KernelSU Manager App, with the service start taking a few seconds, and stopping it taking effect immediately.
 
 ### To start the service:
+
 ```bash
 su -c /data/adb/box/scripts/box.service start && su -c /data/adb/box/scripts/box.iptables enable
 ```
+
 ### To stop the service:
+
 ```bash
 su -c /data/adb/box/scripts/box.iptables disable && su -c /data/adb/box/scripts/box.service stop
 ```
 
 ## Here are some additional instructions:
-- When modifying any of the core configuration files, ensure that the tproxy-related configurations match the definitions in the **/data/adb/box/settings.ini** file.
-- If your device has a public IP address, you can add that IP address to the internal network in the **/data/adb/box/scripts/box.iptables** file to prevent loopback traffic.
-- The logs for the BFM service can be found in the directory **/data/adb/box/run**.
-- Please note that modifying these files requires appropriate permissions. Make sure to carefully follow the instructions and validate any changes made to the configuration files.
+
+* When modifying any of the core configuration files, ensure that the tproxy-related configurations match the definitions in the **/data/adb/box/settings.ini** file.
+* If your device has a public IP address, you can add that IP address to the internal network in the **/data/adb/box/scripts/box.iptables** file to prevent loopback traffic.
+* The logs for the BFM service can be found in the directory **/data/adb/box/run**.
+* Please note that modifying these files requires appropriate permissions. Make sure to carefully follow the instructions and validate any changes made to the configuration files.
 
 You can run the following command to get other related operating instructions:
+
 ```bash
   su -c /data/adb/box/scripts/box.tool
   # usage: {check|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all}
@@ -76,7 +81,9 @@ You can run the following command to get other related operating instructions:
 ```
 
 ## Uninstall
+
 Remove the module from `Magisk/KernelSU/APatch Manager` and run the following command to wipe the data:
+
 ```bash
 su -c rm -rf /data/adb/box
 su -c rm -rf /data/adb/service.d/box_service.sh
@@ -84,7 +91,39 @@ su -c rm -rf /data/adb/modules/box_for_root
 ```
 
 ## Credits
-- [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk) for the original Box for Magisk module.
+
+* [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk) for the original Box for Magisk module.
+
+## Manual Installation
+
+If you want to manually install the module without a module manager:
+
+```bash
+# Copy the module to your device and extract it
+unzip box_for_magisk.zip -d /data/adb/modules/box_for_root
+
+# Set correct permissions
+chmod -R 755 /data/adb/modules/box_for_root
+
+# Reboot your device
+reboot
+```
+
+## Project Structure Overview
+box_for_magisk/
+├── box/                 # Main configuration and binary files
+│   ├── ap.list.cfg
+│   ├── package.list.cfg
+│   ├── settings.ini
+│   └── scripts/         # Service and system scripts
+├── docs/                # Documentation (in multiple languages)
+├── META-INF/            # Required for ZIP-based installation
+├── .github/             # CI/CD and funding configuration
+├── uninstall.sh         # Script to uninstall the module
+├── update.json          # Update manifest
+├── module.prop          # Magisk module metadata
+└── README.md
 
 ## License
+
 This project is licensed under the GPL-3.0 license - see the [LICENSE](https://github.com/taamarin/box_for_magisk/blob/master/LICENSE) file for details.
