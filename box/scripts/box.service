@@ -193,8 +193,6 @@ prepare_singbox() {
           "auto_route": true,
           "strict_route": true,
           "auto_redirect": true,
-          "sniff": true,
-          "sniff_override_destination": false,
           "include_android_user": [0,10],
           "include_package": [],
           "exclude_package": []
@@ -214,9 +212,7 @@ prepare_singbox() {
           "type": "tproxy",
           "tag": "tproxy-in",
           "listen": "::",
-          "listen_port": '"${tproxy_port}"',
-          "sniff": true,
-          "sniff_override_destination": false
+          "listen_port": '"${tproxy_port}"'
         }]' -i --output-format=json "${sing_config}"
         log Debug "[Tproxy] configuration added to ${sing_config}"
       fi
@@ -248,9 +244,7 @@ prepare_singbox() {
           "type": "redirect",
           "tag": "redirect-in",
           "listen": "::",
-          "listen_port": '"${redir_port}"',
-          "sniff": true,
-          "sniff_override_destination": false
+          "listen_port": '"${redir_port}"'
         }]' -i --output-format=json "${sing_config}"
         log Debug "[Redirect] configuration added to ${sing_config}"
       fi
