@@ -38,15 +38,14 @@ box_bin_alive() {
 }
 
 box_run_crontab() {
-  # start crond with the "-c" option and keep it in the background
-  nohup busybox crond -c "${box_run}" > /dev/null 2>&1 &
-  # delete the previous crontab and create a new crontab
+  # Stop crond if it is running (optional)
+  pkill -f "busybox crond" > /dev/null 2>&1
+  # Prepare crontab
   busybox crontab -c "${box_run}" -r
-  touch "${box_run}/root"
-  chmod 0755 "${box_run}/root"
+  echo "# cron tasks for root" > "${box_run}/root"
 
   if [ "${run_crontab}" = "true" ]; then
-    log Debug "crontab job enabled"
+    log Debug "crond enable"
     if [ "$update_subscription" = "true" ] || [ "$update_geo" = "true" ]; then
       log Debug "Interval crontab: ${interva_update}."
       echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
@@ -55,8 +54,12 @@ box_run_crontab() {
         log Info "${bin_name} subscription update: ${update_subscription}."
       fi
     fi
+    cat "${box_dir}/crontab.cfg" >> "${box_run}/root"
+    chmod 0644 "${box_run}/root"
+    # start crond with the "-c" option and keep it in the background
+    nohup busybox crond -c "${box_run}" > /dev/null 2>&1 &
   else
-    log Info "crontab Job disabled"
+    log Info "crond disable"
   fi
 }
 
@@ -594,7 +597,7 @@ box_bin_status() {
 
   # Save the process ID to the pid file
   if [ -n "$PID" ]; then
-    sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 😎 $bin_name service is running!!! ] /g" "$PROPFILE"
+    sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 🍀 $bin_name service is running!!! ] /g" "$PROPFILE"
     echo -n "$PID" > "${box_pid}"
   fi
 }
@@ -602,7 +605,7 @@ box_bin_status() {
 start_box() {
   # Clear the log file and add the timestamp and delimiter
   # cd /data/adb/box/bin; chmod 755 *
-  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 😵‍💫 Module is working! but no service is running ] /g" "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 🙂‍↔️ Module is working! but no service is running ] /g" "$PROPFILE"
 
   echo -n "" > "${box_log}"
   box_version=$(busybox awk '!/^ *#/ && /version=/ { print $0 }' "/data/adb/modules/box_for_root/module.prop" 2>/dev/null)
@@ -757,16 +760,18 @@ stop_box() {
     force_stop
   fi
 
-  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 🥶 $bin_name shutting down, service is stopped !!! ] /g" "$PROPFILE"
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | 😱 $bin_name shutting down, service is stopped !!! ] /g" "$PROPFILE"
 }
 
 stop_cron() {
-  # Find cronjob PID using `pgrep`
+# Stop crond with pkill
+if ! busybox pkill -f "busybox crond" > /dev/null 2>&1; then
+  # If pkill fails, find and kill the process
   cronkill=$(busybox pgrep -f "crond -c ${box_run}")
   for cron in ${cronkill[@]}; do
-    # kill cronjob
-    kill -15 "${cron}"
+    kill -15 "${cron}" 2>/dev/null
   done
+fi
 }
 
 force_stop() {
