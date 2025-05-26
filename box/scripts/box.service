@@ -557,16 +557,16 @@ box_bin_status() {
   cpu=$(ps -p $PID -o %cpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
 
   cpus_allowed=$(grep Cpus_allowed_list /proc/$PID/status | busybox awk '{ print $2" "$3 }')
-  cpuset=$(ps -p $PID -o cpu | busybox awk 'NR==2{print $1}' 2> /dev/null)
+  core=$(busybox awk '{print $39}' /proc/$PID/stat 2>/dev/null)
 
   if [ -n "${cpu}" ]; then
     log Info "${bin_name} CPU usage: ${cpu}%"
   else
     log Info "${bin_name} CPU usage: not available"
   fi
-  if [ -n "${cpuset}" ]; then
+  if [ -n "${cpus_allowed}" ]; then
     log Info "${bin_name} list of allowed CPUs : ${cpus_allowed}"
-    log Info "${bin_name} Which CPU running on : ${cpuset}"
+    log Info "${bin_name} process $PID last ran on CPU core: ${core}"
   else
     log Info "${bin_name} Which CPU running on : not available"
   fi

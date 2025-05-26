@@ -601,112 +601,160 @@ upxui() {
   fi
 }
 
-# Function to limit cgroup memcg
 cgroup_blkio() {
-  # Check if the cgroup blkio path is set and exists.
-  if [ -z "${blkio_path}" ]; then
-    local blkio_path=$(mount | grep cgroup | busybox awk '/blkio/{print $3}' | head -1)
-    if [ -z "${blkio_path}" ]; then
-      log Warning "blkio_path: is not set and could not be found"
+  local pid_file="$1"
+  local fallback_weight="${2:-900}"  # default weight jika pakai 'box'
+
+  if [ -z "$pid_file" ] || [ ! -f "$pid_file" ]; then
+    log Warning "PID file missing or invalid: $pid_file"
+    return 1
+  fi
+
+  local PID=$(<"$pid_file" 2>/dev/null)
+  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+    log Warning "Invalid or dead PID: $PID"
+    return 1
+  fi
+
+  # Temukan blkio path
+  if [ -z "$blkio_path" ]; then
+    blkio_path=$(mount | busybox awk '/blkio/ {print $3}' | head -1)
+    if [ -z "$blkio_path" ] || [ ! -d "$blkio_path" ]; then
+      log Warning "blkio_path not found"
       return 1
     fi
-  else
-    log Warning "leave the blkio_path: field empty to obtain the path."
-    return 1
   fi
 
-  # Check if box_pid is set and exists.
-  if [ ! -f "${box_pid}" ]; then
-    log Warning "${box_pid} does not exist"
-    return 1
+  # Pilih target group: foreground jika ada, jika tidak buat box
+  local target
+  if [ -d "${blkio_path}/foreground" ]; then
+    target="${blkio_path}/foreground"
+    log Info "Using existing blkio group: foreground"
+  else
+    target="${blkio_path}/box"
+    mkdir -p "$target"
+    echo "$fallback_weight" > "${target}/blkio.weight"
+    log Info "Created blkio group: box with weight $fallback_weight"
   fi
 
-  local PID=$(<"${box_pid}" 2>/dev/null)
-  if [ -d "${blkio_path}/background" ]; then
-    if [ ! -z "$PID" ]; then
-      # log Info "${bin_name} blkio: background"
-      echo "$PID" >> "${blkio_path}/background/cgroup.procs" \
-        && log Info "add $PID to ${blkio_path}/background/cgroup.procs"
-    fi
-  else
-     return 1
-  fi
+  echo "$PID" > "${target}/cgroup.procs" \
+    && log Info "Assigned PID $PID to $target"
+
   return 0
 }
 
 cgroup_memcg() {
-  # Check if the cgroup memcg limit has been set.
-  if [ -z "${memcg_limit}" ]; then
-    log Warning "memcg_limit: is not set"
+  local pid_file="$1"
+  local raw_limit="$2"
+
+  if [ -z "$pid_file" ] || [ ! -f "$pid_file" ]; then
+    log Warning "PID file missing or invalid: $pid_file"
     return 1
   fi
 
-  # Check if the cgroup memcg path is set and exists.
-  if [ -z "${memcg_path}" ]; then
-    local memcg_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
-    if [ -z "${memcg_path}" ]; then
-      log Warning "memcg_path: is not set and could not be found"
+  if [ -z "$raw_limit" ]; then
+    log Warning "memcg limit not specified"
+    return 1
+  fi
+
+  local limit
+  case "$raw_limit" in
+    *[Mm])
+      limit=$(( ${raw_limit%[Mm]} * 1024 * 1024 ))
+      ;;
+    *[Gg])
+      limit=$(( ${raw_limit%[Gg]} * 1024 * 1024 * 1024 ))
+      ;;
+    *[Kk])
+      limit=$(( ${raw_limit%[Kk]} * 1024 ))
+      ;;
+    *[0-9])
+      limit=$raw_limit  # assume raw bytes
+      ;;
+    *)
+      log Warning "Invalid memcg limit format: $raw_limit"
+      return 1
+      ;;
+  esac
+
+  local PID
+  PID=$(<"$pid_file" 2>/dev/null)
+  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+    log Warning "Invalid or dead PID: $PID"
+    return 1
+  fi
+
+  # Deteksi memcg_path jika belum diset
+  if [ -z "$memcg_path" ]; then
+    memcg_path=$(mount | grep cgroup | busybox awk '/memory/{print $3}' | head -1)
+    if [ -z "$memcg_path" ] || [ ! -d "$memcg_path" ]; then
+      log Warning "memcg path could not be determined"
       return 1
     fi
-  else
-    log Warning "leave the memcg_path: field empty to obtain the path."
-    return 1
   fi
 
-  # Check if box_pid is set and exists.
-  if [ ! -f "${box_pid}" ]; then
-    log Warning "${box_pid} does not exist"
-    return 1
-  fi
+  # Gunakan bin_name jika tersedia, default ke 'app'
+  local name="${bin_name:-app}"
+  local target="${memcg_path}/${name}"
+  mkdir -p "$target"
 
-  # Create cgroup directory and move process to cgroup.
-  bin_name=${bin_name}
-  # local bin_name=$(basename "$0")
-  mkdir -p "${memcg_path}/${bin_name}"
-  local PID=$(<"${box_pid}" 2>/dev/null)
+  echo "$limit" > "${target}/memory.limit_in_bytes" \
+    && log Info "Set memory limit for $name: ${limit} bytes"
 
-  if [ ! -z "$PID" ]; then
-    # Set memcg limit for cgroups.
-    echo "${memcg_limit}" > "${memcg_path}/${bin_name}/memory.limit_in_bytes" \
-      && log Info "${bin_name} memcg limit: ${memcg_limit}"
+  echo "$PID" > "${target}/cgroup.procs" \
+    && log Info "Assigned PID $PID to ${target}"
 
-    echo "$PID" > "${memcg_path}/${bin_name}/cgroup.procs" \
-      && log Info "add $PID to ${memcg_path}/${bin_name}/cgroup.procs"
-  else
-    return 1
-  fi
   return 0
 }
 
 cgroup_cpuset() {
-  # Check if the cgroup cpuset path is set and exists.
-  if [ -z "${cpuset_path}" ]; then
-    cpuset_path=$(mount | grep cgroup | busybox awk '/cpuset/{print $3}' | head -1)
-    if [ -z "${cpuset_path}" ]; then
-      log Warning "cpuset_path: is not set and could not be found"
+  local pid_file="${1}"
+  local cores="${2}"
+
+  if [ -z "${pid_file}" ] || [ ! -f "${pid_file}" ]; then
+    log Warning "Missing or invalid PID file: ${pid_file}"
+    return 1
+  fi
+
+  local PID
+  PID=$(<"${pid_file}" 2>/dev/null)
+  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+    log Warning "PID $PID from ${pid_file} is not valid or not running"
+    return 1
+  fi
+
+  # Deteksi jumlah core jika cores belum ditentukan
+  if [ -z "${cores}" ]; then
+    local total_core
+    total_core=$(nproc --all 2>/dev/null)
+    if [ -z "$total_core" ] || [ "$total_core" -le 0 ]; then
+      log Warning "Failed to detect CPU cores"
       return 1
     fi
-  else
-    log Warning "leave the cpuset_path: field empty to obtain the path."
-    return 1
+    cores="0-$((total_core - 1))"
   fi
 
-  # Check if box_pid is set and exists.
-  if [ ! -f "${box_pid}" ]; then
-    log Warning "${box_pid} does not exist"
-    return 1
-  fi
-
-  local PID=$(<"${box_pid}" 2>/dev/null)
-  if [ -d "${cpuset_path}/top-app" ]; then
-    if [ ! -z "$PID" ]; then
-      # log Info "${bin_name} cpuset: $(cat ${cpuset_path}/top-app/cpus)"
-      echo "$PID" >> "${cpuset_path}/top-app/cgroup.procs" \
-        && log Info "add $PID to ${cpuset_path}/top-app/cgroup.procs"
+  # Deteksi cpuset_path
+  if [ -z "${cpuset_path}" ]; then
+    cpuset_path=$(mount | grep cgroup | busybox awk '/cpuset/{print $3}' | head -1)
+    if [ -z "${cpuset_path}" ] || [ ! -d "${cpuset_path}" ]; then
+      log Warning "cpuset_path not found"
+      return 1
     fi
-  else
-    return 1
   fi
+
+  local cpuset_target="${cpuset_path}/top-app"
+  if [ ! -d "${cpuset_target}" ]; then
+    cpuset_target="${cpuset_path}/apps"
+    [ ! -d "${cpuset_target}" ] && log Warning "cpuset target not found" && return 1
+  fi
+
+  echo "${cores}" > "${cpuset_target}/cpus"
+  echo "0" > "${cpuset_target}/mems"
+
+  echo "${PID}" > "${cpuset_target}/cgroup.procs" \
+    && log Info "Assigned PID $PID to ${cpuset_target} with CPU cores [$cores]"
+
   return 0
 }
 
@@ -793,19 +841,19 @@ case "$1" in
     check
     ;;
   memcg|cpuset|blkio)
-  # leave it blank by default, it will fill in auto,
+    # leave it blank by default, it will fill in auto,
     case "$1" in
       memcg)
         memcg_path=""
-        cgroup_memcg
+        cgroup_memcg "${box_pid}" ${memcg_limit}
         ;;
       cpuset)
         cpuset_path=""
-        cgroup_cpuset
+        cgroup_cpuset "${box_pid}" ${allow_cpu}
         ;;
       blkio)
         blkio_path=""
-        cgroup_blkio
+        cgroup_blkio "${box_pid}" "${weight}"
         ;;
     esac
     ;;
