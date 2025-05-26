@@ -194,12 +194,14 @@ probe_tun_index() {
   while [ ! -f "/data/misc/net/rt_tables" ]; do
     sleep 1
   done
+
   while read -r index name; do
     if [ "${name}" = "${tun_device}" ]; then
       tun_table_index=${index}
       return 0
     fi
   done < /data/misc/net/rt_tables
+
   return 1
 }
 
@@ -214,17 +216,18 @@ tun_forward_ip_rules() {
     "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
     "nop pref 6000"
   )
-  
+
   ipv6_rules=(
     "iif lo goto 6000 pref 5000"
     "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-    # "from 2001:db8::/32 lookup ${tun_table_index} pref 5030"
-    # "from fc00::/7 lookup ${tun_table_index} pref 5040"
-    # "from fd00::/8 lookup ${tun_table_index} pref 5050"
     "iif ${tun_device} goto 6000 pref 5020"
+    "from fc00::/7 lookup ${tun_table_index} pref 5030"   # ULA
+    "from fd00::/8 lookup ${tun_table_index} pref 5040"   # Subset of ULA
+    "from fe80::/10 lookup ${tun_table_index} pref 5050"  # Link-local
+    # "from 2000::/3 lookup ${tun_table_index} pref 5060"
     "nop pref 6000"
   )
-  
+
   if [ "${iptables}" = "$IPV" ]; then
     for rule in "${ipv4_rules[@]}"; do
       ip -4 rule "${action}" ${rule}
@@ -237,22 +240,23 @@ tun_forward_ip_rules() {
 }
 
 tun_forward_ip_rules_del() {
-  for preff in 5000 5010 5020 5030 5040 5050 6000; do
-    ip -4 rule del pref $preff
-    ip -6 rule del pref $preff
+  for pref in 5000 5010 5020 5030 5040 5050 6000; do
+    ip -4 rule del pref $pref 2>/dev/null
+    ip -6 rule del pref $pref 2>/dev/null
   done
 }
 
 sing_tun_ip_rules() {
   ip -4 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
   ip -4 rule $1 lookup main pref 7000
-
   ip -6 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
   ip -6 rule $1 lookup main pref 7000
 }
 
 forward() {
   local action=$1
+
+  ${iptables} -t nat "${action}" POSTROUTING -o ${tun_device} -j MASQUERADE
 
   ${iptables} "${action}" FORWARD -i "${tun_device}" -j ACCEPT
   ${iptables} "${action}" FORWARD -o "${tun_device}" -j ACCEPT
@@ -280,7 +284,7 @@ forward() {
       return 1
     fi
   fi
-} >> /dev/null 2>&1
+} >/dev/null 2>&1
 
 start_redirect() {
   if [ "${iptables}" = "$IPV" ]; then
