@@ -49,7 +49,18 @@ case "${bin_name}" in
     fake_ip_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet4_range/ {print $4}' {} +)
     fake_ip6_range=$(find ${box_dir}/sing-box/ -maxdepth 1 -type f -name "*.json" -exec busybox awk -F'"' '/inet6_range/ {print $4}' {} +)
     ;;
-  "xray" | "v2fly" | "hysteria" )
+  "hysteria")
+    case "${network_mode}" in
+      redirect|tproxy|enhance)
+        true # do nothing
+        ;;
+      *)
+        log Warning "$bin_name does not support network_mode: $network_mode, return to TProxy"
+        sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+        ;;
+    esac
+    ;;
+  "xray" | "v2fly")
     if [[ "${network_mode}" != "tproxy" ]]; then
       log Warning "$bin_name does not support network_mode: $network_mode, return to TProxy"
       sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}

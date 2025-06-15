@@ -1,0 +1,1 @@
+Docs https://v2.hysteria.network/docs/advanced/Full-Client-Config/

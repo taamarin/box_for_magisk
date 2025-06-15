@@ -1,22 +1,39 @@
-server: your.domain.net:443
-auth: some_password
+server: free.jeelsboobz.art:16872
+auth: "6ebd7494-93ff-4b2f-991c-1aeba9a1e44b"
+
 tls:
-  sni: your.domain.net
-#  insecure: false
-#  pinSHA256: BA:88:45:17:A1...
-#  ca: custom_ca.crt
+  sni: bing.com
+  insecure: true
+
+obfs:
+  type: salamander 
+  salamander:
+    password: "n0X9yN4T0gWIybkYYEyYdsOub"
+
 bandwidth:
-  up: 20 mbps
+  up: 100 mbps
   down: 100 mbps
 
 lazy: true
 
 socks5:
   listen: 127.0.0.1:1080
+  # username: user
+  # password: pass
+  # disableUDP: false
+
 http:
   listen: 127.0.0.1:7080
+  # username: king
+  # password: kong
+  # realm: martian
 
 tcpTProxy:
   listen: :9898
+
 udpTProxy:
   listen: :9898
+  timeout: 20s
+
+tcpRedirect:
+  listen: :9797

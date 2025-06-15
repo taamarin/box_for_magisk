@@ -385,11 +385,21 @@ box_run_bin() {
       # sync port
       sed -i -e "/tcpTProxy:/,/listen:/s/listen: :.*/listen: :${tproxy_port}/" "${box_dir}/${bin_name}/config.yaml"
       sed -i -e "/udpTProxy:/,/listen:/s/listen: :.*/listen: :${tproxy_port}/" "${box_dir}/${bin_name}/config.yaml"
+      sed -i -e "/tcpRedirect:/,/listen:/s/listen: :.*/listen: :${redir_port}/" "${box_dir}/${bin_name}/config.yaml"
 
       # set network_mode variable value to "tproxy"
-      if [[ "${network_mode}" != "tproxy" ]]; then
-        sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
-      fi
+      # if [[ "${network_mode}" != "tproxy" ]]; then
+        # sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+      # fi
+      case "${network_mode}" in
+        redirect|tproxy|enhance)
+          # do nothing
+          ;;
+        *)
+          sed -i 's/\(network_mode=\)\"[^\"]*\"/\1"tproxy"/g' ${settings}
+          ;;
+      esac
+
       nohup busybox setuidgid ${box_user_group} ${bin_path} -c ${box_dir}/${bin_name}/config.yaml > "${bin_log}" 2>&1 &
       PID=$!
       echo -n $PID > "${box_pid}"
