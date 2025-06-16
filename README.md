@@ -1,6 +1,6 @@
 # Box for Root
 
-[![ID](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](docs/index_id.md) [![EN](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](docs/index_en.md) [![CN](https://img.shields.io/badge/cn-blue.svg?style=for-the-badge)](docs/index_cn.md)
+[![ID](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](docs/index_id.md) [![EN](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](docs/index_en.md) [![ZH](https://img.shields.io/badge/zh-blue.svg?style=for-the-badge)](docs/index_zh.md)
 
 <h1 align="center">
   <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.svg" alt="BOX" width="200">
@@ -18,36 +18,27 @@
 </div>
 
 ## Introduction
-
 `Box for Root` (BFR) is a [Magisk](https://github.com/topjohnwu/Magisk), [KernelSU](https://github.com/tiann/KernelSU), [APatch](https://github.com/bmax121/APatch), module that provides a suite of proxy tools, including `clash`, `sing-box`, `v2ray`, `hysteria` and `xray`. It allows you to configure a transparent proxy on Android devices with root access.
 
 ## Features
-
 - Support for multiple proxy tools: `clash`, `sing-box`, `v2ray`, `hysteria`, and `xray`.
 - Transparent proxy for Android with root access.
 - Seamless integration with Magisk, KernelSU, and APatch.
 - Manage proxy services with ease.
 
 ## Apk Manager
-
 You can use the **BFR Manager** app (optional) to manage Box for Root on your device.
-
 [Download BFR Manager](https://github.com/taamarin/box.manager)
-
-> **Note**: If you receive continuous notifications, open Magisk Manager, navigate to SuperUser, search for `BoxForRoot`, and disable logs and notifications.
+> ⚠️ If you receive continuous notifications, open Magisk Manager, navigate to SuperUser, search for `BoxForRoot`, and disable logs and notifications.
 
 ## Module Directory
-
 The core files of the module are stored in the following directories:
-
 - `MODDIR=/data/adb/box`
 - `MODLOG=/data/adb/box/run`
 - `SETTINGS=/data/adb/box/settings.ini`
-
-> **Note**: Before editing the `settings.ini` file located at `/data/adb/box/settings.ini`, ensure that BFR is turned off to avoid configuration issues.
+> ⚠️ Before editing the `settings.ini` file located at `/data/adb/box/settings.ini`, ensure that BFR is turned off to avoid configuration issues.
 
 ## Manage Service Start/Stop
-
 The following core services are collectively referred to as **BFR**. By default, the BFR service auto-starts after a system boot. You can manage the service through Magisk/KernelSU Manager App, with the service start taking a few seconds, and stopping it taking effect immediately.
 
 ### To start the service:
