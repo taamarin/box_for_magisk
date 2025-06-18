@@ -6,14 +6,16 @@ events=$1
 
 export PATH="/data/adb/magisk:/data/adb/ksu/bin:/data/adb/ap/bin:$PATH:/system/bin"
 
-va1=$(getprop ro.build.version.release)
-va2="11"
-if [ "$va1" -ge "$va2" ]; then
+# ex: 7.1.1
+buildVersion=$(getprop ro.build.version.release)
+minBuildVersion="11"
+IPV="iptables" # Default
+IP6V="ip6tables" # Default
+# ex: 7.1.1 -> 7
+buildVersionMajor=${buildVersion%%.*}
+if [ "$buildVersionMajor" -ge "$minBuildVersion" ]; then
   IPV="iptables -w 100"
   IP6V="ip6tables -w 100"
-else
-  IPV="iptables"
-  IP6V="ip6tables"
 fi
 
 iptables="${IPV}"
