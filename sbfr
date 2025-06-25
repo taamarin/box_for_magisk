@@ -1,0 +1,76 @@
+#!/system/bin/sh
+
+# Colors
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[1;36m'
+RESET='\033[0m'
+
+# Check if the device has root access
+if ! su -c 'echo root' &>/dev/null; then
+    echo -e "${RED}Error: Device does not have root access.${RESET}"
+    exit 1
+fi
+
+# Help function
+help() {
+    echo -e "${CYAN}Usage: $0 {start|stop|s <args>|i <args>|u|x|r|t <args>}${RESET}\n"
+    echo -e "  ${YELLOW}start${RESET}    : Start Box (service and iptables)"
+    echo -e "  ${YELLOW}stop${RESET}     : Stop Box (iptables and service)"
+    echo -e "  ${YELLOW}s <args>${RESET} : Run command to box.service with extra arguments"
+    echo -e "  ${YELLOW}i <args>${RESET} : Run command to box.iptables with extra arguments"
+    echo -e "  ${YELLOW}t <args>${RESET} : Run tools from box.tool with extra arguments"
+    echo -e "  ${YELLOW}u${RESET}        : API to upgrade core[clash] (POST to /upgrade)"
+    echo -e "  ${YELLOW}x${RESET}        : API to upgrade Dashboard UI [clash/sing] (POST to /upgrade/ui)"
+    echo -e "  ${YELLOW}r${RESET}        : API to restart Box[clash] (POST to /restart)"
+    echo -e "  ${YELLOW}help${RESET}     : Show this help message"
+}
+
+# Function to POST to local Box UI endpoint
+post_ui() {
+    local endpoint="$1"
+    curl -s -X POST "http://127.0.0.1:9090$endpoint" \
+        && echo -e "${GREEN}Successfully POST to $endpoint${RESET}" \
+        || echo -e "${RED}Failed to POST to $endpoint${RESET}"
+}
+
+# Argument handler
+case "$1" in
+    start)
+        echo -e "${YELLOW}Starting Box...${RESET}"
+        su -c '/data/adb/box/scripts/box.service start'
+        su -c '/data/adb/box/scripts/box.iptables enable'
+        ;;
+    stop)
+        echo -e "${YELLOW}Stopping Box...${RESET}"
+        su -c '/data/adb/box/scripts/box.iptables disable'
+        su -c '/data/adb/box/scripts/box.service stop'
+        ;;
+    s)
+        su -c "/data/adb/box/scripts/box.service ${2}"
+        ;;
+    i)
+        su -c "/data/adb/box/scripts/box.iptables ${2}"
+        ;;
+    u)
+        post_ui "/upgrade"
+        ;;
+    x)
+        post_ui "/upgrade/ui"
+        ;;
+    r)
+        post_ui "/restart"
+        ;;
+    t)
+        su -c "/data/adb/box/scripts/box.tool $2"
+        ;;
+    help|-h|--help)
+        help
+        ;;
+    *)
+        echo -e "${RED}Unknown argument: $1${RESET}"
+        help
+        exit 1
+        ;;
+esac

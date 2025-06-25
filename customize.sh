@@ -54,10 +54,12 @@ fi
 # Directory creation and file extraction
 ui_print "- Create directories"
 mkdir -p /data/adb/box/ /data/adb/box/run/ /data/adb/box/bin/xclash/
-ui_print "- Extracting uninstall.sh skip_mount and box_service.sh"
+mkdir -p $MODPATH/system/bin
+
+ui_print "- Extracting uninstall.sh and box_service.sh"
 unzip -j -o "$ZIPFILE" 'uninstall.sh' -d "$MODPATH" >&2
-unzip -j -o "$ZIPFILE" 'skip_mount' -d "$MODPATH" >&2
 unzip -j -o "$ZIPFILE" 'box_service.sh' -d "${service_dir}" >&2
+unzip -j -o "$ZIPFILE" 'sbfr' -d "$MODPATH/system/bin" >&2
 
 # Set permissions
 ui_print "- Setting permissions"
@@ -66,6 +68,8 @@ set_perm_recursive /data/adb/box/ 0 3005 0755 0644
 set_perm_recursive /data/adb/box/scripts/ 0 3005 0755 0700
 set_perm ${service_dir}/box_service.sh 0 0 0755
 set_perm $MODPATH/uninstall.sh 0 0 0755
+set_perm $MODPATH/system/bin/sbfr 0 0 0755
+
 chmod ugo+x ${service_dir}/box_service.sh $MODPATH/uninstall.sh /data/adb/box/scripts/*
 
 # Download prompt for optional kernel components
@@ -146,7 +150,12 @@ unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2
 
 # Clean up temporary files
 ui_print "- Cleaning up leftover files"
-rm -rf /data/adb/box/bin/.bin $MODPATH/box $MODPATH/box_service.sh
+rm -rf /data/adb/box/bin/.bin $MODPATH/box $MODPATH/sbfr $MODPATH/box_service.sh
+
+# Create a symbolic link to run /dev/sbfr as a shortcut to sbfr
+ln -sf "$MODPATH/system/bin/sbfr" /dev/sbfr
+ui_print "- Shortcut '/dev/sbfr' created."
+ui_print "     ↳  You can now run: su -c /dev/sbfr"
 
 # Complete installation
 ui_print "- Installation complete. Please reboot your device."
