@@ -113,10 +113,31 @@ bin_alive() {
 
 find_packages_uid() {
   echo -n "" > "${uid_list}"
+
   for package in "${packages_list[@]}"; do
-    busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
+    if [[ "$package" == *:* ]]; then
+      user="${package%%:*}"
+      pkg="${package##*:}"
+    else
+      user=0
+      pkg="$package"
+    fi
+
+    appid="$(busybox awk -v p="$pkg" '$1 == p {print $2}' "$system_packages_file")"
+
+    if [[ -n "$appid" ]]; then
+      uid=$((user * 100000 + appid))
+      echo "$uid" >> "${uid_list}"
+    fi
   done
 }
+
+# find_packages_uid() {
+  # echo -n "" > "${uid_list}"
+  # for package in "${packages_list[@]}"; do
+    # busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
+  # done
+# }
 
 probe_user_group() {
   if PID=$(busybox pidof ${bin_name}) ; then
