@@ -347,10 +347,8 @@ prepare_clash() {
     sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
 
     if [ -n "${list_package}" ]; then
-      # Remove the "0:" then combine them into one line of commas
-      list_package_clean=$(echo "$list_package" | cut -d':' -f2 | paste -sd, -)
+      list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | paste -sd, -)
 
-      # Insert into configuration file
       sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package_clean//,/\",\"}\"]/g" "${clash_config}"
     fi
 
