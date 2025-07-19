@@ -28,7 +28,7 @@
 
 ## Apk Manager
 You can use the **BFR Manager** app (optional) to manage Box for Root on your device.
-[Download BFR Manager](https://github.com/taamarin/box.manager)
+[Download BFR Manager](https://t.me/taamarin/365415/489307)
 > ⚠️ If you receive continuous notifications, open Magisk Manager, navigate to SuperUser, search for `BoxForRoot`, and disable logs and notifications.
 
 ## Module Directory
