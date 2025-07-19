@@ -347,7 +347,9 @@ prepare_clash() {
     sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
 
     if [ -n "${list_package}" ]; then
-      list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | paste -sd, -)
+      list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | busybox paste -sd, -)
+
+      # list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | tr '\n' ',' | sed 's/,$//')
 
       sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package_clean//,/\",\"}\"]/g" "${clash_config}"
     fi
