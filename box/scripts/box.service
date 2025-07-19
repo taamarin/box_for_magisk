@@ -232,7 +232,10 @@ prepare_singbox() {
     "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
     "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
     [[ ${proxy_mode} = "blacklist" || ${proxy_mode} = "black" ]] && mode="exclude" || mode="include"
-    for package in "${packages_list[@]}"; do
+
+    # Clean up the "0:" prefix and insert one by one into the config
+    for raw in "${packages_list[@]}"; do
+      package=$(echo "$raw" | cut -d':' -f2)
       "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
     done
 
@@ -343,9 +346,12 @@ prepare_clash() {
     sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
     sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
 
-    # Add packages to the configuration if list_package is not empty
     if [ -n "${list_package}" ]; then
-      sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package//,/\",\"}\"]/g" "${clash_config}"
+      # Remove the "0:" then combine them into one line of commas
+      list_package_clean=$(echo "$list_package" | cut -d':' -f2 | paste -sd, -)
+
+      # Insert into configuration file
+      sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package_clean//,/\",\"}\"]/g" "${clash_config}"
     fi
 
     sed -i "/tun:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
