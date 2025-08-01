@@ -483,13 +483,6 @@ start_tproxy() {
   # ${iptables} -t mangle -I BOX_EXTERNAL -i rmnet_data+ -j RETURN
   # ${iptables} -t mangle -I BOX_EXTERNAL -i ccmni+ -j RETURN
 
-  # Skip traffic already handled by TProxy, if the interface of the default route has a public IPv4 or IPv6 address assigned by the ISP, omitting these rules will result in abnormal proxy behavior for local traffic, which may cause the entire network to run slower
-  # if [[ "${bin_name}" == @(xray|v2fly|clash|hysteria) ]]; then
-    # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-mark ${fwmark}
-    # ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-mark ${fwmark}
-    # ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
-  # fi
-
   if [ "${clash_dns_forward}" = "enable" ] && [[ "${bin_name}" == @(clash|hysteria) ]] ; then
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j RETURN
       ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j RETURN
@@ -497,7 +490,13 @@ start_tproxy() {
       [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
       ${iptables} -t mangle -A BOX_EXTERNAL -p udp --dport 53 -j TPROXY --on-port ${tproxy_port} --tproxy-mark ${fwmark}
   fi
- 
+
+  # Skip traffic already handled by TProxy
+  # If the interface of the default route has a public IPv4 or IPv6 address assigned by the ISP, omitting these rules will result in abnormal proxy behavior for local traffic'
+  [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-xmark ${fwmark}
+  ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-xmark ${fwmark}
+  ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
+
   # Bypass intranet, run `su -c 'zcat /proc/config.gz | grep -i addrtype'` to check compatibility
   # ${iptables} -t mangle -A BOX_EXTERNAL -m addrtype --dst-type LOCAL -j RETURN
   if [ "${iptables}" = "$IPV" ]; then
@@ -565,15 +564,15 @@ start_tproxy() {
   case "${proxy_mode}" in
     blacklist|black)
       if [ -z "$(cat "${uid_list[@]}")" ] ; then
-        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-xmark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
         [ "${iptables}" = "$IPV" ] && log Info "transparent proxy for all apps."
       else
         while read -r appid; do
           ${iptables} -t mangle -A BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
         done < "${uid_list[@]}"
-        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-xmark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
         [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) no transparent proxy."
       fi
 
@@ -586,44 +585,44 @@ start_tproxy() {
       ;;
     whitelist|white)
       if [ -z "$(cat "${uid_list[@]}")" ] ; then
-        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-xmark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
         [ "${iptables}" = "$IPV" ] && log Info "transparent proxy for all apps."
       else
         while read -r appid; do
-          [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
-          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner "${appid}" -j MARK --set-mark "${fwmark}"
+          [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner "${appid}" -j MARK --set-xmark "${fwmark}"
+          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner "${appid}" -j MARK --set-xmark "${fwmark}"
         done < "${uid_list[@]}"
-        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-mark "${fwmark}"
-        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
-        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-mark "${fwmark}"
+        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 0 -j MARK --set-xmark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 0 -j MARK --set-xmark "${fwmark}"
+        [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --uid-owner 1052 -j MARK --set-xmark "${fwmark}"
+        ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --uid-owner 1052 -j MARK --set-xmark "${fwmark}"
         [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode} (${packages_list[*]}) transparent proxy."
       fi
 
       if [ "${gid_list}" != "" ] ; then
         for gid in ${gid_list[@]} ; do
-          [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
-          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-mark "${fwmark}"
+          [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -m owner --gid-owner ${gid} -j MARK --set-xmark "${fwmark}"
+          ${iptables} -t mangle -A BOX_LOCAL -p udp -m owner --gid-owner ${gid} -j MARK --set-xmark "${fwmark}"
         done
         [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) transparent proxy."
       fi
       ;;
     *)
       log Debug "proxy mode: ${proxy_mode} < error"
-      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-mark "${fwmark}"
-      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-mark "${fwmark}"
+      [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-xmark "${fwmark}"
+      ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
       [ "${iptables}" = "$IPV" ] && log Info "transparent proxy for all apps."
       ;;
     esac
 
   ${iptables} -t mangle -I OUTPUT -j BOX_LOCAL
 
-  ${iptables} -t mangle -N DIVERT
-  ${iptables} -t mangle -F DIVERT
-  ${iptables} -t mangle -A DIVERT -j MARK --set-mark "${fwmark}"
-  ${iptables} -t mangle -A DIVERT -j ACCEPT
-  [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
+  # ${iptables} -t mangle -N DIVERT
+  # ${iptables} -t mangle -F DIVERT
+  # ${iptables} -t mangle -A DIVERT -j MARK --set-xmark "${fwmark}"
+  # ${iptables} -t mangle -A DIVERT -j ACCEPT
+  # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
 
   # Disable QUIC
   if [ "${quic}" = "disable" ]; then
