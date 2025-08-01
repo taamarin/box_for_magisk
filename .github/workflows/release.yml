@@ -7,52 +7,90 @@ on:
         description: 'Release Tag'
         required: true
       branch:
-        description: 'Push Changes'
+        description: 'Push Changes Branch'
+        required: true
+      changelog:
+        description: 'Changelog Content'
         required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4.1.0
+      # 1. Checkout repository
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Generate version date
       - name: Get Version
         id: get_version
-        run: |
-          echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+        run: echo "date=$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
-      - name: Update update.json and module.prop
+      # 3. Update update.json, module.prop, and CHANGELOG.md
+      - name: Update files
         run: |
-          echo '{
-            "version": "${{ github.event.inputs.tag }}",
-            "versionCode": "${{ steps.get_version.outputs.date }}",
-            "zipUrl": "https://github.com/taamarin/box_for_magisk/releases/download/${{ github.event.inputs.tag }}/box_for_root-${{ github.event.inputs.tag }}.zip",
+          VERSION="${{ github.event.inputs.tag }}"
+          DATE_NUM="${{ steps.get_version.outputs.date }}"
+          DATE_HUMAN=$(date +%d-%m-%y)
+          CHANGELOG="${{ github.event.inputs.changelog }}"
+
+          # update.json
+          cat > update.json <<EOF
+          {
+            "version": "$VERSION",
+            "versionCode": "$DATE_NUM",
+            "zipUrl": "https://github.com/taamarin/box_for_magisk/releases/download/$VERSION/box_for_root-$VERSION.zip",
             "changelog": "https://github.com/taamarin/box_for_magisk/raw/master/CHANGELOG.md"
-          }' > update.json
+          }
+          EOF
 
-          sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/${{ github.event.inputs.tag }}/g" module.prop
-          sed -i "s/$(grep -oP 'versionCode=\K[^ ]+' module.prop)/$(date +%Y%m%d)/g" module.prop
+          # module.prop
+          sed -i "s/^version=.*/version=$VERSION/" module.prop
+          sed -i "s/^versionCode=.*/versionCode=$DATE_NUM/" module.prop
 
+          # Changelog
+          if [ ! -f CHANGELOG.md ]; then
+            echo "# Changelog" > CHANGELOG.md
+            echo "" >> CHANGELOG.md
+          fi
+          {
+            echo "#### Changelog v$VERSION - $DATE_HUMAN"
+            echo "$CHANGELOG" | sed 's/^/- /'
+            echo ""
+            cat CHANGELOG.md
+          } > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+
+      # 4. Commit and push changes
       - name: Commit and push changes
         run: |
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add update.json module.prop
-          git commit -m "${{ github.event.inputs.tag }}"
-          git push -f origin "${{github.event.inputs.branch}}"
- 
-      - name: run build.sh
-        run: |
-          sh build.sh
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json module.prop CHANGELOG.md
+          git commit -m "${{ github.event.inputs.tag }}" || echo "No changes to commit"
+          git push origin "${{ github.event.inputs.branch }}" --force
 
+      # 5. Run build script
+      - name: Run build.sh
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      # 6. Create GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.event.inputs.tag }}
           files: box_for_root-v*.zip
           generate_release_notes: true
+          body: |
+            #### Changelog v${{ github.event.inputs.tag }}
+            ${{ github.event.inputs.changelog }}
 
-      - name: upload to telegram
-        if: ${{  success() }}
+      # 7. Upload to Telegram
+      - name: Upload to Telegram
+        if: ${{ success() }}
         env:
           CHAT_ID: "-1001597117128"
           MESSAGE_THREAD_ID: "282263"
@@ -60,10 +98,11 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
-          if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
-            export VERSION=$(git rev-parse --short HEAD)
-            export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
-            FILE=$(find -name "*.zip")
-            pip3 install telethon==1.31.1
-            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
-          fi
+          pip3 install --quiet telethon==1.31.1
+
+          FILE=$(find . -maxdepth 1 -type f -name "box_for_root-v*.zip" | head -n 1)
+          [ -z "$FILE" ] && echo "No ZIP file found!" && exit 1
+
+          export VERSION=$(git rev-parse --short HEAD)
+          export COMMIT=$(git log --oneline -n 10 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
+          python3 .github/taamarinbot.py "$FILE"
