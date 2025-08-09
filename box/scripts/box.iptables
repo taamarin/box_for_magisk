@@ -95,7 +95,7 @@ box_etc() {
 
 bin_alive() {
   local PID=$(<"${box_pid}" 2>/dev/null)
-  if ! kill -0 "$PID" 2>/dev/null; then
+  if ! kill -0 "$PID" >/dev/null; then
     log Error "$(<"${box_run}/${bin_name}.log")"
     log Error "${bin_name} service is not running."
     log Error "please check ${bin_name}.log for more information."
@@ -162,7 +162,7 @@ disable_ipv6() {
 
   # add: block Askes ipv6 completely
   ip -6 rule add unreachable pref "${pref}"
-} >> /dev/null 2>&1
+} >/dev/null 2>&1
 
 ipv6_enable() {
   sysctl -w net.ipv4.ip_forward=1
@@ -179,7 +179,7 @@ ipv6_enable() {
 
   # add: blocks all outgoing IPv6 traffic using the UDP protocol to port 53, effectively preventing DNS queries over IPv6.
   $IP6V -A OUTPUT -p udp --destination-port 53 -j DROP
-} >> /dev/null 2>&1
+} >/dev/null 2>&1
 
 intranet=(
   0.0.0.0/8
@@ -275,8 +275,8 @@ tun_forward_ip_rules() {
 
 tun_forward_ip_rules_del() {
   for pref in 5000 5010 5020 5030 5040 5050 6000; do
-    ip -4 rule del pref $pref 2>/dev/null
-    ip -6 rule del pref $pref 2>/dev/null
+    ip -4 rule del pref $pref >/dev/null 2>&1
+    ip -6 rule del pref $pref >/dev/null 2>&1
   done
 }
 
@@ -474,8 +474,8 @@ start_tproxy() {
     ip -6 route add local default dev lo table "${table}"
   fi
 
-  ${iptables} -t mangle -N BOX_EXTERNAL 2>/dev/null
-  ${iptables} -t mangle -F BOX_EXTERNAL 2>/dev/null
+  ${iptables} -t mangle -N BOX_EXTERNAL >/dev/null 2>&1
+  ${iptables} -t mangle -F BOX_EXTERNAL >/dev/null 2>&1
 
   # ${iptables} -t mangle -A BOX_EXTERNAL -m mark --mark ${routing_mark} -j RETURN
 
@@ -736,10 +736,10 @@ cleanup_iptables() {
       stop_redirect
       stop_tproxy
       forward -D
-    } >> /dev/null 2>&1
+    } >/dev/null 2>&1
 
     if [ "${iptables}" = "$IP6V" ]; then
-      ${iptables} -D OUTPUT -p udp --destination-port 53 -j DROP >> /dev/null 2>&1
+      ${iptables} -D OUTPUT -p udp --destination-port 53 -j DROP >/dev/null 2>&1
     fi
   done
 }
@@ -768,7 +768,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
             log Info "Creating iptables transparent proxy rules done."
           else
             log Error "Creating iptables transparent proxy rules failed."
-            stop_tproxy >> /dev/null 2>&1
+            stop_tproxy >/dev/null 2>&1
           fi
 
           if [ "${ipv6}" = "true" ]; then
@@ -780,7 +780,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
               log Info "Creating ip6tables transparent proxy rules done."
             else
               log Error "Creating ip6tables transparent proxy rules failed."
-              stop_tproxy >> /dev/null 2>&1
+              stop_tproxy >/dev/null 2>&1
             fi
           else
             disable_ipv6
@@ -796,7 +796,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
             log Info "Creating iptables transparent proxy rules done."
           else
             log Error "Creating iptables transparent proxy rule failed."
-            stop_redirect >> /dev/null 2>&1
+            stop_redirect >/dev/null 2>&1
           fi
 
           if [ "${ipv6}" = "true" ]; then
@@ -808,7 +808,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
               log Info "Creating ip6tables transparent proxy rules done."
             else
               log Error "Creating ip6tables transparent proxy rule failed."
-              stop_redirect >> /dev/null 2>&1
+              stop_redirect >/dev/null 2>&1
             fi
           else
             disable_ipv6
@@ -821,26 +821,26 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
 
           iptables="$IPV"
           probe_tun_device || log Error "tun device: (${tun_device}) not found"
-          forward -I || forward -D >> /dev/null 2>&1
+          forward -I || forward -D >/dev/null 2>&1
           [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
 
           if start_redirect; then
             log Info "Creating iptables transparent proxy rules done."
           else
             log Error "Creating iptables transparent proxy rule failed."
-            stop_redirect >> /dev/null 2>&1
+            stop_redirect >/dev/null 2>&1
           fi
 
           if [ "${ipv6}" = "true" ]; then
             log Debug "Using IPv6."
             ipv6_enable
             iptables="$IP6V"
-            forward -I || forward -D >> /dev/null 2>&1
+            forward -I || forward -D >/dev/null 2>&1
             if start_redirect; then
               log Info "Creating ip6tables transparent proxy rules done."
             else
               log Error "Creating ip6tables transparent proxy rule failed."
-              stop_redirect >> /dev/null 2>&1
+              stop_redirect >/dev/null 2>&1
             fi
           else
             disable_ipv6
@@ -856,7 +856,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
             log Info "Creating iptables transparent proxy rules done."
           else
             log Error "Creating iptables transparent proxy rule failed."
-            stop_redirect >> /dev/null 2>&1
+            stop_redirect >/dev/null 2>&1
           fi
 
           if [ "${ipv6}" = "true" ]; then
@@ -867,7 +867,7 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
               log Info "Creating ip6tables transparent proxy rules done."
             else
               log Error "Creating ip6tables transparent proxy rule failed."
-              stop_redirect >> /dev/null 2>&1
+              stop_redirect >/dev/null 2>&1
             fi
           else
             disable_ipv6
@@ -918,7 +918,7 @@ else
         log Info "Create iptables tun rules done."
       else
         log Error "Create iptables tun rules failed."
-        forward -D >> /dev/null 2>&1
+        forward -D >/dev/null 2>&1
       fi
 
       if [ "${ipv6}" = "true" ]; then
@@ -929,7 +929,7 @@ else
           log Info "Create ip6tables tun rules done."
         else
           log Error "Create ip6tables tun rules failed."
-          forward -D >> /dev/null 2>&1
+          forward -D >/dev/null 2>&1
         fi
       else
         disable_ipv6
