@@ -380,6 +380,10 @@ prepare_clash() {
   fi
 }
 
+prop_description() {
+  sed -Ei "s/^description=(\[.*][[:space:]]*)?/description=[ $current_time | ⚠️ Your $bin_name configuration has an error, check the log for more details ] /g" "$PROPFILE"
+}
+
 box_run_bin() {
   log Info "client-list: [ ${bin_list[*]} ]"
   log Info "choose: ${bin_name}, start the service."
@@ -413,6 +417,7 @@ box_run_bin() {
       if kill -0 "${PID}" 2>/dev/null; then
         echo -n "${PID}" > "${box_pid}"
       else
+        prop_description
         log Error "$(cat "${box_run}/${bin_name}.log")"
         log Error "Configuration failed. Please check the log file: ${box_run}/${bin_name}.log"
         exit 1
@@ -426,6 +431,7 @@ box_run_bin() {
         echo -n $PID > "${box_pid}"
         sleep 1
       else
+        prop_description
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
@@ -439,6 +445,7 @@ box_run_bin() {
         echo -n $PID > "${box_pid}"
         sleep 1
       else
+        prop_description
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
@@ -472,6 +479,7 @@ box_run_bin() {
         echo -n $PID > "${box_pid}"
         sleep 1
       else
+        prop_description
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
@@ -505,6 +513,7 @@ box_run_bin() {
         echo -n $PID > "${box_pid}"
         sleep 1
       else
+        prop_description
         log Error "$(<"${box_run}/${bin_name}.log")"
         log Error "configuration failed. Please check the ${box_run}/${bin_name}.log file."
         exit 1
