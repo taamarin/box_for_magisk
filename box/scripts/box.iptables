@@ -493,9 +493,9 @@ start_tproxy() {
 
   # Skip traffic already handled by TProxy
   # If the interface of the default route has a public IPv4 or IPv6 address assigned by the ISP, omitting these rules will result in abnormal proxy behavior for local traffic'
-  [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-xmark ${fwmark}
-  ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-xmark ${fwmark}
-  ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
+  # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_EXTERNAL -p tcp -m socket --transparent -j MARK --set-xmark ${fwmark}
+  # ${iptables} -t mangle -A BOX_EXTERNAL -p udp -m socket --transparent -j MARK --set-xmark ${fwmark}
+  # ${iptables} -t mangle -A BOX_EXTERNAL -m socket -j RETURN
 
   # Bypass intranet, run `su -c 'zcat /proc/config.gz | grep -i addrtype'` to check compatibility
   # ${iptables} -t mangle -A BOX_EXTERNAL -m addrtype --dst-type LOCAL -j RETURN
@@ -618,11 +618,11 @@ start_tproxy() {
 
   ${iptables} -t mangle -I OUTPUT -j BOX_LOCAL
 
-  # ${iptables} -t mangle -N DIVERT
-  # ${iptables} -t mangle -F DIVERT
-  # ${iptables} -t mangle -A DIVERT -j MARK --set-xmark "${fwmark}"
-  # ${iptables} -t mangle -A DIVERT -j ACCEPT
-  # [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
+  ${iptables} -t mangle -N DIVERT
+  ${iptables} -t mangle -F DIVERT
+  ${iptables} -t mangle -A DIVERT -j MARK --set-xmark "${fwmark}"
+  ${iptables} -t mangle -A DIVERT -j ACCEPT
+  [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -I PREROUTING -p tcp -m socket -j DIVERT
 
   # Disable QUIC
   if [ "${quic}" = "disable" ]; then
