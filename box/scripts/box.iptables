@@ -891,9 +891,20 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
 
       log Warning "Cleaning up iptables transparent proxy rules done."
       ;;
+    help|-h|--help|"")
+      echo "Usage: $0 {enable|disable|renew}"
+      echo
+      echo "Commands:"
+      echo "  enable   - Enable iptables rules"
+      echo "  disable  - Disable iptables rules"
+      echo "  renew    - Reapply or refresh iptables rules"
+      echo
+      echo "Example:"
+      echo "  $0 enable"
+      ;;
     *)
-      echo "${red}$0 $1 not found${normal}"
-      echo "${yellow}Usage:${normal} ${green}$0${normal} {${yellow}enable|disable|renew${normal}}"
+      echo "$0: '$1' not found"
+      echo "Run '$0 help' for usage."
       ;;
   esac
 else
@@ -948,9 +959,20 @@ else
 
       log Warning "Cleaning up tun rules done."
       ;;
+    help|-h|--help|"")
+      echo "Usage: $0 {enable|disable|renew}"
+      echo
+      echo "Commands:"
+      echo "  enable   - Enable iptables rules"
+      echo "  disable  - Disable iptables rules"
+      echo "  renew    - Reapply or refresh iptables rules"
+      echo
+      echo "Example:"
+      echo "  $0 enable"
+      ;;
     *)
-      echo "${red}$0: '$1' not found${normal}"
-      echo "${yellow}Usage:${normal} ${green}$0${normal} {${yellow}enable|disable|renew${normal}}"
+      echo "$0: '$1' not found"
+      echo "Run '$0 help' for usage."
       ;;
   esac
 fi

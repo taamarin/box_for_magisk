@@ -6,17 +6,23 @@ source /data/adb/box/settings.ini
 PROPFILE="/data/adb/modules/box_for_root/module.prop"
 
 box_check_logs() {
-  # Delete logs for each bin in the list
-  log Info "deleting and backup logs"
-  for bin in "${bin_list[@]}"; do
-    if [ -f "${box_run}/${bin}.log" ]; then
-      mv "${box_run}/${bin}.log" "${box_run}/${bin}.old.log"
-    fi
-  done
-  # Delete other log files
-  find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
-  # Delete logs that are three days old or older
-  find "${box_run}" -maxdepth 1 -type f -name "*.log" -mtime +3 -exec rm -f {} +
+    ts=$(date '+%Y-%m-%d_%H-%M-%S')
+    log Info "Cleaning and backing up logs"
+
+    # Backup logs for each bin in bin_list
+    for bin in "${bin_name}"; do
+        log_file="${box_run}/${bin}.log"
+        if [ -f "${log_file}" ]; then
+            mv "${log_file}" "${box_run}/${bin}_$ts.log.bak"
+            log Info "Backup: ${bin}.log → ${bin}_${ts}.log.bak"
+        fi
+    done
+
+    # Remove specific unnecessary files
+    find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
+
+    # Remove old logs (>3 days)
+    find "${box_run}" -maxdepth 1 -type f -name "*.log" -mtime +3 -exec rm -f {} +
 }
 
 box_bin_alive() {
@@ -840,7 +846,6 @@ case "$1" in
     start_box && "${scripts_dir}/box.iptables" renew
     ;;
   status)
-    # Check whether the service is running or not
     if busybox pidof "${bin_name}" >/dev/null; then
       case "${bin_name}" in
         clash) echo "${yellow}$("${bin_path}" -v)${normal}";;
@@ -860,8 +865,22 @@ case "$1" in
   kcron)
     stop_cron
     ;;
+  help|-h|--help|"")
+    echo "${yellow}Usage${normal}: ${green}$0${normal} {${yellow}start|stop|restart|status|cron|kcron${normal}}"
+    echo
+    echo "Commands:"
+    echo "  ${yellow}start${normal}    - Stop (if running) then start the service"
+    echo "  ${yellow}stop${normal}     - Stop the service"
+    echo "  ${yellow}restart${normal}  - Restart the service and refresh iptables rules"
+    echo "  ${yellow}status${normal}   - Show service status and version"
+    echo "  ${yellow}cron${normal}     - Enable and start scheduled tasks"
+    echo "  ${yellow}kcron${normal}    - Kill/disable scheduled tasks"
+    echo
+    echo "Example:"
+    echo "  $0 start"
+    ;;
   *)
-    echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}start|stop|restart|status|cron|kcron${normal}}"
+    echo "${red}$0 $1 not found${normal}"
+    echo "Run '${green}$0 help${normal}' for usage."
     ;;
 esac

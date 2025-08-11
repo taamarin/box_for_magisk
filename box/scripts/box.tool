@@ -13,7 +13,7 @@ mihomo_stable="enable"
 singbox_stable="enable"
 
 rev1="busybox wget --no-check-certificate -qO-"
-if which curl > /dev/null 2>&1; then
+if which curl >/dev/null; then
   rev1="curl --insecure -sL"
 fi
 
@@ -30,7 +30,7 @@ upfile() {
     update_url="${url_ghproxy}/${update_url}"
   fi
   # request
-  if which curl > /dev/null 2>&1; then
+  if which curl >/dev/null; then
     # curl="$(which curl || echo /data/adb/box/bin/curl)"
     request="curl"
     request+=" -L"
@@ -80,43 +80,45 @@ restart_box() {
 # Check Configuration
 check() {
   # su -c /data/adb/box/scripts/box.tool rconf
+  log Info "Checking configuration for <${bin_name}>..."
+
   case "${bin_name}" in
     sing-box)
-      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" > "${box_run}/${bin_name}_report.log" 2>&1; then
+      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" >/dev/null; then
         log Info "${sing_config} passed"
       else
-        log Debug "${sing_config}"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+        log Error "Configuration check failed for sing-box"
+        return 1
       fi
       ;;
     clash)
-      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" > "${box_run}/${bin_name}_report.log" 2>&1; then
+      if ${bin_path} -t -d "${box_dir}/clash" -f "${clash_config}" 2>/dev/null; then
         log Info "${clash_config} passed"
       else
-        log Debug "${clash_config}"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+        log Error "Configuration check failed for clash"
+        return 1
       fi
       ;;
     xray)
       export XRAY_LOCATION_ASSET="${box_dir}/xray"
-      if ${bin_path} -test -confdir "${box_dir}/${bin_name}" > "${box_run}/${bin_name}_report.log" 2>&1; then
-        log Info "configuration passed"
+      if ${bin_path} -test -confdir "${box_dir}/${bin_name}" 2>/dev/null; then
+        log Info "Xray configuration passed"
       else
-        echo "$(ls ${box_dir}/${bin_name})"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+        log Error "Configuration check failed for xray"
+        return 1
       fi
       ;;
     v2fly)
       export V2RAY_LOCATION_ASSET="${box_dir}/v2fly"
-      if ${bin_path} test -d "${box_dir}/${bin_name}" > "${box_run}/${bin_name}_report.log" 2>&1; then
-        log Info "configuration passed"
+      if ${bin_path} test -d "${box_dir}/${bin_name}" >/dev/null; then
+        log Info "V2Fly configuration passed"
       else
-        echo "$(ls ${box_dir}/${bin_name})"
-        log Error "$(<"${box_run}/${bin_name}_report.log")" >&2
+        log Error "Configuration check failed for v2fly"
+        return 1
       fi
       ;;
     hysteria)
-      true
+      log Info "No configuration check implemented for hysteria, skipping."
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -128,52 +130,57 @@ check() {
 # reload base config
 reload() {
   curl_command="curl"
-  if ! command -v curl >/dev/null 2>&1; then
-    if [ ! -e "${bin_dir}/curl" ]; then
-      log Debug "$bin_dir/curl file not found, unable to reload configuration"
-      log Debug "start to download from github"
-      upcurl || exit 1
+
+  # Pastikan curl tersedia
+  if ! command -v curl >/dev/null; then
+    if [ ! -x "${bin_dir}/curl" ]; then
+      log Debug "${bin_dir}/curl not found, downloading..."
+      upcurl || { log Error "Failed to install curl"; return 1; }
     fi
     curl_command="${bin_dir}/curl"
   fi
 
-  check
+  # Cek config sebelum reload
+  if ! check; then
+    log Error "Configuration check failed, aborting reload."
+    return 1
+  fi
 
   case "${bin_name}" in
-    "clash")
-      if [ "${xclash_option}" = "mihomo" ]; then
+    clash|sing-box)
+      if [ "${bin_name}" = "clash" ] && [ "${xclash_option}" = "mihomo" ]; then
         endpoint="http://${ip_port}/configs?force=true"
       else
         endpoint="http://${ip_port}/configs"
       fi
 
-      if ${curl_command} -X PUT -H "Authorization: Bearer ${secret}" "${endpoint}" -d '{"path": "", "payload": ""}' 2>&1; then
-        log Info "${bin_name} config reload success"
-        return 0
+      if ${curl_command} -sS -X PUT \
+        -H "Authorization: Bearer ${secret}" \
+        "${endpoint}" \
+        -d '{"path": "", "payload": ""}'; then
+        log Info "${bin_name} configuration reloaded successfully."
       else
-        log Error "${bin_name} config reload failed !"
+        log Error "${bin_name} configuration reload failed!"
         return 1
       fi
       ;;
-    "sing-box")
-      endpoint="http://${ip_port}/configs?force=true"
-      if ${curl_command} -X PUT -H "Authorization: Bearer ${secret}" "${endpoint}" -d '{"path": "", "payload": ""}' 2>&1; then
-        log Info "${bin_name} config reload success."
-        return 0
-      else
-        log Error "${bin_name} config reload failed !"
-        return 1
-      fi
-      ;;
-    "xray"|"v2fly"|"hysteria")
+    xray|v2fly|hysteria)
       if [ -f "${box_pid}" ]; then
-        if kill -0 "$(<"${box_pid}" 2>/dev/null)"; then
+        pid="$(<"${box_pid}")"
+        if kill -0 "$pid" 2>/dev/null; then
+          log Info "Restarting ${bin_name} (PID: $pid)"
           restart_box
+        else
+          log Error "${bin_name} process not running!"
+          return 1
         fi
+      else
+        log Error "PID file for ${bin_name} not found!"
+        return 1
       fi
       ;;
     *)
-      log warning "${bin_name} not supported using API to reload config."
+      log Warning "${bin_name} does not support API reload."
       return 1
       ;;
   esac
@@ -185,50 +192,114 @@ upcurl() {
   case $(uname -m) in
     "aarch64") arch="aarch64" ;;
     "armv7l"|"armv8l") arch="armv7" ;;
-    "i686") arch="i686" ;;
-    "x86_64") arch="amd64" ;;
-    *) log Warning "Unsupported architecture: $(uname -m)" >&2; return 1 ;;
+    "i686")    arch="i686" ;;
+    "x86_64")  arch="amd64" ;;
+    *)
+      log Warning "Unsupported architecture: $(uname -m)"
+      return 1
+      ;;
   esac
+  log Info "Detected architecture: $(uname -m) -> ${arch}"
 
+  # Backup existing curl if present
+  log Info "Ensuring backup directory: ${bin_dir}/backup"
   mkdir -p "${bin_dir}/backup"
-  [ -f "${bin_dir}/curl" ] && cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
-
-  local latest_version=$($rev1 "https://api.github.com/repos/stunnel/static-curl/releases" | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
-
-  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-glibc-${latest_version}.tar.xz"
-
-  log Debug "Download ${download_link}"
-  upfile "${bin_dir}/curl.tar.xz" "${download_link}"
-
-  if ! busybox tar -xJf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
-    log Error "Failed to extract ${bin_dir}/curl.tar.xz" >&2
-    cp "${bin_dir}/backup/curl.bak" "${bin_dir}/curl" >/dev/null 2>&1 && log Info "Restored curl" || return 1
+  if [ -f "${bin_dir}/curl" ]; then
+    log Info "Backing up existing curl to ${bin_dir}/backup/curl.bak"
+    cp "${bin_dir}/curl" "${bin_dir}/backup/curl.bak" >/dev/null 2>&1
+  else
+    log Debug "No existing curl binary found, skipping backup."
   fi
 
-  chown "${box_user_group}" "${box_dir}/bin/curl"
+  # Fetch latest version from GitHub
+  log Info "Fetching latest static-curl version..."
+  local latest_version=$($rev1 "https://api.github.com/repos/stunnel/static-curl/releases" \
+    | grep "tag_name" | busybox grep -oE "[0-9.]*" | head -1)
+
+  if [ -z "$latest_version" ]; then
+    log Error "Failed to retrieve latest static-curl version."
+    return 1
+  fi
+  log Info "Latest curl version: ${latest_version}"
+
+  # Download
+  local download_link="https://github.com/stunnel/static-curl/releases/download/${latest_version}/curl-linux-${arch}-glibc-${latest_version}.tar.xz"
+  log Info "Downloading from: ${download_link}"
+  if ! upfile "${bin_dir}/curl.tar.xz" "${download_link}"; then
+    log Error "Failed to download curl binary."
+    return 1
+  fi
+
+  # Extract
+  log Info "Extracting ${bin_dir}/curl.tar.xz..."
+  if busybox tar -xJf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
+    log Info "Extraction successful."
+  else
+    log Error "Failed to extract ${bin_dir}/curl.tar.xz"
+    if cp "${bin_dir}/backup/curl.bak" "${bin_dir}/curl" >/dev/null 2>&1; then
+      log Info "Restored curl from backup."
+    else
+      log Error "Failed to restore curl from backup."
+      return 1
+    fi
+  fi
+
+  # Permissions
+  log Info "Setting ownership and permissions..."
+  chown "${box_user_group}" "${bin_dir}/curl"
   chmod 0700 "${bin_dir}/curl"
 
-  rm -r "${bin_dir}/curl.tar.xz"
+  # Cleanup
+  log Info "Removing archive: ${bin_dir}/curl.tar.xz"
+  rm -f "${bin_dir}/curl.tar.xz"
+
+  log Info "Curl update process completed."
 }
 
 # Get latest yq
 upyq() {
   local arch platform
   case $(uname -m) in
-    "aarch64") arch="arm64"; platform="android" ;;
-    "armv7l"|"armv8l") arch="arm"; platform="android" ;;
-    "i686") arch="386"; platform="android" ;;
-    "x86_64") arch="amd64"; platform="android" ;;
-    *) log Warning "Unsupported architecture: $(uname -m)" >&2; return 1 ;;
+    "aarch64")  arch="arm64"; platform="android" ;;
+    "armv7l"|"armv8l") arch="arm";   platform="android" ;;
+    "i686")     arch="386";   platform="android" ;;
+    "x86_64")   arch="amd64"; platform="android" ;;
+    *)
+      log Warning "Unsupported architecture: $(uname -m)"
+      return 1
+      ;;
   esac
+  log Info "Detected architecture: $(uname -m) -> platform=${platform}, arch=${arch}"
 
+  # Backup existing yq if exists
+  log Info "Ensuring backup directory: ${bin_dir}/backup"
+  mkdir -p "${bin_dir}/backup"
+  if [ -f "${box_dir}/bin/yq" ]; then
+    log Info "Backing up existing yq to ${bin_dir}/backup/yq.bak"
+    cp "${box_dir}/bin/yq" "${bin_dir}/backup/yq.bak" >/dev/null 2>&1
+  else
+    log Debug "No existing yq binary found, skipping backup."
+  fi
+
+  # Download link
   local download_link="https://github.com/taamarin/yq/releases/download/prerelease/yq_${platform}_${arch}"
+  log Info "Downloading yq from: ${download_link}"
+  if ! upfile "${box_dir}/bin/yq" "${download_link}"; then
+    log Error "Failed to download yq binary."
+    if cp "${bin_dir}/backup/yq.bak" "${box_dir}/bin/yq" >/dev/null 2>&1; then
+      log Info "Restored yq from backup."
+    else
+      log Error "Failed to restore yq from backup."
+    fi
+    return 1
+  fi
 
-  log Debug "Download ${download_link}"
-  upfile "${box_dir}/bin/yq" "${download_link}"
-
+  # Permissions
+  log Info "Setting ownership and permissions for yq"
   chown "${box_user_group}" "${box_dir}/bin/yq"
   chmod 0700 "${box_dir}/bin/yq"
+
+  log Info "yq update process completed."
 }
 
 # Check and update geoip and geosite
@@ -236,10 +307,17 @@ upgeox() {
   # su -c /data/adb/box/scripts/box.tool geox
   geodata_mode=$(busybox awk '!/^ *#/ && /geodata-mode:*./{print $2}' "${clash_config}")
   [ -z "${geodata_mode}" ] && geodata_mode=false
+  log Info "Geodata mode: ${geodata_mode}"
+
   case "${bin_name}" in
     clash)
-      geoip_file="${box_dir}/clash/$(if [[ "${xclash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "Country.mmdb"; else echo "GeoIP.dat"; fi)"
-      geoip_url="https://github.com/$(if [[ "${xclash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then echo "MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"; else echo "MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"; fi)"
+      if [[ "${xclash_option}" == "premium" || "${geodata_mode}" == "false" ]]; then
+        geoip_file="${box_dir}/clash/Country.mmdb"
+        geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/country-lite.mmdb"
+      else
+        geoip_file="${box_dir}/clash/GeoIP.dat"
+        geoip_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geoip-lite.dat"
+      fi
       geosite_file="${box_dir}/clash/GeoSite.dat"
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
@@ -256,16 +334,34 @@ upgeox() {
       geosite_url="https://github.com/MetaCubeX/meta-rules-dat/raw/release/geosite.dat"
       ;;
   esac
-  if [ "${update_geo}" = "true" ] && { log Info "daily updates geox" && log Debug "Downloading ${geoip_url}"; } && upfile "${geoip_file}" "${geoip_url}" && { log Debug "Downloading ${geosite_url}" && upfile "${geosite_file}" "${geosite_url}"; }; then
 
-    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.db.bak" -delete
-    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.dat.bak" -delete
-    find "${box_dir}/${bin_name}" -maxdepth 1 -type f -name "*.mmdb.bak" -delete
+  if [ "${update_geo}" = "true" ]; then
+    log Info "Starting daily geox update..."
 
-    log Debug "update geox $(date "+%F %R")"
+    log Info "Downloading GeoIP file from: ${geoip_url}"
+    if upfile "${geoip_file}" "${geoip_url}"; then
+      log Info "GeoIP file updated: ${geoip_file}"
+    else
+      log Error "Failed to download GeoIP file."
+      return 1
+    fi
+
+    log Info "Downloading GeoSite file from: ${geosite_url}"
+    if upfile "${geosite_file}" "${geosite_url}"; then
+      log Info "GeoSite file updated: ${geosite_file}"
+    else
+      log Error "Failed to download GeoSite file."
+      return 1
+    fi
+
+    log Info "Cleaning old backup files..."
+    find "${box_dir}/${bin_name}" -maxdepth 1 -type f \( -name "*.db.bak" -o -name "*.dat.bak" -o -name "*.mmdb.bak" \) -delete
+
+    log Info "Geo data updated successfully at $(date '+%F %R')"
     return 0
   else
-   return 1
+    log Info "Geo update disabled, skipping."
+    return 1
   fi
 }
 
@@ -303,7 +399,7 @@ upsubs() {
                 ${yq} -i '{"proxies": .}' "${clash_provide_config}"
 
                 if [ "${custom_rules_subs}" = "true" ]; then
-                  if ${yq} '.rules' "${update_file_name}" >/dev/null 2>&1; then
+                  if ${yq} '.rules' "${update_file_name}" >/dev/null; then
 
                     ${yq} '.rules' "${update_file_name}" > "${clash_provide_rules}"
                     ${yq} -i '{"rules": .}' "${clash_provide_rules}"
@@ -368,100 +464,184 @@ upkernel() {
     "sing-box")
       api_url="https://api.github.com/repos/SagerNet/sing-box/releases"
       url_down="https://github.com/SagerNet/sing-box/releases"
-
+    
       if [ "${singbox_stable}" = "disable" ]; then
-        # Pre-release
-        log Debug "download ${bin_name} Pre-release"
-        latest_version=$($rev1 "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
+        log Info "Fetching ${bin_name} pre-release version info..."
+        latest_version=$($rev1 "${api_url}" \
+          | grep "tag_name" | busybox grep -oE "v[0-9].*" | head -1 | cut -d'"' -f1)
       else
-        # Latest
-        log Debug "download ${bin_name} Latest-stable"
-        latest_version=$($rev1 "${api_url}/latest" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+        log Info "Fetching ${bin_name} latest stable version info..."
+        latest_version=$($rev1 "${api_url}/latest" \
+          | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
       fi
-
+    
       if [ -z "$latest_version" ]; then
-        log Error "Failed to get latest stable/beta/alpha version of sing-box"
+        log Error "Failed to get latest version of sing-box."
         return 1
       fi
-
+      log Info "Latest ${bin_name} version: ${latest_version}"
+    
       download_link="${url_down}/download/${latest_version}/sing-box-${latest_version#v}-${platform}-${arch}.tar.gz"
-      log Debug "download ${download_link}"
-      upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}" && xkernel
+      log Info "Downloading from: ${download_link}"
+    
+      if upfile "${box_dir}/${file_kernel}.tar.gz" "${download_link}"; then
+        log Info "Download completed: ${box_dir}/${file_kernel}.tar.gz"
+        log Info "Installing ${bin_name}..."
+        xkernel
+      else
+        log Error "Failed to download ${bin_name} binary."
+        return 1
+      fi
       ;;
     "clash")
-      # if mihomo flag is false, download clash premium/dev
+      # If mihomo flag is active, download mihomo, otherwise give a warning.
       if [ "${xclash_option}" = "mihomo" ]; then
-        # set download link
         download_link="https://github.com/MetaCubeX/mihomo/releases"
+        log Info "Updating Clash (mihomo) kernel from ${download_link}"
 
         if [ "${mihomo_stable}" = "enable" ]; then
-          latest_version=$($rev1 "https://api.github.com/repos/MetaCubeX/mihomo/releases" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+          log Info "Fetching latest stable version..."
+          latest_version=$($rev1 "https://api.github.com/repos/MetaCubeX/mihomo/releases" \
+            | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+          if [ -z "${latest_version}" ]; then
+            log Error "Failed to retrieve latest stable version."
+            return 1
+          fi
           tag="$latest_version"
+          log Info "Latest stable version: ${tag}"
         else
+          log Info "Fetching latest alpha (Prerelease) version..."
           if [ "$use_ghproxy" == true ]; then
+            log Info "Using GHProxy mirror: ${url_ghproxy}"
             download_link="${url_ghproxy}/${download_link}"
           fi
           tag="Prerelease-Alpha"
-          latest_version=$($rev1 "${download_link}/expanded_assets/${tag}" | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
+          latest_version=$($rev1 "${download_link}/expanded_assets/${tag}" \
+            | busybox grep -oE "alpha-[0-9a-z]+" | head -1)
+          if [ -z "${latest_version}" ]; then
+            log Error "Failed to retrieve latest alpha version."
+            return 1
+          fi
+          log Info "Latest alpha version: ${latest_version}"
         fi
-        # set the filename based on platform and architecture
+
+        # Set file names according to platform and architecture
         filename="mihomo-${platform}-${arch}-${latest_version}"
-        # download and update the file
-        log Debug "download ${download_link}/download/${tag}/${filename}.gz"
-        upfile "${box_dir}/${file_kernel}.gz" "${download_link}/download/${tag}/${filename}.gz" && xkernel
+        log Info "Preparing to download: ${filename}.gz"
+
+        # Download file
+        full_url="${download_link}/download/${tag}/${filename}.gz"
+        log Info "Downloading from: ${full_url}"
+        if upfile "${box_dir}/${file_kernel}.gz" "${full_url}"; then
+          log Info "Download completed successfully: ${box_dir}/${file_kernel}.gz"
+          log Info "Installing kernel..."
+          xkernel
+        else
+          log Error "Failed to download mihomo binary."
+          return 1
+        fi
       else
-        log Warning "clash.${xclash_option} Repository has been deleted"
-        # filename=$($rev1 "https://github.com/Dreamacro/clash/releases/expanded_assets/premium" | busybox grep -oE "clash-linux-${arch}-[0-9]+.[0-9]+.[0-9]+" | head -1)
-        # log Debug "download https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz"
-        # upfile "${box_dir}/${file_kernel}.gz" "https://github.com/Dreamacro/clash/releases/download/premium/${filename}.gz" && xkernel
+        log Warning "clash.${xclash_option} repository has been deleted."
       fi
       ;;
     "xray"|"v2fly")
-      [ "${bin_name}" = "xray" ] && bin='Xray' || bin='v2ray'
-      api_url="https://api.github.com/repos/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
-      # set download link and get the latest version
-      latest_version=$($rev1 ${api_url} | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
-
+      # Specify the binary name
+      if [ "${bin_name}" = "xray" ]; then
+        bin='Xray'
+        repo_path="XTLS/Xray-core/releases"
+      else
+        bin='v2ray'
+        repo_path="v2fly/v2ray-core/releases"
+      fi
+      api_url="https://api.github.com/repos/${repo_path}"
+    
+      log Info "Updating ${bin_name} from ${repo_path}"
+      log Info "Fetching latest release info from ${api_url}..."
+    
+      # Get the latest version
+      latest_version=$($rev1 "${api_url}" | grep "tag_name" | busybox grep -oE "v[0-9.]*" | head -1)
+      if [ -z "${latest_version}" ]; then
+        log Error "Failed to retrieve latest version for ${bin_name}."
+        exit 1
+      fi
+      log Info "Latest ${bin_name} version: ${latest_version}"
+    
+      # Specify files according to architecture
       case $(uname -m) in
-        "i386") download_file="$bin-linux-32.zip" ;;
-        "x86_64") download_file="$bin-linux-64.zip" ;;
-        "armv7l"|"armv8l") download_file="$bin-linux-arm32-v7a.zip" ;;
-        "aarch64") download_file="$bin-android-arm64-v8a.zip" ;;
-        *) log Error "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+        "i386")    download_file="${bin}-linux-32.zip" ;;
+        "x86_64")  download_file="${bin}-linux-64.zip" ;;
+        "armv7l"|"armv8l") download_file="${bin}-linux-arm32-v7a.zip" ;;
+        "aarch64") download_file="${bin}-android-arm64-v8a.zip" ;;
+        *)
+          log Error "Unsupported architecture: $(uname -m)"
+          exit 1
+          ;;
       esac
-      # Do anything else below
-      download_link="https://github.com/$(if [ "${bin_name}" = "xray" ]; then echo "XTLS/Xray-core/releases"; else echo "v2fly/v2ray-core/releases"; fi)"
-      log Debug "Downloading ${download_link}/download/${latest_version}/${download_file}"
-      upfile "${box_dir}/${file_kernel}.zip" "${download_link}/download/${latest_version}/${download_file}" && xkernel
+      log Info "Detected architecture: $(uname -m) -> file: ${download_file}"
+    
+      # Set link download
+      download_link="https://github.com/${repo_path}"
+      full_url="${download_link}/download/${latest_version}/${download_file}"
+      log Info "Downloading from: ${full_url}"
+    
+      # Download & execute xkernel
+      if upfile "${box_dir}/${file_kernel}.zip" "${full_url}"; then
+        log Info "Download completed: ${box_dir}/${file_kernel}.zip"
+        log Info "Extracting and installing..."
+        xkernel
+      else
+        log Error "Failed to download ${bin_name} binary."
+        exit 1
+      fi
       ;;
     "hysteria")
       local arch
       case $(uname -m) in
         "aarch64") arch="arm64" ;;
         "armv7l" | "armv8l") arch="armv7" ;;
-        "i686") arch="386" ;;
-        "x86_64") arch="amd64" ;;
+        "i686")    arch="386" ;;
+        "x86_64")  arch="amd64" ;;
         *)
           log Warning "Unsupported architecture: $(uname -m)"
           return 1
           ;;
       esac
-
+      log Info "Detected architecture: $(uname -m) -> ${arch}"
+    
       # Create backup directory if it doesn't exist
+      log Info "Ensuring backup directory exists: ${bin_dir}/backup"
       mkdir -p "${bin_dir}/backup"
-
+    
       # Backup existing Hysteria binary if it exists
       if [ -f "${bin_dir}/hysteria" ]; then
+        log Info "Backing up existing Hysteria binary to ${bin_dir}/backup/hysteria.bak"
         cp "${bin_dir}/hysteria" "${bin_dir}/backup/hysteria.bak" >/dev/null 2>&1
+      else
+        log Debug "No existing Hysteria binary found, skipping backup."
       fi
-
+    
       # Fetch the latest version of Hysteria from GitHub releases
-      local latest_version=$($rev1 "https://api.github.com/repos/apernet/hysteria/releases" | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
-
+      log Info "Fetching latest Hysteria version from GitHub..."
+      local latest_version=$($rev1 "https://api.github.com/repos/apernet/hysteria/releases" \
+        | grep "tag_name" | grep -oE "[0-9.].*" | head -1 | sed 's/,//g' | cut -d '"' -f 1)
+    
+      if [ -z "${latest_version}" ]; then
+        log Error "Failed to retrieve latest Hysteria version."
+        return 1
+      fi
+      log Info "Latest Hysteria version: v${latest_version}"
+    
       local download_link="https://github.com/apernet/hysteria/releases/download/app%2Fv${latest_version}/hysteria-android-${arch}"
-
-      log Debug "Downloading ${download_link}"
-      upfile "${bin_dir}/hysteria" "${download_link}" && xkernel
+      log Info "Downloading Hysteria from: ${download_link}"
+    
+      if upfile "${bin_dir}/hysteria" "${download_link}"; then
+        log Info "Hysteria binary downloaded successfully to ${bin_dir}/hysteria"
+        log Info "Reloading kernel..."
+        xkernel
+      else
+        log Error "Failed to download Hysteria binary."
+        return 1
+      fi
       ;;
     *)
       log Error "<${bin_name}> unknown binary."
@@ -475,66 +655,119 @@ xkernel() {
   case "${bin_name}" in
     "clash")
       gunzip_command="gunzip"
-      if ! command -v gunzip >/dev/null 2>&1; then
+      if ! command -v gunzip >/dev/null; then
         gunzip_command="busybox gunzip"
+        log Info "Using busybox gunzip"
+      else
+        log Info "Using system gunzip"
       fi
 
-      mkdir -p "${bin_dir}/xclash"
-      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2 && mv "${box_dir}/${file_kernel}" "${bin_dir}/xclash/${xclash_option}"; then
-        ln -sf "${bin_dir}/xclash/${xclash_option}" "${bin_dir}/${bin_name}"
+      mkdir -p "${bin_dir}/xclash" && \
+      log Info "Creating directory: ${bin_dir}/xclash"
 
-        if [ -f "${box_pid}" ]; then
-          restart_box
+      log Info "Extracting kernel: ${box_dir}/${file_kernel}.gz"
+      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2; then
+        log Info "Extraction successful: ${box_dir}/${file_kernel}"
+      
+        log Info "Moving kernel to ${bin_dir}/xclash/${xclash_option}"
+        if mv "${box_dir}/${file_kernel}" "${bin_dir}/xclash/${xclash_option}"; then
+          log Info "Kernel moved successfully."
+      
+          log Info "Creating symlink: ${bin_dir}/${bin_name} -> ${bin_dir}/xclash/${xclash_option}"
+          ln -sf "${bin_dir}/xclash/${xclash_option}" "${bin_dir}/${bin_name}"
+      
+          if [ -f "${box_pid}" ]; then
+            log Info "Restarting ${bin_name} service..."
+            restart_box
+          else
+            log Debug "${bin_name} does not need to be restarted."
+          fi
         else
-          log Debug "${bin_name} does not need to be restarted."
+          log Error "Failed to move the extracted kernel."
         fi
       else
-        log Error "Failed to extract or move the kernel."
+        log Error "Failed to extract kernel: ${box_dir}/${file_kernel}.gz"
       fi
       ;;
     "sing-box")
       tar_command="tar"
-      if ! command -v tar >/dev/null 2>&1; then
+      if ! command -v tar >/dev/null; then
         tar_command="busybox tar"
+        log Info "Using busybox tar"
+      else
+        log Info "Using system tar"
       fi
+      
+      log Info "Extracting kernel archive: ${box_dir}/${file_kernel}.tar.gz"
       if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
-        mv "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}/sing-box" "${bin_dir}/${bin_name}"
-        if [ -f "${box_pid}" ]; then
-          rm -rf /data/adb/box/sing-box/cache.db
-          restart_box
+        log Info "Extraction successful."
+      
+        src_dir="${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
+        log Info "Moving binary from ${src_dir}/sing-box to ${bin_dir}/${bin_name}"
+        if mv "${src_dir}/sing-box" "${bin_dir}/${bin_name}"; then
+          log Info "Kernel binary moved successfully."
+      
+          if [ -f "${box_pid}" ]; then
+            log Info "Removing cache.db for clean restart..."
+            rm -rf /data/adb/box/sing-box/cache.db
+      
+            log Info "Restarting ${bin_name}..."
+            restart_box
+          else
+            log Debug "${bin_name} does not need to be restarted."
+          fi
         else
-          log Debug "${bin_name} does not need to be restarted."
+          log Error "Failed to move binary from ${src_dir}."
         fi
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.tar.gz."
       fi
-      [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ] && \
-        rm -r "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
+      
+      if [ -d "${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}" ]; then
+        log Info "Cleaning up extracted directory: ${src_dir}"
+        rm -r "${src_dir}"
+      fi
       ;;
     "v2fly"|"xray")
       bin="xray"
       if [ "${bin_name}" != "xray" ]; then
         bin="v2ray"
       fi
+      log Info "Selected binary to extract: ${bin}"
+      
       unzip_command="unzip"
-      if ! command -v unzip >/dev/null 2>&1; then
+      if ! command -v unzip >/dev/null; then
         unzip_command="busybox unzip"
+        log Info "Using busybox unzip"
+      else
+        log Info "Using system unzip"
       fi
-
+      
+      log Info "Creating temporary update directory: ${bin_dir}/update"
       mkdir -p "${bin_dir}/update"
+      
+      log Info "Extracting ${bin} from ${box_dir}/${file_kernel}.zip..."
       if ${unzip_command} -o "${box_dir}/${file_kernel}.zip" "${bin}" -d "${bin_dir}/update" >&2; then
+        log Info "Extraction successful."
+      
+        log Info "Moving ${bin} binary to ${bin_dir}/${bin_name}"
         if mv "${bin_dir}/update/${bin}" "${bin_dir}/${bin_name}"; then
+          log Info "Kernel binary moved successfully."
+      
           if [ -f "${box_pid}" ]; then
+            log Info "Restarting ${bin_name}..."
             restart_box
           else
             log Debug "${bin_name} does not need to be restarted."
           fi
         else
-          log Error "Failed to move the kernel."
+          log Error "Failed to move the kernel binary from ${bin_dir}/update/${bin}."
         fi
       else
         log Error "Failed to extract ${box_dir}/${file_kernel}.zip."
       fi
+      
+      log Info "Cleaning up temporary directory: ${bin_dir}/update"
       rm -rf "${bin_dir}/update"
       ;;
     "hysteria")
@@ -561,35 +794,49 @@ upxui() {
   xdashboard="${bin_name}/dashboard"
   if [[ "${bin_name}" == @(clash|sing-box) ]]; then
     file_dashboard="${box_dir}/${xdashboard}.zip"
-    url="https://github.com/CHIZI-0618/yacd/archive/refs/heads/gh-pages.zip"
+    url="https://github.com/Zephyruso/zashboard/archive/gh-pages.zip"
     if [ "$use_ghproxy" == true ]; then
       url="${url_ghproxy}/${url}"
     fi
-    dir_name="yacd-gh-pages"
+    dir_name="zashboard-gh-pages"
     log Debug "Download ${url}"
 
-    if which curl > /dev/null 2>&1; then
+    if which curl >/dev/null; then
       rev2="curl -L --insecure ${url} -o"
     else
       rev2="busybox wget --no-check-certificate ${url} -O"
     fi
 
     if $rev2 "${file_dashboard}" >&2; then
+      log Info "Dashboard file downloaded: ${file_dashboard}"
+    
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
-        log Info "dashboard folder not exist, creating it"
+        log Info "Dashboard folder not exist, creating it"
         mkdir "${box_dir}/${xdashboard}"
       else
+        log Info "Dashboard folder exists, cleaning old files"
         rm -rf "${box_dir}/${xdashboard}/"*
       fi
-      if command -v unzip >/dev/null 2>&1; then
+    
+      if command -v unzip >/dev/null; then
         unzip_command="unzip"
+        log Info "Using system unzip"
       else
         unzip_command="busybox unzip"
+        log Info "Using busybox unzip"
       fi
+    
+      log Info "Extracting dashboard from ${file_dashboard}..."
       "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${xdashboard}" >&2
+    
+      log Info "Moving extracted files to ${box_dir}/${xdashboard}/"
       mv -f "${box_dir}/${xdashboard}/$dir_name"/* "${box_dir}/${xdashboard}/"
+    
+      log Info "Cleaning up temporary files"
       rm -f "${file_dashboard}"
       rm -rf "${box_dir}/${xdashboard}/${dir_name}"
+    
+      log Info "Dashboard update completed successfully"
     else
       log Error "Failed to download dashboard" >&2
       return 1
@@ -611,7 +858,7 @@ cgroup_blkio() {
   fi
 
   local PID=$(<"$pid_file" 2>/dev/null)
-  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+  if [ -z "$PID" ] || ! kill -0 "$PID" >/dev/null; then
     log Warning "Invalid or dead PID: $PID"
     return 1
   fi
@@ -620,7 +867,7 @@ cgroup_blkio() {
   if [ -z "$blkio_path" ]; then
     blkio_path=$(mount | busybox awk '/blkio/ {print $3}' | head -1)
     if [ -z "$blkio_path" ] || [ ! -d "$blkio_path" ]; then
-      log Warning "blkio_path not found"
+      log Warning "blkio path not found"
       return 1
     fi
   fi
@@ -679,7 +926,7 @@ cgroup_memcg() {
 
   local PID
   PID=$(<"$pid_file" 2>/dev/null)
-  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+  if [ -z "$PID" ] || ! kill -0 "$PID" >/dev/null; then
     log Warning "Invalid or dead PID: $PID"
     return 1
   fi
@@ -718,7 +965,7 @@ cgroup_cpuset() {
 
   local PID
   PID=$(<"${pid_file}" 2>/dev/null)
-  if [ -z "$PID" ] || ! kill -0 "$PID" 2>/dev/null; then
+  if [ -z "$PID" ] || ! kill -0 "$PID" >/dev/null; then
     log Warning "PID $PID from ${pid_file} is not valid or not running"
     return 1
   fi
@@ -738,13 +985,15 @@ cgroup_cpuset() {
   if [ -z "${cpuset_path}" ]; then
     cpuset_path=$(mount | grep cgroup | busybox awk '/cpuset/{print $3}' | head -1)
     if [ -z "${cpuset_path}" ] || [ ! -d "${cpuset_path}" ]; then
-      log Warning "cpuset_path not found"
+      log Warning "cpuset path not found"
       return 1
     fi
   fi
 
-  local cpuset_target="${cpuset_path}/top-app"
+  local cpuset_target="${cpuset_path}/foreground"
   if [ ! -d "${cpuset_target}" ]; then
+    cpuset_target="${cpuset_path}/top-app"
+  elif [ ! -d "${cpuset_target}" ]; then
     cpuset_target="${cpuset_path}/apps"
     [ ! -d "${cpuset_target}" ] && log Warning "cpuset target not found" && return 1
   fi
@@ -841,7 +1090,6 @@ case "$1" in
     check
     ;;
   memcg|cpuset|blkio)
-    # leave it blank by default, it will fill in auto,
     case "$1" in
       memcg)
         memcg_path=""
@@ -903,8 +1151,31 @@ case "$1" in
       upxui
     done
     ;;
+  help|-h|--help|"")
+    echo "Usage: $0 <command>"
+    echo
+    echo "Commands:"
+    echo "  check       - Check Configuration"
+    echo "  memcg       - Apply memory cgroup limit to process"
+    echo "  cpuset      - Apply CPU core affinity to process"
+    echo "  blkio       - Apply I/O weight limit to process"
+    echo "  bond0|bond1 - Run bonding configuration functions"
+    echo "  geosub      - Update both subscription and GeoX files, then reload if running"
+    echo "  geox        - Update GeoX database, then reload if running"
+    echo "  subs        - Update subscription (only for clash), then reload if running"
+    echo "  upkernel    - Update kernel-related components"
+    echo "  upxui       - Update XUI panel"
+    echo "  upyq        - Update yq binary"
+    echo "  upcurl      - Update curl binary"
+    echo "  reload      - Reload running service configuration"
+    echo "  webroot     - Update/rebuild webroot files"
+    echo "  all         - Run all update commands in sequence"
+    echo
+    echo "Example:"
+    echo "  $0 check"
+    ;;
   *)
-    echo "${red}$0 $1 no found${normal}"
-    echo "${yellow}usage${normal}: ${green}$0${normal} {${yellow}check|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|bond0|bond1|all${normal}}"
+    echo "${red}$0 $1 not found${normal}"
+    echo "Run '$0 help' for usage."
     ;;
 esac
