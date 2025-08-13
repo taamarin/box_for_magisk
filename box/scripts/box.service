@@ -53,11 +53,15 @@ box_run_crontab() {
   if [ "${run_crontab}" = "true" ]; then
     log Debug "crond enable"
     if [ "$update_subscription" = "true" ] || [ "$update_geo" = "true" ]; then
-      log Debug "Interval crontab: ${interva_update}."
-      echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
-      log Info "${bin_name} geox updates: ${update_geo}."
-      if [ "${bin_name}" = "clash" ]; then
-        log Info "${bin_name} subscription update: ${update_subscription}."
+      if [ -n "${interva_update}" ]; then
+        log Debug "Crontab interval: ${interva_update}."
+        echo "${interva_update} ${scripts_dir}/box.tool geosub" >> "${box_run}/root"
+        log Info "${bin_name} geox updates: ${update_geo}."
+        if [ "${bin_name}" = "clash" ]; then
+          log Info "${bin_name} subscription update: ${update_subscription}."
+        fi
+      else
+        log Debug "Crontab interval is empty, skipping Geox & Subscription schedule setup."
       fi
     fi
     cat "${box_dir}/crontab.cfg" >> "${box_run}/root"

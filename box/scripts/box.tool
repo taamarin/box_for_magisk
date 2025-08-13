@@ -6,7 +6,7 @@ source /data/adb/box/settings.ini
 # user agent
 user_agent="box_for_root"
 # whether use ghproxy to accelerate github download
-url_ghproxy="https://mirror.ghproxy.com"
+url_ghproxy="https://ghfast.top"
 use_ghproxy="false"
 # to enable/disable download the stable mihomo kernel
 mihomo_stable="enable"
@@ -14,7 +14,7 @@ singbox_stable="enable"
 
 rev1="busybox wget --no-check-certificate -qO-"
 if which curl >/dev/null; then
-  rev1="curl --insecure -sL"
+  rev1="curl --progress-bar --insecure -sL"
 fi
 
 # Updating files from URLs
@@ -32,7 +32,7 @@ upfile() {
   # request
   if which curl >/dev/null; then
     # curl="$(which curl || echo /data/adb/box/bin/curl)"
-    request="curl"
+    request="curl --progress-bar"
     request+=" -L"
     request+=" --insecure"
     request+=" --user-agent ${user_agent}"
@@ -232,7 +232,7 @@ upcurl() {
 
   # Extract
   log Info "Extracting ${bin_dir}/curl.tar.xz..."
-  if busybox tar -xJf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >&2; then
+  if busybox tar -xJf "${bin_dir}/curl.tar.xz" -C "${bin_dir}" >/dev/null; then
     log Info "Extraction successful."
   else
     log Error "Failed to extract ${bin_dir}/curl.tar.xz"
@@ -252,6 +252,7 @@ upcurl() {
   # Cleanup
   log Info "Removing archive: ${bin_dir}/curl.tar.xz"
   rm -f "${bin_dir}/curl.tar.xz"
+  rm -f "${bin_dir}/SHA256SUMS"
 
   log Info "Curl update process completed."
 }
@@ -298,6 +299,7 @@ upyq() {
   log Info "Setting ownership and permissions for yq"
   chown "${box_user_group}" "${box_dir}/bin/yq"
   chmod 0700 "${box_dir}/bin/yq"
+  rm -f "${bin_dir}/yq.bak"
 
   log Info "yq update process completed."
 }
@@ -307,7 +309,6 @@ upgeox() {
   # su -c /data/adb/box/scripts/box.tool geox
   geodata_mode=$(busybox awk '!/^ *#/ && /geodata-mode:*./{print $2}' "${clash_config}")
   [ -z "${geodata_mode}" ] && geodata_mode=false
-  log Info "Geodata mode: ${geodata_mode}"
 
   case "${bin_name}" in
     clash)
@@ -336,7 +337,7 @@ upgeox() {
   esac
 
   if [ "${update_geo}" = "true" ]; then
-    log Info "Starting daily geox update..."
+    log Info "${bin_name} daily updates GeoX → $(date)"
 
     log Info "Downloading GeoIP file from: ${geoip_url}"
     if upfile "${geoip_file}" "${geoip_url}"; then
@@ -355,9 +356,9 @@ upgeox() {
     fi
 
     log Info "Cleaning old backup files..."
-    find "${box_dir}/${bin_name}" -maxdepth 1 -type f \( -name "*.db.bak" -o -name "*.dat.bak" -o -name "*.mmdb.bak" \) -delete
+    find "${box_dir}/${bin_name}" -maxdepth 1 -type f \( -name "*.db.bak" -o -name "*.dat.bak" -o -name "*.mmdb.bak" \) -delete >/dev/null
 
-    log Info "Geo data updated successfully at $(date '+%F %R')"
+    log Info "${bin_name} GeoX update completed → $(date)"
     return 0
   else
     log Info "Geo update disabled, skipping."
@@ -490,7 +491,7 @@ upkernel() {
     "armv7l"|"armv8l") arch="armv7"; platform="linux" ;;
     "i686") arch="386"; platform="linux" ;;
     "x86_64") arch="amd64"; platform="linux" ;;
-    *) log Warning "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+    *) log Warning "Unsupported architecture: $(uname -m)" >/dev/null; exit 1 ;;
   esac
   # Do anything else below
   file_kernel="${bin_name}-${arch}"
@@ -625,7 +626,7 @@ upkernel() {
         xkernel
       else
         log Error "Failed to download ${bin_name} binary."
-        exit 1
+        return 1
       fi
       ;;
     "hysteria")
@@ -700,7 +701,7 @@ xkernel() {
       log Info "Creating directory: ${bin_dir}/xclash"
 
       log Info "Extracting kernel: ${box_dir}/${file_kernel}.gz"
-      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >&2; then
+      if ${gunzip_command} "${box_dir}/${file_kernel}.gz" >/dev/null; then
         log Info "Extraction successful: ${box_dir}/${file_kernel}"
       
         log Info "Moving kernel to ${bin_dir}/xclash/${xclash_option}"
@@ -733,7 +734,7 @@ xkernel() {
       fi
       
       log Info "Extracting kernel archive: ${box_dir}/${file_kernel}.tar.gz"
-      if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >&2; then
+      if ${tar_command} -xf "${box_dir}/${file_kernel}.tar.gz" -C "${bin_dir}" >/dev/null; then
         log Info "Extraction successful."
       
         src_dir="${bin_dir}/sing-box-${latest_version#v}-${platform}-${arch}"
@@ -781,7 +782,7 @@ xkernel() {
       mkdir -p "${bin_dir}/update"
       
       log Info "Extracting ${bin} from ${box_dir}/${file_kernel}.zip..."
-      if ${unzip_command} -o "${box_dir}/${file_kernel}.zip" "${bin}" -d "${bin_dir}/update" >&2; then
+      if ${unzip_command} -o "${box_dir}/${file_kernel}.zip" "${bin}" -d "${bin_dir}/update" >/dev/null; then
         log Info "Extraction successful."
       
         log Info "Moving ${bin} binary to ${bin_dir}/${bin_name}"
@@ -817,7 +818,7 @@ xkernel() {
       ;;
   esac
 
-  find "${box_dir}" -maxdepth 1 -type f -name "${file_kernel}.*" -delete
+  find "${box_dir}" -maxdepth 1 -type f -name "${file_kernel}.*" -delete >/dev/null
   chown ${box_user_group} ${bin_path}
   chmod 6755 ${bin_path}
 }
@@ -836,12 +837,12 @@ upxui() {
     log Debug "Download ${url}"
 
     if which curl >/dev/null; then
-      rev2="curl -L --insecure ${url} -o"
+      rev2="curl -L --progress-bar --insecure ${url} -o"
     else
       rev2="busybox wget --no-check-certificate ${url} -O"
     fi
 
-    if $rev2 "${file_dashboard}" >&2; then
+    if $rev2 "${file_dashboard}" >/dev/null; then
       log Info "Dashboard file downloaded: ${file_dashboard}"
     
       if [ ! -d "${box_dir}/${xdashboard}" ]; then
@@ -861,7 +862,7 @@ upxui() {
       fi
     
       log Info "Extracting dashboard from ${file_dashboard}..."
-      "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${xdashboard}" >&2
+      "${unzip_command}" -o "${file_dashboard}" "${dir_name}/*" -d "${box_dir}/${xdashboard}" >/dev/null
     
       log Info "Moving extracted files to ${box_dir}/${xdashboard}/"
       mv -f "${box_dir}/${xdashboard}/$dir_name"/* "${box_dir}/${xdashboard}/"
@@ -872,7 +873,7 @@ upxui() {
     
       log Info "Dashboard update completed successfully"
     else
-      log Error "Failed to download dashboard" >&2
+      log Error "Failed to download dashboard"
       return 1
     fi
     return 0
@@ -1176,6 +1177,7 @@ case "$1" in
     webroot
     ;;
   all)
+    update_geo="true"
     upyq
     upcurl
     for bin_name in "${bin_list[@]}"; do
