@@ -367,47 +367,43 @@ upgeox() {
 
 # Check and update subscription
 upsubs() {
-  enhanced=false
-  update_file_name="${clash_config}"
-  if [ "${renew}" != "true" ]; then
-    yq="yq"
-    if ! command -v yq &>/dev/null; then
-      if [ ! -e "${box_dir}/bin/yq" ]; then
-        log Debug "yq file not found, start to download from github"
-        ${scripts_dir}/box.tool upyq
-      fi
-      yq="${box_dir}/bin/yq"
+  yq="yq"
+  if ! command -v yq &>/dev/null; then
+    if [ ! -e "${box_dir}/bin/yq" ]; then
+      log Debug "yq file not found, start to download from github"
+      ${scripts_dir}/box.tool upyq
     fi
-    enhanced=true
-    update_file_name="${update_file_name}.subscription"
+    yq="${box_dir}/bin/yq"
   fi
-
   case "${bin_name}" in
     "clash")
+      enhanced=false
+      update_file_name="${clash_config}"
+      if [ "${renew}" != "true" ]; then
+        enhanced=true
+        update_file_name="${update_file_name}.subscription"
+      fi
       # subscription clash
       if [ -n "${subscription_url_clash}" ]; then
         if [ "${update_subscription}" = "true" ]; then
-          log Info "daily updates subs"
+          log Info "${bin_name} daily updates subscription → $(date)"
           log Debug "Downloading ${update_file_name}"
           if upfile "${update_file_name}" "${subscription_url_clash}"; then
             log Info "${update_file_name} saved"
-            # Make sure the folder exists
-            mkdir -p "$(dirname "$clash_provide_config")"
-            touch "$clash_provide_config"
             # If there is a yq command, extract the proxy information from the yml and output it to the clash_provide_config file
             if [ "${enhanced}" = "true" ]; then
+              # Make sure the folder exists
+              mkdir -p "$(dirname "${clash_provide_config}")"
+              touch "${clash_provide_config}"
               if ${yq} 'has("proxies")' "${update_file_name}" | grep -q "true"; then
                 ${yq} '.proxies' "${update_file_name}" >/dev/null 2>&1
                 ${yq} '.proxies' "${update_file_name}" > "${clash_provide_config}"
                 ${yq} -i '{"proxies": .}' "${clash_provide_config}"
-
                 if [ "${custom_rules_subs}" = "true" ]; then
                   if ${yq} '.rules' "${update_file_name}" >/dev/null; then
-
                     ${yq} '.rules' "${update_file_name}" > "${clash_provide_rules}"
                     ${yq} -i '{"rules": .}' "${clash_provide_rules}"
                     ${yq} -i 'del(.rules)' "${clash_config}"
-
                     cat "${clash_provide_rules}" >> "${clash_config}"
                   fi
                 fi
@@ -426,9 +422,9 @@ upsubs() {
               if [ -f "${box_pid}" ]; then
                 kill -0 "$(<"${box_pid}" 2>/dev/null)" && \
                 $scripts_dir/box.service restart 2>/dev/null
-                exit 1
               fi
-              return 1
+              log Info "${bin_name} subscription update completed → $(date)"
+              exit 1
             fi
             return 0
           else
@@ -444,7 +440,35 @@ upsubs() {
         return 0
       fi
       ;;
-    "xray"|"v2fly"|"sing-box"|"hysteria")
+    "sing-box")
+      # subscription sing-box
+      update_file_name="${sing_config}"
+      if [ -n "${subscription_url_singbox}" ]; then
+        if [ "${update_subscription}" = "true" ]; then
+          log Info "${bin_name} daily updates subscription → $(date)"
+          log Debug "Downloading ${update_file_name}"
+          if upfile "${update_file_name}" "${subscription_url_singbox}"; then
+            log Info "${update_file_name} saved"
+            if [ -f "${box_pid}" ]; then
+              kill -0 "$(<"${box_pid}" 2>/dev/null)" && \
+              $scripts_dir/box.service restart 2>/dev/null
+            fi
+            log Info "${bin_name} subscription update completed → $(date)"
+            exit 1
+          else
+            log Error "update subscription failed"
+            return 1
+          fi
+        else
+          log Warning "update subscription: $update_subscription"
+          return 1
+        fi
+      else
+        log Warning "${bin_name} subscription url is empty..."
+        return 1
+      fi
+      ;;
+    "xray"|"v2fly"|"hysteria")
       log Warning "${bin_name} does not support subscriptions.."
       return 1
       ;;
