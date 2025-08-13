@@ -422,6 +422,13 @@ upsubs() {
                 log Error "${update_file_name} update subscription failed"
                 return 1
               fi
+            else
+              if [ -f "${box_pid}" ]; then
+                kill -0 "$(<"${box_pid}" 2>/dev/null)" && \
+                $scripts_dir/box.service restart 2>/dev/null
+                exit 1
+              fi
+              return 1
             fi
             return 0
           else
@@ -1112,8 +1119,8 @@ case "$1" in
     $1
     ;;
   geosub)
-    upsubs
     upgeox
+    upsubs
     if [ -f "${box_pid}" ]; then
       kill -0 "$(<"${box_pid}" 2>/dev/null)" && reload
     fi
