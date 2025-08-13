@@ -391,6 +391,9 @@ upsubs() {
           log Debug "Downloading ${update_file_name}"
           if upfile "${update_file_name}" "${subscription_url_clash}"; then
             log Info "${update_file_name} saved"
+            # Make sure the folder exists
+            mkdir -p "$(dirname "$clash_provide_config")"
+            touch "$clash_provide_config"
             # If there is a yq command, extract the proxy information from the yml and output it to the clash_provide_config file
             if [ "${enhanced}" = "true" ]; then
               if ${yq} 'has("proxies")' "${update_file_name}" | grep -q "true"; then
