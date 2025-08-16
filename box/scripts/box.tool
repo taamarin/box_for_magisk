@@ -1202,9 +1202,7 @@ case "$1" in
     ;;
   all)
     update_geo="true"
-    upyq
-    upcurl
-    for bin_name in "${bin_list[@]}"; do
+    for bin_name in "$2"; do
       upkernel
       upgeox
       upsubs

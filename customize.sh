@@ -75,61 +75,116 @@ set_perm $MODPATH/system/bin/sbfr 0 0 0755
 
 chmod ugo+x ${service_dir}/box_service.sh $MODPATH/uninstall.sh /data/adb/box/scripts/*
 
-ui_print "-----------------------------------------------------------"
-ui_print "— Do you want to use the 'ghfast.top' ?"
-ui_print "     ↳  mirror to speed up downloads"
-ui_print "— [ Vol UP(+): Yes ]"
-ui_print "— [ Vol DOWN(-): No ]"
-START_TIME=$(date +%s)
-while true ; do
-  NOW_TIME=$(date +%s)
-  timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
-  if [ $(( NOW_TIME - START_TIME )) -gt 5 ]; then
-    ui_print "— No input detected after 5 seconds..."
-    ui_print "— ghfast acceleration enabled."
-    sed -i 's/use_ghproxy=.*/use_ghproxy="true"/' /data/adb/box/scripts/box.tool
-    break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP); then
-    ui_print "— ghfast acceleration enabled."
-    sed -i 's/use_ghproxy=.*/use_ghproxy="true"/' /data/adb/box/scripts/box.tool
-    break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN); then
-    ui_print "— ghfast acceleration disabled."
-    sed -i 's/use_ghproxy=.*/use_ghproxy="false"/' /data/adb/box/scripts/box.tool
-    break
-  fi
-done
+apply_mirror() {
+  ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  ui_print "— Do you want to use the 'ghfast.top' ?"
+  ui_print "     ↳  mirror to speed up downloads"
+  ui_print "— [ Vol UP(+): Yes ]"
+  ui_print "— [ Vol DOWN(-): No ]"
+  START_TIME=$(date +%s)
+  while true ; do
+    NOW_TIME=$(date +%s)
+    timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
+    if [ $(( NOW_TIME - START_TIME )) -gt 9 ]; then
+      ui_print "— No input detected after 10 seconds..."
+      ui_print "— ghfast acceleration enabled."
+      sed -i 's/use_ghproxy=.*/use_ghproxy="true"/' /data/adb/box/scripts/box.tool
+      break
+    elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP); then
+      ui_print "— ghfast acceleration enabled."
+      sed -i 's/use_ghproxy=.*/use_ghproxy="true"/' /data/adb/box/scripts/box.tool
+      break
+    elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN); then
+      ui_print "— ghfast acceleration disabled."
+      sed -i 's/use_ghproxy=.*/use_ghproxy="false"/' /data/adb/box/scripts/box.tool
+      break
+    fi
+  done
+}
 
+apply_mirror
 timeout 1 getevent -cl >/dev/null
 
-# Download prompt for optional kernel components
-ui_print "-----------------------------------------------------------"
-ui_print "— Do you want to download Kernel & GeoX?"
-ui_print "     ↳  xray, hysteria, clash, v2fly, sing-box"
-ui_print "     ↳  geosite geoip mmdb"
-ui_print "     ↳  size: ±100MB."
-ui_print "— Ensure a good internet connection."
-ui_print "— [ Vol UP(+): Yes ]"
-ui_print "— [ Vol DOWN(-): No ]"
+find_bin() {
+  bin_dir="$temp_bak"
 
-START_TIME=$(date +%s)
-while true ; do
-  NOW_TIME=$(date +%s)
-  timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
-  if [ $(( NOW_TIME - START_TIME )) -gt 9 ]; then
-    ui_print "— No input detected after 10 seconds..."
-    ui_print "     ↳  Auto download..."
-    /data/adb/box/scripts/box.tool all
-    break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP); then
-    ui_print "— Starting download..."
-    /data/adb/box/scripts/box.tool all
-    break
-  elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN); then
-    ui_print "— Skipping download."
-    break
+  check_bin() {
+    local name="$1"
+    local path="$bin_dir/bin/$name"
+    if [ -e "$path" ]; then
+        ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        ui_print "📦  $name → ⭕ FOUND"
+    else
+        ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        ui_print "📦  $name → ❌ NOT FOUND"
+    fi
+  }
+
+  handle_download() {
+    local bin="$1"
+    local action=""
+    case "$bin" in
+      yq) action="upyq" ;;
+      curl) action="upcurl" ;;
+      *) action="all $bin" ;;
+    esac
+
+  START_TIME=$(date +%s)
+  while true; do
+    NOW_TIME=$(date +%s)
+    timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
+    
+    if [ $(( NOW_TIME - START_TIME )) -gt 9 ]; then
+      ui_print "— No input detected after 10 seconds..."
+      if [ "$bin" = "clash" ]; then
+        ui_print "— Download enabled for clash."
+        /data/adb/box/scripts/box.tool $action
+      else
+        ui_print "— Download disabled for $bin."
+      fi
+      break
+    elif grep -q KEY_VOLUMEUP "$TMPDIR/events"; then
+      ui_print "— Download enabled."
+      /data/adb/box/scripts/box.tool $action
+      break
+    elif grep -q KEY_VOLUMEDOWN "$TMPDIR/events"; then
+      ui_print "— Download disabled."
+      break
+    fi
+    done
+  }
+
+  # List of binaries to check
+  for bin in sing-box v2fly xray curl yq hysteria; do
+    timeout 1 getevent -cl >/dev/null
+
+    check_bin "$bin"
+    ui_print "— Do you want to download or update it?"
+    ui_print "— [ Vol UP(+): Yes ]"
+    ui_print "— [ Vol DOWN(-): No ]"
+    handle_download "$bin"
+  done
+
+  # Special case for clash
+  if [ -e "$bin_dir/bin/xclash/mihomo" ]; then
+      ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      ui_print "📦  mihomo → ⭕ FOUND"
+      ui_print "-- Do you want to download or update clash?"
+      ui_print "— [ Vol UP(+): Yes ]"
+      ui_print "— [ Vol DOWN(-): No ]"
+      handle_download "clash"
+  else
+      ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+      ui_print "📦  mihomo → ❌ NOT FOUND  "
+      ui_print "— Do you want to download or update mihomo?"
+      ui_print "— [ Vol UP(+): Yes ]"
+      ui_print "— [ Vol DOWN(-): No ]"
+      handle_download "clash"
   fi
-done
+}
+
+find_bin
+timeout 1 getevent -cl >/dev/null
 
 # Restore backup configurations if present
 if [ "${backup_box}" = "true" ]; then
