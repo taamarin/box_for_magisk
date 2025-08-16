@@ -9,6 +9,12 @@ busybox="/data/adb/magisk/busybox"
 [ -f "/data/adb/ksu/bin/busybox" ] && busybox="/data/adb/ksu/bin/busybox"
 [ -f "/data/adb/ap/bin/busybox" ] && busybox="/data/adb/ap/bin/busybox"
 
+wait_for_data_ready() {
+  while [ ! -f "/data/system/packages.xml" ] ; do
+    sleep 1
+  done
+}
+
 refresh_box() {
   if [ -f "/data/adb/box/run/box.pid" ]; then
     "${scripts_dir}/box.service" stop >> "/dev/null" 2>&1
@@ -37,13 +43,23 @@ enable_iptables() {
 }
 
 net_inotifyd() {
-  while [ ! -f /data/misc/net/rt_tables ] ; do
-    sleep 3
+  net_dir="/data/misc/net"
+  ctr_dir="/data/misc/net/rt_tables"
+
+  # Start inotifyd to watch for network-related changes.
+  # - The /proc filesystem cannot be monitored with inotify.
+  # - Polling in a loop is inefficient, so inotify is used instead.
+  # - Here we monitor /data/misc/net and /data/misc/net/rt_tables
+  #   because they reflect changes in routing tables and interfaces.
+
+  # Wait until at least one of the target files/directories exists
+  while [ ! -f "$ctr_dir" ] && [ ! -f "$net_dir" ]; do
+      sleep 3
   done
 
-  net_dir="/data/misc/net"
-  # Use inotifyd to monitor write events in the /data/misc/net directory for network changes, perhaps we have a better choice of files to monitor (the /proc filesystem is unsupported) and cyclic polling is a bad solution
-  inotifyd "${scripts_dir}/net.inotify" "${net_dir}" > "/dev/null" 2>&1 &
+  # Launch inotifyd handlers in the background
+  inotifyd "${scripts_dir}/ctr.inotify" "$ctr_dir" >/dev/null 2>&1 &
+  inotifyd "${scripts_dir}/net.inotify" "$net_dir" >/dev/null 2>&1 &
 }
 
 start_inotifyd() {
@@ -63,13 +79,14 @@ start_inotifyd() {
 mkdir -p /data/adb/box/run/
 if [ -f "/data/adb/box/manual" ]; then
   if [ -f "/data/adb/box/run/box.pid" ]; then
-      rm /data/adb/box/run/box.pid
+      rm -rf /data/adb/box/run/box.pid
   fi
   net_inotifyd
   exit 1
 fi
 
 if [ -f "$file_settings" ] && [ -r "$file_settings" ] && [ -s "$file_settings" ]; then
+  wait_for_data_ready
   refresh_box
   start_service
   enable_iptables

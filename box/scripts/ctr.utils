@@ -1,0 +1,34 @@
+#!/system/bin/sh
+
+get_current_ssid() {
+    SSID=$(dumpsys wifi | grep 'mWifiInfo' | head -n 1 | cut -d '"' -f 2)
+    if [ -z "$SSID" ] || [ "$SSID" = "<unknown ssid>" ]; then
+        SSID=$(iwconfig wlan0 | grep 'ESSID' | awk -F ':' '{print $2}' | tr -d '"')
+        if [ -z "$SSID" ] || [ "$SSID" = "off/any" ]; then
+            echo "unknown"
+        else
+            echo "$SSID"
+        fi
+    else
+        echo "$SSID"
+    fi
+}
+is_wifi_connected() {
+    wifi_enabled=$(dumpsys wifi | grep 'Wi-Fi is enabled')
+    wifi_ip=$(ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+
+    if [ -n "$wifi_enabled" ] && [ -n "$wifi_ip" ]; then
+        echo "wifi"
+    else
+        echo "not_wifi"
+    fi
+}
+is_allowed_wifi() {
+    local ssid=$1
+    local allowed_ssids=$2
+    if echo " $allowed_ssids " | tr ',' ' ' | grep -q " $ssid "; then
+        return 0
+    else
+        return 1
+    fi
+}
