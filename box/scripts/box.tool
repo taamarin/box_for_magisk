@@ -378,60 +378,84 @@ upsubs() {
   fi
   case "${bin_name}" in
     "clash")
-      enhanced=false
-      update_file_name="${clash_config}"
-      if [ "${renew}" != "true" ]; then
-        enhanced=true
-        update_file_name="${update_file_name}.subscription"
-      fi
-      # subscription clash
-      if [ -n "${subscription_url_clash}" ]; then
+      # Clash Subscription
+      if [ -n "${subscription_url_clash[*]}" ]; then
         if [ "${update_subscription}" = "true" ]; then
           log Info "${bin_name} daily updates subscription → $(date)"
-          log Debug "Downloading ${update_file_name}"
-          if upfile "${update_file_name}" "${subscription_url_clash}"; then
-            log Info "${update_file_name} saved"
-            # If there is a yq command, extract the proxy information from the yml and output it to the clash_provide_config file
-            if [ "${enhanced}" = "true" ]; then
-              # Make sure the folder exists
-              mkdir -p "$(dirname "${clash_provide_config}")"
-              touch "${clash_provide_config}"
-              if ${yq} 'has("proxies")' "${update_file_name}" | grep -q "true"; then
-                ${yq} '.proxies' "${update_file_name}" >/dev/null 2>&1
-                ${yq} '.proxies' "${update_file_name}" > "${clash_provide_config}"
-                ${yq} -i '{"proxies": .}' "${clash_provide_config}"
-                if [ "${custom_rules_subs}" = "true" ]; then
-                  if ${yq} '.rules' "${update_file_name}" >/dev/null; then
-                    ${yq} '.rules' "${update_file_name}" > "${clash_provide_rules}"
-                    ${yq} -i '{"rules": .}' "${clash_provide_rules}"
-                    ${yq} -i 'del(.rules)' "${clash_config}"
-                    cat "${clash_provide_rules}" >> "${clash_config}"
+
+          # renew = true → just take the first index
+          if [ "${renew}" = "true" ]; then
+            urls=("${subscription_url_clash[0]}")
+            cfgs=("${name_provide_clash_config[0]}")
+          else
+            # make sure the number of URLs and configs are the same
+            if [ "${#subscription_url_clash[@]}" -ne "${#name_provide_clash_config[@]}" ]; then
+              log Error "Mismatch: subscription_url_clash (${#subscription_url_clash[@]}) != name_provide_clash_config (${#name_provide_clash_config[@]})"
+              return 1
+            fi
+          
+            urls=("${subscription_url_clash[@]}")
+            cfgs=("${name_provide_clash_config[@]}")
+          fi
+
+          for i in "${!urls[@]}"; do
+            sub_url="${urls[$i]}"
+            clash_provide_config="${clash_provide_path}/${cfgs[$i]}"
+
+            enhanced=false
+            update_file_name="${clash_config}"
+            if [ "${renew}" != "true" ]; then
+              enhanced=true
+              update_file_name="${update_file_name}.subscription"
+            fi
+
+            log Debug "Downloading ${sub_url} → ${update_file_name}"
+            if upfile "${update_file_name}" "${sub_url}"; then
+              log Info "${update_file_name} saved"
+
+              if [ "${enhanced}" = "true" ]; then
+                mkdir -p "$(dirname "${clash_provide_config}")"
+
+                if ${yq} 'has("proxies")' "${update_file_name}" | grep -q "true"; then
+                  ${yq} '.proxies' "${update_file_name}" >/dev/null 2>&1
+                  ${yq} '.proxies' "${update_file_name}" > "${clash_provide_config}"
+                  ${yq} -i '{"proxies": .}' "${clash_provide_config}"
+
+                  if [ "${custom_rules_subs}" = "true" ]; then
+                    if ${yq} '.rules' "${update_file_name}" >/dev/null; then
+                      ${yq} '.rules' "${update_file_name}" > "${clash_provide_rules}"
+                      ${yq} -i '{"rules": .}' "${clash_provide_rules}"
+                      ${yq} -i 'del(.rules)' "${clash_config}"
+                      cat "${clash_provide_rules}" >> "${clash_config}"
+                    fi
                   fi
+
+                  log Info "subscription success"
+                  log Info "Update subscription $(date +"%F %R")"
+                  [ -f "${update_file_name}.bak" ] && rm "${update_file_name}.bak"
+
+                elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria://|trojan://"; then
+                  mv "${update_file_name}" "${clash_provide_config}"
+                else
+                  log Error "${update_file_name} update subscription failed"
+                  return 1
                 fi
-                log Info "subscription success"
-                log Info "Update subscription $(date +"%F %R")"
-                if [ -f "${update_file_name}.bak" ]; then
-                  rm "${update_file_name}.bak"
-                fi
-              elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria://|trojan://"; then
-                mv "${update_file_name}" "${clash_provide_config}"
+
               else
-                log Error "${update_file_name} update subscription failed"
-                return 1
+                if [ -f "${box_pid}" ]; then
+                  kill -0 "$(<"${box_pid}" 2>/dev/null)" && \
+                  $scripts_dir/box.service restart 2>/dev/null
+                fi
+                log Info "${bin_name} subscription update completed → $(date)"
+                exit 1
               fi
             else
-              if [ -f "${box_pid}" ]; then
-                kill -0 "$(<"${box_pid}" 2>/dev/null)" && \
-                $scripts_dir/box.service restart 2>/dev/null
-              fi
-              log Info "${bin_name} subscription update completed → $(date)"
-              exit 1
+              log Error "update $bin_name subscription failed → ${sub_url}"
+              return 1
             fi
-            return 0
-          else
-            log Error "update subscription failed"
-            return 1
-          fi
+          done
+          log Info "All subscriptions updated → $(date)"
+          return 0
         else
           log Warning "update subscription: $update_subscription"
           return 1
