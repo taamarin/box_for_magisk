@@ -113,6 +113,7 @@ check_module_service() {
             done
 
             if [ -n "$current_ip" ]; then
+                echo "-- Notifikasi LOG --" > "$log_file"
                 log_msg "--- Network state change: WiFi connected ---"
                 log_msg "SSID: ${ssid}, IP: ${current_ip}"
                 echo "ssid:${ssid}" > "$last_wifi_state_file"

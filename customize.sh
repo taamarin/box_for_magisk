@@ -113,10 +113,10 @@ find_bin() {
     local path="$bin_dir/bin/$name"
     if [ -e "$path" ]; then
         ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        ui_print "📦  $name → ⭕ FOUND"
+        ui_print "— $name → ⭕ FOUND"
     else
         ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        ui_print "📦  $name → ❌ NOT FOUND"
+        ui_print "— $name → ❌ NOT FOUND"
     fi
   }
 
@@ -155,7 +155,7 @@ find_bin() {
   }
 
   # List of binaries to check
-  for bin in sing-box v2fly xray curl yq hysteria; do
+  for bin in yq curl sing-box v2fly xray hysteria; do
     timeout 1 getevent -cl >/dev/null
 
     check_bin "$bin"
@@ -163,19 +163,20 @@ find_bin() {
     ui_print "— [ Vol UP(+): Yes ]"
     ui_print "— [ Vol DOWN(-): No ]"
     handle_download "$bin"
+    sleep 1
   done
 
   # Special case for clash
   if [ -e "$bin_dir/bin/xclash/mihomo" ]; then
       ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      ui_print "📦  mihomo → ⭕ FOUND"
+      ui_print "— mihomo → ⭕ FOUND"
       ui_print "-- Do you want to download or update clash?"
       ui_print "— [ Vol UP(+): Yes ]"
       ui_print "— [ Vol DOWN(-): No ]"
       handle_download "clash"
   else
       ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-      ui_print "📦  mihomo → ❌ NOT FOUND  "
+      ui_print "— mihomo → ❌ NOT FOUND  "
       ui_print "— Do you want to download or update mihomo?"
       ui_print "— [ Vol UP(+): Yes ]"
       ui_print "— [ Vol DOWN(-): No ]"
