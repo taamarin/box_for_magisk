@@ -13,7 +13,6 @@ table="2024"
 pref="100"
 # disable or enable QUIC using iptables rules. Note that this may cause some websites to become inaccessible.
 quic="enable"
-tun_forward="enable"
 clash_dns_forward="enable"
 fake_ip_range=""
 
@@ -137,13 +136,6 @@ find_packages_uid() {
   done
 }
 
-# find_packages_uid() {
-  # echo -n "" > "${uid_list}"
-  # for package in "${packages_list[@]}"; do
-    # busybox awk -v p="${package}" '$1~p{print $2}' "${system_packages_file}" >> "${uid_list}"
-  # done
-# }
-
 probe_user_group() {
   if PID=$(busybox pidof ${bin_name}) ; then
     box_user=$(stat -c %U /proc/$PID)
@@ -229,74 +221,10 @@ probe_tun_device() {
   busybox ifconfig | grep -q "${tun_device}" || return 1
 }
 
-probe_tun_index() {
-  while [ ! -f "/data/misc/net/rt_tables" ]; do
-    sleep 1
-  done
-
-  while read -r index name; do
-    if [ "${name}" = "${tun_device}" ]; then
-      tun_table_index=${index}
-      return 0
-    fi
-  done < /data/misc/net/rt_tables
-
-  return 1
-}
-
-tun_forward_ip_rules() {
-  local action=$1
-  ipv4_rules=(
-    "iif lo goto 6000 pref 5000"
-    "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-    "iif ${tun_device} goto 6000 pref 5020"
-    "from 10.0.0.0/8 lookup ${tun_table_index} pref 5030"
-    "from 172.16.0.0/12 lookup ${tun_table_index} pref 5040"
-    "from 192.168.0.0/16 lookup ${tun_table_index} pref 5050"
-    "nop pref 6000"
-  )
-
-  ipv6_rules=(
-    "iif lo goto 6000 pref 5000"
-    "iif ${tun_device} lookup main suppress_prefixlength 0 pref 5010"
-    "iif ${tun_device} goto 6000 pref 5020"
-    "from fc00::/7 lookup ${tun_table_index} pref 5030"   # ULA
-    "from fd00::/8 lookup ${tun_table_index} pref 5040"   # Subset of ULA
-    "from fe80::/10 lookup ${tun_table_index} pref 5050"  # Link-local
-    # "from 2000::/3 lookup ${tun_table_index} pref 5060"
-    "nop pref 6000"
-  )
-
-  if [ "${iptables}" = "$IPV" ]; then
-    for rule in "${ipv4_rules[@]}"; do
-      ip -4 rule "${action}" ${rule}
-    done
-  else
-    for rule in "${ipv6_rules[@]}"; do
-      ip -6 rule "${action}" ${rule}
-    done
-  fi
-}
-
-tun_forward_ip_rules_del() {
-  for pref in 5000 5010 5020 5030 5040 5050 6000; do
-    ip -4 rule del pref $pref >/dev/null 2>&1
-    ip -6 rule del pref $pref >/dev/null 2>&1
-  done
-}
-
-sing_tun_ip_rules() {
-  ip -4 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
-  ip -4 rule $1 lookup main pref 7000
-  ip -6 rule $1 from all iif ${tun_device} lookup main suppress_prefixlength 0 pref 8000
-  ip -6 rule $1 lookup main pref 7000
-}
-
 forward() {
   local action=$1
 
-  ${iptables} -t nat "${action}" POSTROUTING -o ${tun_device} -j MASQUERADE
-
+  # ${iptables} -t nat ${action} POSTROUTING -o ${tun_device} -j MASQUERADE
   ${iptables} "${action}" FORWARD -i "${tun_device}" -j ACCEPT
   ${iptables} "${action}" FORWARD -o "${tun_device}" -j ACCEPT
 
@@ -304,25 +232,6 @@ forward() {
   sysctl -w net.ipv4.conf.default.rp_filter=2
   sysctl -w net.ipv4.conf.all.rp_filter=2
 
-  probe_tun_index
-
-  if [ "${tun_forward}" = "enable" ]; then
-    if probe_tun_device; then
-      tun_forward_ip_rules_del
-      tun_forward_ip_rules "${action}"
-      if [ "${action}" = "-I" ]; then
-        sing_tun_ip_rules "add"
-      else
-        sing_tun_ip_rules "del"
-      fi
-      return 0
-    else
-      tun_forward_ip_rules_del
-      tun_forward_ip_rules -D
-      sing_tun_ip_rules "del"
-      return 1
-    fi
-  fi
 } >/dev/null 2>&1
 
 start_redirect() {
@@ -827,7 +736,6 @@ if [[ "${network_mode}" == @(redirect|mixed|tproxy|enhance) ]]; then
           iptables="$IPV"
           probe_tun_device || log Error "tun device: (${tun_device}) not found"
           forward -I || forward -D >/dev/null 2>&1
-          [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
 
           if start_redirect; then
             log Info "Creating iptables transparent proxy rules done."
@@ -951,7 +859,6 @@ else
         disable_ipv6
         log Warning "Disable IPv6."
       fi
-      [ "${tun_forward}" = "enable" ] && log Info "tun hotspot support is enabled." || log Warning "tun hotspot support is disabled."
       [ $1 = "renew" ] && log Info "Restart iptables tun rules done."
       bin_alive && log Info "${bin_name} connected."
       ;;
