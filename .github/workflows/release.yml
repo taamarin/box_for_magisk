@@ -56,7 +56,7 @@ jobs:
             echo "" >> CHANGELOG.md
           fi
           {
-            echo "#### Changelog v$VERSION - $DATE_HUMAN"
+            echo "#### Changelog $VERSION - $DATE_HUMAN"
             echo "$CHANGELOG" | sed 's/^/- /'
             echo ""
             cat CHANGELOG.md
