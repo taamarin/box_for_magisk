@@ -23,12 +23,16 @@ is_wifi_connected() {
         echo "not_wifi"
     fi
 }
+
+# Definisi array di settings.ini
 is_allowed_wifi() {
     local ssid=$1
-    local allowed_ssids=$2
-    if echo " $allowed_ssids " | tr ',' ' ' | grep -q " $ssid "; then
-        return 0
-    else
-        return 1
-    fi
+    shift
+    local allowed_list=("$@")
+    for allowed in "${allowed_list[@]}"; do
+        if [ "$ssid" = "$allowed" ]; then
+            return 0
+        fi
+    done
+    return 1
 }

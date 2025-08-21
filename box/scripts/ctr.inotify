@@ -10,7 +10,7 @@ export PATH="/data/adb/magisk:/data/adb/ksu/bin:/data/adb/ap/bin:$PATH:/data/dat
 module_dir="/data/adb/modules/box_for_root"
 base_dir="/data/adb/box"
 variab_dir="${base_dir}/run/variab"
-log_file="${base_dir}/run/Networkswitch_debug.log"
+log_file="${base_dir}/run/netswitch.log"
 log_file_path="/data/local/tmp/"
 temp_log_file="${log_file_path}debug.log.tmp"
 last_check_file="${variab_dir}/last_check_time"
@@ -131,8 +131,8 @@ check_module_service() {
                 else
                     if [ "$use_ssid_matching" = "true" ]; then
                         if [ "$use_wifi_list_mode" = "blacklist" ]; then
-                            log_msg "Policy: WiFi blacklist mode, list: ${wifi_ssids_list}"
-                            if is_allowed_wifi "$ssid" "$wifi_ssids_list"; then
+                            log_msg "Policy: WiFi blacklist mode, list: ${wifi_ssids_list[*]}"
+                            if is_allowed_wifi "$ssid" "${wifi_ssids_list[@]}"; then
                                 log_msg "Result: ${ssid} is in blacklist"
                                 if [ "$current_state" != "disabled" ]; then
                                     "$iptables_script" disable
@@ -152,8 +152,8 @@ check_module_service() {
                                 fi
                             fi
                         elif [ "$use_wifi_list_mode" = "whitelist" ]; then
-                            log_msg "Policy: WiFi whitelist mode, list: ${wifi_ssids_list}"
-                            if is_allowed_wifi "$ssid" "$wifi_ssids_list"; then
+                            log_msg "Policy: WiFi whitelist mode, list: ${wifi_ssids_list[*]}"
+                            if is_allowed_wifi "$ssid" "${wifi_ssids_list[@]}"; then
                                 log_msg "Result: ${ssid} is in whitelist"
                                 if [ "$current_state" != "enabled" ]; then
                                     "$service_script" start
