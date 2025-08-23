@@ -1,38 +1,50 @@
 #!/system/bin/sh
 
 get_current_ssid() {
-    SSID=$(dumpsys wifi | grep 'mWifiInfo' | head -n 1 | cut -d '"' -f 2)
-    if [ -z "$SSID" ] || [ "$SSID" = "<unknown ssid>" ]; then
-        SSID=$(iwconfig wlan0 | grep 'ESSID' | awk -F ':' '{print $2}' | tr -d '"')
-        if [ -z "$SSID" ] || [ "$SSID" = "off/any" ]; then
-            echo "unknown"
-        else
-            echo "$SSID"
-        fi
-    else
+  SSID=$(cmd wifi status 2>/dev/null | sed -n 's/.*SSID: "\([^"]*\)".*/\1/p' | head -n1)
+
+  if [ -z "$SSID" ] || [ "$SSID" = "<unknown ssid>" ]; then
+    # if command -v iwconfig >/dev/null 2>&1; then
+      SSID=$(iwconfig wlan0 2>/dev/null | grep 'ESSID' | busybox awk -F ':' '{print $2}' | tr -d '"')
+      if [ -z "$SSID" ] || [ "$SSID" = "off/any" ]; then
+        echo "unknown"
+      else
         echo "$SSID"
-    fi
+      fi
+    # else
+      # log_msg "Warning: 'iwconfig' not found, unable to retrieve SSID."
+      # log_msg "Warning: The program 'iwconfig' is not installed. You can install it in Termux by running:"
+      # log_msg "Warning: pkg install root-repo && pkg install wireless-tools"
+      # echo "unknown"
+    # fi
+  else
+    echo "$SSID"
+  fi
 }
+
 is_wifi_connected() {
-    wifi_enabled=$(dumpsys wifi | grep 'Wi-Fi is enabled')
-    wifi_ip=$(ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+  wifi_enabled=$(dumpsys wifi | grep 'Wi-Fi is enabled')
+  wifi_ip=$(ip addr show wlan0 | grep 'inet ' | busybox awk '{print $2}' | cut -d/ -f1)
 
-    if [ -n "$wifi_enabled" ] && [ -n "$wifi_ip" ]; then
-        echo "wifi"
-    else
-        echo "not_wifi"
-    fi
+  if [ -n "$wifi_enabled" ] && [ -n "$wifi_ip" ]; then
+    echo "wifi"
+  else
+    echo "not_wifi"
+  fi
 }
 
-# Definisi array di settings.ini
 is_allowed_wifi() {
-    local ssid=$1
-    shift
-    local allowed_list=("$@")
-    for allowed in "${allowed_list[@]}"; do
-        if [ "$ssid" = "$allowed" ]; then
-            return 0
-        fi
-    done
-    return 1
+  ssid_list="$(IFS=,; echo "${wifi_ssids_list[*]}")"
+
+  local ssid=$(echo "$1" | xargs)
+  local list="$ssid_list"
+
+  IFS=','
+  for allowed in $list; do
+    allowed=$(echo "$allowed" | xargs)
+    if [ "$ssid" = "$allowed" ]; then
+      return 0
+    fi
+  done
+  return 1
 }
