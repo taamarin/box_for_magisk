@@ -89,7 +89,7 @@ check() {
 
   case "${bin_name}" in
     sing-box)
-      if ${bin_path} check -D "${box_dir}/${bin_name}" --config-directory "${box_dir}/sing-box" >/dev/null; then
+      if ${bin_path} check -D "${box_dir}/${bin_name}" -c "${sing_config}" >/dev/null; then
         log Info "${sing_config} passed"
       else
         log Error "Configuration check failed for sing-box"

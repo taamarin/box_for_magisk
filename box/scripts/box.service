@@ -9,19 +9,22 @@ scripts_dir="${0%/*}"
 source /data/adb/box/settings.ini
 
 PROPFILE="/data/adb/modules/box_for_root/module.prop"
+log_backup="false"
 
 box_check_logs() {
     ts=$(date '+%Y-%m-%d_%H-%M-%S')
     log Info "Cleaning and backing up logs"
 
     # Backup logs for each bin in bin_list
-    for bin in "${bin_name}"; do
-        log_file="${box_run}/${bin}.log"
-        if [ -f "${log_file}" ]; then
-            mv "${log_file}" "${box_run}/${bin}_$ts.log.bak"
-            log Info "Backup: ${bin}.log → ${bin}_${ts}.log.bak"
-        fi
-    done
+    if [ "${log_backup}" = "true" ]; then
+      for bin in "${bin_name}"; do
+          log_file="${box_run}/${bin}.log"
+          if [ -f "${log_file}" ]; then
+              mv "${log_file}" "${box_run}/${bin}_$ts.log.bak"
+              log Info "Backup: ${bin}.log → ${bin}_${ts}.log.bak"
+          fi
+      done
+    fi
 
     # Remove specific unnecessary files
     find "${box_run}" -maxdepth 1 -type f \( -name "root" -o -name "*.list" -o -name "*.inotify.log" \) -exec rm -f {} +
@@ -208,7 +211,7 @@ prepare_singbox() {
           "auto_route": true,
           "strict_route": true,
           "auto_redirect": true,
-          "include_android_user": [0,10],
+          "include_android_user": [0,10,999],
           "include_package": [],
           "exclude_package": []
         }]' -i --output-format=json "${sing_config}"
@@ -334,7 +337,7 @@ prepare_clash() {
         '  strict-route: true' \
         '  auto-redirect: true' \
         '  auto-detect-interface: true' \
-        '  include-android-user: [0, 10]' \
+        '  include-android-user: [0, 10, 999]' \
         '  exclude-package: []' \
         '  include-package: []' \ >> "${clash_config}"
       log Debug "[tun] configuration has been added to ${clash_config}"
@@ -440,8 +443,8 @@ box_run_bin() {
       ;;
     sing-box)
       prepare_singbox
-      if ${bin_path} check -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${box_run}/${bin_name}.log" 2>&1; then
-        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" -C "${box_dir}/${bin_name}" > "${bin_log}" 2>&1 &
+      if ${bin_path} check -D "${box_dir}/${bin_name}" -c "${sing_config}" > "${box_run}/${bin_name}.log" 2>&1; then
+        nohup busybox setuidgid "${box_user_group}" "${bin_path}" run -D "${box_dir}/${bin_name}" -c "${sing_config}" > "${bin_log}" 2>&1 &
         PID=$!
         echo -n $PID > "${box_pid}"
         sleep 1
