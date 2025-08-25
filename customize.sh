@@ -187,6 +187,55 @@ find_bin() {
 find_bin
 timeout 1 getevent -cl >/dev/null
 
+restore_ini() {
+  backup_ini="$temp_dir/settings.ini"
+  target_ini="/data/adb/box/settings.ini"
+  
+  # List of keys to restore (separate with spaces)
+  keys="network_mode bin_name ipv6 xclash_option renew update_subscription subscription_url_clash subscription_url_singbox name_clash_config clash_config name_provide_clash_config clash_provide_path enable_network_service_control use_module_on_wifi_disconnect use_module_on_wifi use_ssid_matching use_wifi_list_mode wifi_ssids_list inotify_log_enabled"
+  
+  for key in $keys; do
+      value=$(grep "^$key=" "$backup_ini")
+      if [ -n "$value" ]; then
+          if grep -q "^$key=" "$target_ini"; then
+              # Replace old line
+              sed -i "s|^$key=.*|$value|" "$target_ini"
+          else
+              # Append at the end of the file
+              echo "$value" >> "$target_ini"
+          fi
+          ui_print "— Restored: $key"
+      else
+          ui_print "— Skipped: $key not found in backup"
+      fi
+  done
+}
+
+apply_ini() {
+  ui_print "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  ui_print "— Would you like to restore settings.ini?"
+  ui_print "— [ Vol UP(+): Yes ]"
+  ui_print "— [ Vol DOWN(-): No ]"
+  START_TIME=$(date +%s)
+  while true ; do
+    NOW_TIME=$(date +%s)
+    timeout 1 getevent -lc 1 2>&1 | grep KEY_VOLUME > "$TMPDIR/events"
+    if [ $(( NOW_TIME - START_TIME )) -gt 9 ]; then
+      ui_print "— Skipped restoring settings.ini"
+      break
+    elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEUP); then
+      restore_ini
+      break
+    elif $(cat $TMPDIR/events | grep -q KEY_VOLUMEDOWN); then
+      ui_print "— Skipped restoring settings.ini"
+      break
+    fi
+  done
+}
+
+apply_ini
+timeout 1 getevent -cl >/dev/null
+
 # Restore backup configurations if present
 if [ "${backup_box}" = "true" ]; then
   ui_print "— Restoring configurations..."
