@@ -439,7 +439,7 @@ upsubs() {
                   log Info "Update subscription $(date +"%F %R")"
                   [ -f "${update_file_name}.bak" ] && rm "${update_file_name}.bak"
 
-                elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria://|trojan://"; then
+                elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria2://|hysteria://|trojan://|tuic://|wireguard://|socks5://|http://|snell://|mieru://|anytls://"; then
                   mv "${update_file_name}" "${clash_provide_config}"
                 elif grep -qE '^[A-Za-z0-9+/=[:space:]]+$' "$update_file_name"; then
                   if busybox base64 -d "$update_file_name" >/dev/null 2>&1; then
@@ -450,7 +450,7 @@ upsubs() {
                     return 1
                   fi
                 else
-                  log Error "${update_file_name} update subscription failed"
+                  log Error "${update_file_name} Unknown file format: cannot detect proxies, subscription URLs, or valid Base64"
                   return 1
                 fi
 
