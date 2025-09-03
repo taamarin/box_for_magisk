@@ -441,6 +441,14 @@ upsubs() {
 
                 elif ${yq} '.. | select(tag == "!!str")' "${update_file_name}" | grep -qE "vless://|vmess://|ss://|hysteria://|trojan://"; then
                   mv "${update_file_name}" "${clash_provide_config}"
+                elif grep -qE '^[A-Za-z0-9+/=[:space:]]+$' "$update_file_name"; then
+                  if busybox base64 -d "$update_file_name" >/dev/null 2>&1; then
+                    log Debug "File is valid Base64"
+                    mv "${update_file_name}" "${clash_provide_config}"
+                  else
+                    log Error "File is not valid Base64"
+                    return 1
+                  fi
                 else
                   log Error "${update_file_name} update subscription failed"
                   return 1
