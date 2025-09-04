@@ -197,9 +197,13 @@ restore_ini() {
   for key in $keys; do
       value=$(grep "^$key=" "$backup_ini")
       if [ -n "$value" ]; then
+          # Escape special characters to make it safe for sed
+          esc_value=$(printf '%s\n' "$value" | sed -e 's/[&/\]/\\&/g')
+          
           if grep -q "^$key=" "$target_ini"; then
               # Replace old line
-              sed -i "s|^$key=.*|$value|" "$target_ini"
+              # sed -i "s|^$key=.*|$value|" "$target_ini"
+              sed -i "s|^$key=.*|$esc_value|" "$target_ini"
           else
               # Append at the end of the file
               echo "$value" >> "$target_ini"
