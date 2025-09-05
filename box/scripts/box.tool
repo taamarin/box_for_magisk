@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # Validate settings.ini
-if ! sh -n /data/adb/box/settings.ini 2>"/data/adb/box/run/settings_err.log"; then
-  echo "err: settings.ini contains a syntax error" | tee -a "/data/adb/box/run/settings_err.log"
+if ! /system/bin/sh -n /data/adb/box/settings.ini 2>"/data/adb/box/run/settings_err.log"; then
+  echo "Err: settings.ini contains a syntax error" | tee -a "/data/adb/box/run/settings_err.log"
   exit 1
 fi
 
@@ -41,6 +41,7 @@ upfile() {
     request+=" -L"
     request+=" --insecure"
     request+=" --user-agent ${user_agent}"
+    request+=" --connect-timeout 30 --max-time 180"
     request+=" -o ${file}"
     request+=" ${update_url}"
     echo "${yellow}${request}${normal}"
