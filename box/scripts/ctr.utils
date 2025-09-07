@@ -2,6 +2,7 @@
 
 get_current_ssid() {
   SSID=$(cmd wifi status 2>/dev/null | sed -n 's/.*SSID: "\([^"]*\)".*/\1/p' | head -n1)
+  # SSID=$(dumpsys wifi | grep 'mWifiInfo' | head -n 1 | busybox awk -F'SSID: |, BSSID' '{print $2}')
 
   if [ -z "$SSID" ] || [ "$SSID" = "<unknown ssid>" ]; then
     # if command -v iwconfig >/dev/null 2>&1; then

@@ -64,19 +64,21 @@ clean_old_logs
 
 current_time=$(date +%s)
 last_check_time=0
+
 if [ -f "$last_check_file" ]; then
-  last_check_time=$(cat "$last_check_file")
+  last_check_time=$(grep -oE '[0-9]+' "$last_check_file" | head -n 1)
+  last_check_time=${last_check_time:-0}
 fi
 
-time_diff=$((current_time - last_check_time))
+time_diff=$(( current_time - last_check_time ))
 stability_window=3
 
 if [ "$time_diff" -lt "$stability_window" ]; then
   log_msg "Skip check: (${time_diff}s), within stability window"
-  return
+  return 0
 fi
 
-echo "$current_time" > "$last_check_file"
+echo -n "$current_time" > "$last_check_file"
 
 wifi_status=$(is_wifi_connected)
 ssid=$(get_current_ssid)
@@ -115,7 +117,7 @@ check_module_service() {
         log_msg "SSID: ${ssid}, IP: ${current_ip}"
         echo "ssid:${ssid}" > "$last_wifi_state_file"
         echo "ip:${current_ip}" >> "$last_wifi_state_file"
-        
+
         if [ "$use_module_on_wifi" = "false" ]; then
           log_msg "Policy: Disable service when on WiFi"
           if [ "$current_state" != "disabled" ]; then
