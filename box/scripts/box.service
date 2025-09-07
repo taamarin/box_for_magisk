@@ -384,7 +384,7 @@ prepare_clash() {
   clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2 }' "${clash_config}" 2>/dev/null)
   if [ -z "${clash_enhanced_mode}" ]; then
     # Add enhanced-mode: fake-ip
-    sed -i '/dns:/ {n; /enable:.*/ {a\  enhanced-mode: fake-ip}}' "$clash_config"
+    sed -i "/^dns:/a \  enhanced-mode: fake-ip" "$clash_config"
     log Debug "enhanced-mode: fake-ip add success"
   fi
 
