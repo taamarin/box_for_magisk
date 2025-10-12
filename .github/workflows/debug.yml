@@ -9,6 +9,8 @@ on:
       - "CHANGELOG.md"
     branches:
       - master
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -28,7 +30,6 @@ jobs:
         id: get_version
         run: |
           echo "version=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
-        
       - name: Generate Asset
         run: |
           sudo mkdir -p /box_for_root
@@ -49,12 +50,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: run build
+      - name: Run build
         run: |
           sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')($(git log --oneline -n 1 | awk '{print $1}'))/g" module.prop
-          zip -r -o -X -ll box_for_root-$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}').zip ./ -x '.git/*' -x 'CHANGELOG.md' -x 'update.json' -x 'build.sh' -x '.github/*' -x 'docs/*'
+          zip -r -o -X -ll box_for_root-$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}').zip ./ \
+            -x '.git/*' -x 'CHANGELOG.md' -x 'update.json' -x 'build.sh' -x '.github/*' -x 'docs/*'
 
-      - name: Upload To Telegram
+      - name: Upload to GitHub Pre-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')
+          FILE=$(find . -name "*.zip")
+          gh release create "pre-${VERSION}" "$FILE" \
+            --prerelease \
+            --title "Pre-release ${VERSION}" \
+            --notes "pre-release build from commit $(git log -1 --pretty=%h)"
+
+      - name: Upload to Telegram
         env:
           CHAT_ID: "-1001597117128"
           MESSAGE_THREAD_ID: "282263"
@@ -65,7 +78,7 @@ jobs:
           if [ ! -z "${{ secrets.BOT_TOKEN }}" ]; then
             export VERSION=$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')
             export COMMIT=$(git log --oneline -n 5 --no-decorate | sed 's/^[0-9a-f]* //' | sed 's/^/— /')
-            FILE=$(find -name "*.zip")
+            FILE=$(find . -name "*.zip")
             pip3 install telethon==1.31.1
-            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py $FILE
+            python3 $GITHUB_WORKSPACE/.github/taamarinbot.py "$FILE"
           fi
