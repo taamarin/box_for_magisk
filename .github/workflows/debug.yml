@@ -9,6 +9,7 @@ on:
       - "CHANGELOG.md"
     branches:
       - master
+
 permissions:
   contents: write
 
@@ -30,6 +31,7 @@ jobs:
         id: get_version
         run: |
           echo "version=$(grep -oP 'version=\K[^ ]+' module.prop)" >> "$GITHUB_OUTPUT"
+
       - name: Generate Asset
         run: |
           sudo mkdir -p /box_for_root
@@ -45,18 +47,32 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+
     steps:
       - uses: actions/checkout@v4.1.0
         with:
           fetch-depth: 0
 
+      - name: Check for [ci] in commit message
+        id: check_ci
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Last commit message: $COMMIT_MSG"
+          if [[ "$COMMIT_MSG" == *"[ci]"* ]]; then
+            echo "should_upload=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_upload=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run build
+        if: steps.check_ci.outputs.should_upload == 'true'
         run: |
           sed -i "s/$(grep -oP 'version=\K[^ ]+' module.prop)/$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}')($(git log --oneline -n 1 | awk '{print $1}'))/g" module.prop
           zip -r -o -X -ll box_for_root-$(cat module.prop | grep 'version=' | awk -F '=' '{print $2}').zip ./ \
             -x '.git/*' -x 'CHANGELOG.md' -x 'update.json' -x 'build.sh' -x '.github/*' -x 'docs/*'
 
       - name: Upload to GitHub Pre-release
+        if: steps.check_ci.outputs.should_upload == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -68,6 +84,7 @@ jobs:
             --notes "pre-release build from commit $(git log -1 --pretty=%h)"
 
       - name: Upload to Telegram
+        if: steps.check_ci.outputs.should_upload == 'true'
         env:
           CHAT_ID: "-1001597117128"
           MESSAGE_THREAD_ID: "282263"
