@@ -1,11 +1,6 @@
 #!/system/bin/sh
-# Validate settings.ini
-if ! /system/bin/sh -n /data/adb/box/settings.ini 2>"/data/adb/box/run/settings_err.log"; then
-  echo "Err: settings.ini contains a syntax error" | tee -a "/data/adb/box/run/settings_err.log"
-  exit 1
-fi
-
 scripts_dir="${0%/*}"
+"${scripts_dir}/box.validate" || exit 1
 file_settings="/data/adb/box/settings.ini"
 moddir="/data/adb/modules/box_for_root"
 
@@ -81,7 +76,6 @@ start_inotifyd() {
   net_inotifyd
 }
 
-mkdir -p /data/adb/box/run/
 if [ -f "/data/adb/box/manual" ]; then
   if [ -f "/data/adb/box/run/box.pid" ]; then
       rm -rf /data/adb/box/run/box.pid

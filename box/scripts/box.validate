@@ -1,0 +1,27 @@
+#!/system/bin/sh
+settings="/data/adb/box/settings.ini"
+user_settings="/data/adb/box/user.settings.ini"
+run_dir="/data/adb/box/run"
+settings_err="${run_dir}/settings_err.log"
+
+mkdir -p "${run_dir}"
+: > "${settings_err}"
+
+validate_file() {
+  local file="$1"
+  local label="$2"
+
+  if ! /system/bin/sh -n "${file}" 2>>"${settings_err}"; then
+    echo "Err: ${label} contains a syntax error" | tee -a "${settings_err}"
+    return 1
+  fi
+  return 0
+}
+
+validate_file "${settings}" "settings.ini" || exit 1
+
+if [ -f "${user_settings}" ]; then
+  validate_file "${user_settings}" "user.settings.ini" || exit 1
+fi
+
+exit 0
