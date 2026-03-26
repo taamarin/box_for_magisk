@@ -1,9 +1,6 @@
 #!/system/bin/sh
-# Validate settings.ini
-if ! /system/bin/sh -n /data/adb/box/settings.ini 2>"/data/adb/box/run/settings_err.log"; then
-  echo "Err: settings.ini contains a syntax error" | tee -a "/data/adb/box/run/settings_err.log"
-  exit 1
-fi
+scripts_dir="${0%/*}"
+"${scripts_dir}/box.validate" || exit 1
 
 export PATH="/data/adb/magisk:/data/adb/ksu/bin:/data/adb/ap/bin:$PATH:/data/data/com.termux/files/usr/bin"
 
@@ -19,9 +16,6 @@ last_wifi_state_file="${variab_dir}/last_wifi_state"
 if [ ! -d "$variab_dir" ]; then
     mkdir -p "$variab_dir"
 fi
-
-scripts=$(realpath "$0")
-scripts_dir=$(dirname "${scripts}")
 
 events=$1
 if [ "$events" != "w" ]; then

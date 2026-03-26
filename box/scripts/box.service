@@ -1,11 +1,6 @@
 #!/system/bin/sh
-# Validate settings.ini
-if ! /system/bin/sh -n /data/adb/box/settings.ini 2>"/data/adb/box/run/settings_err.log"; then
-  echo "Err: settings.ini contains a syntax error" | tee -a "/data/adb/box/run/settings_err.log"
-  exit 1
-fi
-
 scripts_dir="${0%/*}"
+"${scripts_dir}/box.validate" || exit 1
 source /data/adb/box/settings.ini
 
 PROPFILE="/data/adb/modules/box_for_root/module.prop"
@@ -180,16 +175,6 @@ prepare_singbox() {
     log Info "Config ${sing_config} found"
   fi
 
-  # Check yq
-  yq="yq"
-  if ! command -v yq &>/dev/null; then
-    if [ ! -e "${box_dir}/bin/yq" ]; then
-      log Debug "yq file not found, starting download from GitHub"
-      ${scripts_dir}/box.tool upyq
-    fi
-    yq="${box_dir}/bin/yq"
-  fi
-
   # Set auto_detect_interface/auto_route
   ${yq} '.route.auto_detect_interface = true' -i --output-format=json "${sing_config}"
   ${yq} '(.inbounds[] | select(.type == "tun") | .auto_route) |= true' -i --output-format=json "${sing_config}"
@@ -247,14 +232,14 @@ prepare_singbox() {
     fi
 
     # add exclude_package/include_package for tun
-    "${yq}" '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
-    "${yq}" '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
+    ${yq} '(.inbounds[] | select(.type == "tun") | .include_package) = []' -i --output-format=json "${sing_config}"
+    ${yq} '(.inbounds[] | select(.type == "tun") | .exclude_package) = []' -i --output-format=json "${sing_config}"
     [[ ${proxy_mode} = "blacklist" || ${proxy_mode} = "black" ]] && mode="exclude" || mode="include"
 
     # Clean up the "0:" prefix and insert one by one into the config
     for raw in "${packages_list[@]}"; do
       package=$(echo "$raw" | cut -d':' -f2)
-      "${yq}" eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
+      ${yq} eval '(.inbounds[] | select(.type == "tun") | .'${mode}'_package) += ["'${package}'"]' -i --output-format=json "${sing_config}"
     done
 
     # Add "redirect" configuration based on network_mode
@@ -297,57 +282,43 @@ prepare_clash() {
   # sed -i "s/ipv6=.*/ipv6=\"${ipv6}\"/g" ${settings}
   # sed -i "s/ipv6:.*/ipv6: ${ipv6}/g" "${clash_config}"
 
-  # write external_controller, if not in $clash_config
-  clash_external_controller=$(busybox awk '!/^ *#/ && /external-controller: /{print $1}' "${clash_config}")
-  if [ -z "${clash_external_controller}" ]; then
-    printf "\nexternal-controller: 0.0.0.0:9090" >> "${clash_config}"
+  # write external-controller/external-ui, if not in $clash_config
+  if [ "$(${yq} e 'has("external-controller")' "${clash_config}" 2>/dev/null)" != "true" ]; then
+    ${yq} e -i '."external-controller" = "0.0.0.0:9090"' "${clash_config}"
   fi
-
-  # write external_ui, if not in $clash_config
-  clash_external_ui=$(busybox awk '!/^ *#/ && /external-ui: /{print $1}' "${clash_config}")
-  if [ -z "${clash_external_ui}" ]; then
-    printf "\nexternal-ui: ./dashboard" >> "${clash_config}"
-  fi
-
-  # write tproxy-port, if not in $clash_config
-  clash_tproxy_port=$(busybox awk '!/^ *#/ && /tproxy-port: /{print $1}' "${clash_config}")
-  if [ -z "${clash_tproxy_port}" ]; then
-    printf "\ntproxy-port: ${tproxy_port}" >> "${clash_config}"
-  fi
-
-  # write redir-port, if not in $clash_config
-  clash_redir_port=$(busybox awk '!/^ *#/ && /redir-port: /{print $1}' "${clash_config}")
-  if [ -z "${clash_redir_port}" ]; then
-    printf "\nredir-port: ${redir_port}" >> "${clash_config}"
+  if [ "$(${yq} e 'has("external-ui")' "${clash_config}" 2>/dev/null)" != "true" ]; then
+    ${yq} e -i '."external-ui" = "./dashboard"' "${clash_config}"
   fi
 
   if [[ "${network_mode}" == @(mixed|tun) ]]; then
-    clash_tun_status=$(busybox awk '!/^ *#/ && /tun:/ { getline; split($0, arr, ": "); print arr[2]; found=1; exit } END{ if (!found) print "" }' "${clash_config}" 2>/dev/null)
     # write TUN settings, if not in $clash_config
-    if [ -z "${clash_tun_status}" ]; then
-      printf '%s\n' '' 'tun:' \
-        '  enable: true' \
-        '  mtu: 9000' \
-        '  device: meta' \
-        '  stack: mixed # / gvisor / system' \
-        '  dns-hijack:' \
-        '    - any:53' \
-        '    - tcp://any:53' \
-        '  auto-route: true' \
-        '  strict-route: true' \
-        '  auto-redirect: true' \
-        '  auto-detect-interface: true' \
-        '  include-android-user: [0, 10, 999]' \
-        '  exclude-package: []' \
-        '  include-package: []' \ >> "${clash_config}"
+    if [ "$(${yq} e 'has("tun")' "${clash_config}" 2>/dev/null)" != "true" ]; then
+      ${yq} e -i '
+        .tun = (.tun // {
+          "enable": true,
+          "mtu": 9000,
+          "device": "meta",
+          "stack": "mixed",
+          "dns-hijack": ["any:53", "tcp://any:53"],
+          "auto-route": true,
+          "strict-route": true,
+          "auto-redirect": true,
+          "auto-detect-interface": true,
+          "include-android-user": [0, 10, 999],
+          "exclude-package": [],
+          "include-package": []
+        })
+      ' "${clash_config}"
       log Debug "[tun] configuration has been added to ${clash_config}"
     else
       log Info  "type [tun] already exists in ${clash_config}"
     fi
 
     # add exclude-package/include-package for tun
-    package=$(IFS=","; echo "${packages_list[*]}" | tr ' ' ',')
-    list_package="${package}"
+    list_package=()
+    for raw in "${packages_list[@]}"; do
+      list_package+=("${raw#*:}")
+    done
 
     if [[ "${proxy_mode}" = "whitelist" || "${proxy_mode}" = "white" ]]; then
       mode="include"
@@ -355,45 +326,41 @@ prepare_clash() {
       mode="exclude"
     fi
 
-    # Check if include-package is inside a tun block:
-    include_package_found=$(busybox awk '/^tun:/{f=1} f && /'"$mode-package:"'/{print $0; exit}' "$clash_config")
-    if [ -z "$include_package_found" ]; then
-        sed -i "/^tun:/a \  $mode-package: []" "$clash_config"
+    ${yq} e -i '.tun."exclude-package" = [] | .tun."include-package" = []' "${clash_config}"
+
+    if [ "${#list_package[@]}" -gt 0 ]; then
+      packages_json="$(printf '%s\n' "${list_package[@]}" | busybox awk 'BEGIN{print "["} {gsub(/\\/,"\\\\"); gsub(/\"/,"\\\""); printf "%s\"%s\"", (NR==1?"":","), $0} END{print "]"}')"
+      PACKAGES_JSON="${packages_json}" ${yq} e -i '.tun."'"${mode}"'-package" = (strenv(PACKAGES_JSON) | fromjson)' "${clash_config}"
     fi
 
-    sed -i "s/exclude-package:.*/exclude-package: []/g" "${clash_config}"
-    sed -i "s/include-package:.*/include-package: []/g" "${clash_config}"
-
-    if [ -n "${list_package}" ]; then
-      list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | busybox paste -sd, -)
-
-      # list_package_clean=$(echo "$list_package" | sed 's/999://g' | sed 's/10://g' | sed 's/0://g' | tr '\n' ',' | sed 's/,$//')
-
-      sed -i "s/${mode}-package:.*/${mode}-package: [\"${list_package_clean//,/\",\"}\"]/g" "${clash_config}"
-    fi
-
-    sed -i "/tun:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
+    ${yq} e -i '.tun.enable = true' "${clash_config}"
   else
-    sed -i "/tun:/,/enable:/ { /enable: true/ s/enable: true/enable: false/ }" "${clash_config}"
+    if [ "$(${yq} e 'has("tun")' "${clash_config}" 2>/dev/null)" = "true" ]; then
+      ${yq} e -i '.tun.enable = false' "${clash_config}"
+    fi
   fi
 
   # sync tproxy/redir port
-  sed -i -E "s/(tproxy-port: )[0-9]+/\1${tproxy_port}/" "${clash_config}"
-  sed -i -E "s/(redir-port: )[0-9]+/\1${redir_port}/" "${clash_config}"
+    case "${tproxy_port}${redir_port}" in
+    (*[!0-9]*)
+      log Error "Invalid ports: tproxy_port=${tproxy_port}, redir_port=${redir_port}"
+      exit 1
+      ;;
+  esac
+  ${yq} e -i '."tproxy-port" = '"${tproxy_port}"' | ."redir-port" = '"${redir_port}"'' "${clash_config}"
 
-  clash_enhanced_mode=$(busybox awk '!/^ *#/ && /enhanced-mode: / { print $2 }' "${clash_config}" 2>/dev/null)
-  if [ -z "${clash_enhanced_mode}" ]; then
-    # Add enhanced-mode: fake-ip
-    sed -i "/^dns:/a \  enhanced-mode: fake-ip" "$clash_config"
-    log Debug "enhanced-mode: fake-ip add success"
-  fi
+  # Ensure dns.enhanced-mode exists
+  ${yq} e -i '.dns."enhanced-mode" = (.dns."enhanced-mode" // "fake-ip")' "${clash_config}"
+  clash_enhanced_mode="$(${yq} e '.dns."enhanced-mode" // ""' "${clash_config}" 2>/dev/null)"
 
   if [[ "${network_mode}" == @(mixed|tproxy|redirect|enhance) ]]; then
     if [[ -n "${packages_list[*]}" || -n "${ignore_out_list[*]}" || -n "${gid_list[*]}" ]] && [ "${clash_enhanced_mode}" = "fake-ip" ]; then
       log Warning "${proxy_mode} Only works in enhanced-mode: redir-host xclash[mihomo]"
       log Warning "replace fake-ip to redir-host in clash config"
-      sed -i "s/enhanced-mode:.*/enhanced-mode: redir-host/g" "${clash_config}"
-      sed -i "/sniffer:/,/enable:/ { /enable: false/ s/enable: false/enable: true/ }" "${clash_config}"
+      ${yq} e -i '.dns."enhanced-mode" = "redir-host"' "${clash_config}"
+      if [ "$(${yq} e 'has("sniffer")' "${clash_config}" 2>/dev/null)" = "true" ]; then
+        ${yq} e -i '.sniffer.enable = true' "${clash_config}"
+      fi
     fi
   fi
 }
@@ -842,6 +809,16 @@ fi
 
 if command -v ksud &>/dev/null; then
  $scripts_dir/box.tool webroot >/dev/null 2>&1
+fi
+
+# Check yq
+yq="yq -I ${yq_indent}"
+if ! command -v yq &>/dev/null; then
+  if [ ! -e "${box_dir}/bin/yq" ]; then
+    log Debug "yq file not found, starting download from GitHub"
+    ${scripts_dir}/box.tool upyq
+  fi
+  yq="${box_dir}/bin/yq -I ${yq_indent}"
 fi
 
 case "$1" in
