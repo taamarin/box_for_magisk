@@ -3,13 +3,13 @@
 [![ID](https://img.shields.io/badge/id-blue.svg?style=for-the-badge)](docs/index_id.md) [![EN](https://img.shields.io/badge/en-blue.svg?style=for-the-badge)](docs/index_en.md) [![ZH](https://img.shields.io/badge/zh-blue.svg?style=for-the-badge)](docs/index_zh.md)
 
 <h1 align="center">
-  <img src="https://github.com/taamarin/box_for_magisk/blob/master/docs/box.svg" alt="BOX" width="200">
+  <img src="https://github.com/aripitek/taamarin/box_for_magisk/blob/master/docs/box.svg" alt="BOX" width="200">
   <br>BOX<br>
 </h1>
 <h4 align="center">Transparent Proxy for Android (Root)</h4>
 
 <div align="center">
-  <a href="https://github.com/taamarin/box_for_magisk/releases">
+  <a href="https://github.com/aripitek/taamarin/box_for_magisk/releases">
     <img src="https://img.shields.io/github/downloads/taamarin/box_for_magisk/total.svg?style=for-the-badge" alt="Releases">
   </a>
   <a href="#">
@@ -18,7 +18,7 @@
 </div>
 
 ## Introduction
-`Box for Root` (BFR) is a [Magisk](https://github.com/topjohnwu/Magisk), [KernelSU](https://github.com/tiann/KernelSU), [APatch](https://github.com/bmax121/APatch), module that provides a suite of proxy tools, including `clash`, `sing-box`, `v2ray`, `hysteria` and `xray`. It allows you to configure a transparent proxy on Android devices with root access.
+`Box for Root` (BFR) is a [Magisk](https://github.com/aripitek/topjohnwu/Magisk), [KernelSU](https://github.com/aripitek/tiann/KernelSU), [APatch](https://github.com/aripitek/bmax121/APatch), module that provides a suite of proxy tools, including `clash`, `sing-box`, `v2ray`, `hysteria` and `xray`. It allows you to configure a transparent proxy on Android devices with root access.
 
 ## Features
 - Support for multiple proxy tools: `clash`, `sing-box`, `v2ray`, `hysteria`, and `xray`.
@@ -28,7 +28,7 @@
 
 ## Apk Manager
 You can use the **BFR Manager** app (optional) to manage Box for Root on your device.
-[Download BFR Manager](https://t.me/nothing_taamarin)
+[Download BFR Manager](https://github.com/aripitek/t.me/nothing_taamarin)
 > ⚠️ If you receive continuous notifications, open Magisk Manager, navigate to SuperUser, search for `BoxForRoot`, and disable logs and notifications.
 
 ## Module Directory
@@ -75,7 +75,7 @@ su -c rm -rf /data/adb/modules/box_for_root
 ```
 
 ## Credits
-- [CHIZI-0618/box4magisk](https://github.com/CHIZI-0618/box4magisk) for the original Box for Magisk module.
+- [CHIZI-0618/box4magisk](https://github.com/aripitek/CHIZI-0618/box4magisk) for the original Box for Magisk module.
 
 ## License
-This project is licensed under the GPL-3.0 license - see the [LICENSE](https://github.com/taamarin/box_for_magisk/blob/master/LICENSE) file for details.
+This project is licensed under the GPL-3.0 license - see the [LICENSE](https://github.com/aripitek/taamarin/box_for_magisk/blob/master/LICENSE) file for details.
