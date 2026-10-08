@@ -482,8 +482,11 @@ start_tproxy() {
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
         [ "${iptables}" = "$IPV" ] && log Info "transparent proxy for all apps."
       else
+        # Bypassed apps must be exempted BEFORE the DNS hijack rules above,
+        # otherwise their DNS is still tproxied into the core while TCP/UDP
+        # goes direct (incomplete bypass: DNS leak / broken name resolution).
         while read -r appid; do
-          ${iptables} -t mangle -A BOX_LOCAL -m owner --uid-owner "${appid}" -j RETURN
+          ${iptables} -t mangle -I BOX_LOCAL 2 -m owner --uid-owner "${appid}" -j RETURN
         done < "${uid_list[@]}"
         [ ${network_mode} = "enhance" ] || ${iptables} -t mangle -A BOX_LOCAL -p tcp -j MARK --set-xmark "${fwmark}"
         ${iptables} -t mangle -A BOX_LOCAL -p udp -j MARK --set-xmark "${fwmark}"
@@ -492,7 +495,7 @@ start_tproxy() {
 
       if [ "${gid_list}" != "" ] ; then
         for gid in ${gid_list[@]} ; do
-          ${iptables} -t mangle -A BOX_LOCAL -m owner --gid-owner ${gid} -j RETURN
+          ${iptables} -t mangle -I BOX_LOCAL 2 -m owner --gid-owner ${gid} -j RETURN
         done
         [ "${iptables}" = "$IPV" ] && log Info "proxy mode: ${proxy_mode}, GID (${gid_list[*]}) no transparent proxy."
       fi
