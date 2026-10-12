@@ -21,7 +21,7 @@
 • [Xray-core](https://github.com/XTLS/Xray-core)  
 • [Hysteria](https://v2.hysteria.network/)
 
-使用的内核由 `settings.ini` 中的 `bin_name` 指定，可设置为 `clash`、`sing-box`、`xray`、`v2fly` 或 `hysteria`（默认值为 `clash`）。对于 Clash，`xclash_option` 可选择默认的 `mihomo` 或 `premium`。  
+使用的内核由 `settings.ini` 中的 `bin_name` 指定，可设置为 `clash`、`sing-box`、`xray`、`v2fly` 或 `hysteria`（默认值为 `clash`）。对于 Clash，`xclash_option` 可选择默认的 `mihomo` 或 `premium`。
 每个内核运行于 `/data/adb/box/bin/${bin_name}` 目录。其配置文件位于 `/data/adb/box` 下对应的目录中，例如 `clash/config.yaml`、`sing-box/config.json` 或 `hysteria/config.yaml`。请仅在 BFR 停止时编辑内核配置，并确保监听端口与 `settings.ini` 中的 `tproxy_port`（`9898`）和 `redir_port`（`9797`）一致。
 
 请确保连接互联网后执行以下命令以更新内核文件：
@@ -79,7 +79,7 @@ su -c /data/adb/box/scripts/box.tool all
 • 可使用 `ifconfig` 命令查看 AP 接口名称。
 
 ### 定时更新 Geo 数据和订阅
-• 编辑 `/data/adb/box/settings.ini`，将 `run_crontab="true"`，并按需将 `update_geo="true"` 和/或 `update_subscription="true"`。帮助信息中，`subs` 命令仅说明支持 Clash 订阅更新。  
+• 编辑 `/data/adb/box/settings.ini`，将 `run_crontab="true"`，并按需将 `update_geo="true"` 和/或 `update_subscription="true"`。帮助信息中，`subs` 命令仅说明支持 Clash 订阅更新。
 • 使用 cron 语法设置 `interva_update`。默认值为 `0 0,6,12,18 * * *`（每天四次），并非 `@daily`。  
 • 可在 `/data/adb/box/crontab.cfg` 中添加其他计划任务：
 ```shell
