@@ -19,7 +19,7 @@ Modul ini mencakup kernel berikut:
 • [sing-box](https://github.com/SagerNet/sing-box)  
 • [v2ray-core](https://github.com/v2fly/v2ray-core)  
 • [Xray-core](https://github.com/XTLS/Xray-core)  
-• [hysteria]()  
+• [hysteria](https://v2.hysteria.network/)  
 
 Nama core yang digunakan ditentukan oleh `${bin_name}`, yang dapat diatur ke `clash`, `xray`, `v2ray`, `sing-box`, atau `hysteria`.  
 Setiap core dijalankan dari direktori `/data/adb/box/bin/${bin_name}`. Nama core ditentukan oleh nilai `bin_name` dalam file `/data/adb/box/settings.ini`.  
@@ -53,7 +53,7 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Memfilter aplikasi (daftar blokir/daftar izin)
 • Secara default, BFR mem-proxy lalu lintas dari semua aplikasi milik semua pengguna Android.   
-• Jika ingin BFR **mem-proxy semua aplikasi kecuali beberapa aplikasi tertentu**, buka file `/data/adb/box/package.list.cfg`, ubah nilai `mode` menjadi `blacklist` (default), lalu tambahkan aplikasi yang ingin dikecualikan, misalnya:   
+• Pengaturan filter aplikasi terdapat di `/data/adb/box/package.list.cfg`. Gunakan `mode:blacklist` (default) untuk mem-proxy semua aplikasi kecuali yang tercantum, atau `mode:whitelist` untuk hanya mem-proxy aplikasi yang tercantum. Tambahkan satu nama paket Android per baris; ID pengguna dapat ditambahkan sebagai awalan, misalnya `0:com.example.app`.   
   ↳ **com.termux**  
   ↳ **org.telegram.messenger**  
 • Jika hanya ingin **mem-proxy aplikasi tertentu**, gunakan `mode:whitelist`, lalu tambahkan aplikasi yang ingin di-proxy, misalnya:   
@@ -63,27 +63,25 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Proxy Transparan untuk Proses Tertentu
 • Secara default, BFR mem-proxy lalu lintas dari semua proses secara transparan.   
-• Untuk mem-proxy semua proses kecuali beberapa proses tertentu, buka `/data/adb/box/package.list.cfg`, ubah nilai `mode` menjadi `blacklist` (default), lalu tambahkan GID terkait, masing-masing pada baris terpisah. Proses dengan GID tersebut **tidak akan di-proxy**.   
-• Untuk mem-proxy hanya proses tertentu, ubah nilai `mode` menjadi `whitelist`, lalu tambahkan GID terkait, masing-masing pada baris terpisah. Hanya proses dengan GID tersebut yang **akan di-proxy**.   
-> ⚠️ Iptables Android tidak mendukung pencocokan PID secara langsung, sehingga Box mencocokkan proses secara tidak langsung melalui GID. Di Android, Anda dapat menggunakan perintah `busybox setuidgid` untuk menjalankan proses dengan UID tertentu dan GID apa pun.
+• Filter proses menggunakan GID numerik di `/data/adb/box/gid.list.cfg`. Nilai `mode` di `package.list.cfg` juga menentukan apakah GID yang tercantum dikecualikan atau disertakan. Iptables Android tidak mencocokkan proses berdasarkan PID.
 
 ### Mengubah mode jaringan
 • Secara default, BFR menggunakan TPROXY untuk mem-proxy lalu lintas TCP dan UDP secara transparan. Jika perangkat tidak mendukung TPROXY, buka `/data/adb/box/settings.ini` dan ubah `network_mode` menjadi `redirect`, yang hanya mem-proxy TCP.   
-• redirect：redirect(TCP) + Direct(UDP)  
-• tproxy：tproxy(TCP + UDP)  
-• mixed：redirect(TCP) + tun(UDP).   
-• enhance: redirect(TCP) + tproxy(UDP)    
-• tun: TCP + UDP (auto-route)   
+• `redirect`: TCP menggunakan redirect; UDP tersambung langsung.  
+• `tproxy`: TCP dan UDP menggunakan TPROXY.  
+• `mixed`: TCP menggunakan redirect dan UDP melalui TUN.  
+• `enhance`: TCP menggunakan redirect dan UDP menggunakan TPROXY.    
+• `tun`: TCP dan UDP melalui antarmuka TUN dengan rute otomatis.  
+• Dukungan mode bergantung pada core: `xray` dan `v2fly` hanya menggunakan `tproxy`; `hysteria` mendukung `redirect`, `tproxy`, dan `enhance`. `clash` dan `sing-box` mendukung mode sesuai konfigurasi masing-masing.   
 
 ### Melewati proxy transparan saat menggunakan Wi-Fi atau hotspot
-• Secara default, BFR mem-proxy lalu lintas `localhost` dan hotspot, termasuk tethering USB.  
-• Untuk melewati proxy saat menggunakan Wi-Fi, buka `/data/adb/box/ap.list.cfg` dan tambahkan **ignore wlan+**. Dengan begitu, lalu lintas melalui `wlan` dan hotspot **tidak akan di-proxy**.  
-• Untuk mem-proxy hotspot, tambahkan **allow wlan+** ke file yang sama. Pengaturan ini bertentangan dengan **ignore wlan+**. Pada perangkat **MediaTek**, nama antarmukanya mungkin **ap+** atau **wlan+**.  
+• Filter antarmuka jaringan terdapat di `/data/adb/box/ap.list.cfg`. Format `allow <prefix>` menyertakan antarmuka, sedangkan `ignore <prefix>` mengecualikannya. Awalnya, daftar `allow` mencakup `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+`, dan `eth+`.  
+• Untuk melewati proxy pada Wi-Fi, tambahkan `ignore wlan+` ke file tersebut. Agar lalu lintas hotspot tetap di-proxy, pastikan awalan antarmuka hotspot tercantum pada `allow`. Pada perangkat **MediaTek**, nama antarmukanya mungkin **ap+** atau **wlan+**.  
 • Jalankan perintah `ifconfig` di terminal untuk mengetahui nama antarmuka AP.   
 
 ### Menjadwalkan pembaruan Geo dan langganan
-• Buka `/data/adb/box/settings.ini`, ubah `run_crontab=true`, `update_geo="true"`, dan `update_subscription="true"`, lalu atur `interva_update="@daily"` (default) atau jadwal yang Anda inginkan.   
-• Geo dan langganan akan diperbarui secara otomatis sesuai jadwal `interva_update`.  
+• Buka `/data/adb/box/settings.ini` dan ubah `run_crontab="true"`. Aktifkan pembaruan yang diperlukan melalui `update_geo="true"` dan/atau `update_subscription="true"`. Pembaruan langganan mendukung `clash` dan `sing-box`.   
+• Atur `interva_update` menggunakan sintaks cron. Nilai default-nya adalah `0 0,6,12,18 * * *` (empat kali sehari), bukan `@daily`.  
 • Anda dapat menambahkan tugas terjadwal lainnya di `/data/adb/box/crontab.cfg`.  
 ```shell
   # start
@@ -128,6 +126,8 @@ Anda juga dapat memperbaruinya secara terpisah.
 ```
 
 ## 📘 Petunjuk tambahan
+• Tugas cron tambahan dapat ditambahkan ke `/data/adb/box/crontab.cfg`.  
+• Dukungan IPv6 (`ipv6`) dan kontrol layanan berdasarkan status jaringan dinonaktifkan secara default. Pembatasan memori, CPU, dan I/O melalui cgroup juga dinonaktifkan secara default.    
 • Saat mengubah file konfigurasi core, pastikan pengaturan terkait TPROXY sesuai dengan definisi dalam `/data/adb/box/settings.ini`.    
 • Jika perangkat memiliki alamat IP publik, Anda dapat menambahkan IP tersebut ke jaringan internal dalam `/data/adb/box/scripts/box.iptables` untuk mencegah loop lalu lintas.   
 • Log layanan BFR tersimpan di direktori **/data/adb/box/run**.   
@@ -136,7 +136,7 @@ Jalankan perintah berikut untuk melihat petunjuk penggunaan lainnya:
 
 ```shell
   su -c /data/adb/box/scripts/box.tool
-  # usage: {check|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all}
+  # usage: {check|memcg|cpuset|blkio|bond0|bond1|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|all}
   su -c /data/adb/box/scripts/box.service
   # usage: $0 {start|stop|restart|status|cron|kcron}
   su -c /data/adb/box/scripts/box.iptables

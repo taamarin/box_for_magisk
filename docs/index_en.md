@@ -17,9 +17,9 @@ This module includes the following kernels:
 - [v2ray-core](https://github.com/v2fly/v2ray-core)
 - [Xray-core](https://github.com/XTLS/Xray-core)
 
-Set `${bin_name}` to the name of the core you want to use: `clash`, `xray`, `v2ray`, or `sing-box`.
+Set `bin_name` in `settings.ini` to the core you want to use: `clash`, `sing-box`, `xray`, `v2fly`, or `hysteria`.
 
-Each core runs from `/data/adb/box/bin/${bin_name}`. The core name is set by `bin_name` in `/data/adb/box/settings.ini`.
+Each core runs from `/data/adb/box/bin/${bin_name}`. Its configuration is in the matching directory under `/data/adb/box`: for example, `clash/config.yaml`, `sing-box/config.json`, or `hysteria/config.yaml`. Edit core configurations only while BFM is stopped, and keep their listener ports consistent with `tproxy_port` (`9898`) and `redir_port` (`9797`) in `settings.ini`.
 
 Make sure you are connected to the internet and run the following command to update the kernel file:
 
@@ -31,8 +31,8 @@ su -c /data/adb/box/scripts/box.tool upkernel
 If you selected `clash` or `sing-box`, you may also need to run the following command to install the control panel:
 
 ```shell
-# Update the admin panel for `clash/sing-box`.
-su -c /data/adb/box/scripts/box.tool upyacd
+# Update the control panel for `clash`/`sing-box`.
+su -c /data/adb/box/scripts/box.tool upxui
 ```
 
 Alternatively, you can update everything at once, although this may use more storage than necessary.
@@ -48,43 +48,38 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Core configuration
 - For information about selecting a core with `bin_name`, see **Kernel Updates**.
-- Customize each core's configuration file. The script checks whether the configuration is valid and saves the results to `/data/adb/box/run/runs.log`.
+- Customize each core's configuration file. The service checks it at startup; see `/data/adb/box/run/runs.log` for service logs.
 - **Tip:** `clash` and `sing-box` include scripts for transparent proxying. For further configuration, see the official documentation: [Clash](https://github.com/Dreamacro/clash/wiki/configuration) (the master branch has been deleted) and [sing-box](https://sing-box.sagernet.org/configuration/outbound).
 
-### Filter apps with a blacklist or whitelist
+### App, process, and interface filters
 - By default, BFM proxies traffic from all apps belonging to all Android users.
-- To proxy all apps except specific ones, open `/data/adb/box/settings.ini`, set `proxy_mode` to `blacklist` (the default), and add the apps to exclude to `packages_list`. For example: **packages_list=("com.termux" "org.telegram.messenger")**.
-- To proxy only specific apps, use `whitelist` mode.
-- When `proxy_mode` is set to `TUN`, transparent proxying is disabled and only the selected core's TUN mode is used. Currently, **only clash and sing-box support this mode**.
-> **Note:** When using Clash, the blacklist and whitelist do not apply in fake-IP mode.
-
-### Transparent Proxies for Specific Processes
-- By default, BFM transparently proxies traffic from all processes.
-- To proxy traffic from all processes except specific ones, open `/data/adb/box/settings.ini`, set `proxy_mode` to `blacklist` (the default), and add the relevant GIDs to the `gid_list` array, separated by spaces. Processes with those GIDs **will not be proxied**.
-
-- To proxy traffic only from specific processes, set `proxy_mode` to `whitelist` and add the relevant GIDs to the `gid_list` array, separated by spaces. Only processes with those GIDs will be **proxied**.
-
-> **Tip:** Android's iptables does not support PID matching extensions, so Box matches processes indirectly by GID. On Android, you can use the BusyBox `setuidgid` command to start a process with a specific UID and any GID.
+- App filtering is configured in `/data/adb/box/package.list.cfg`, not `settings.ini`. Set `mode:blacklist` (the default) to proxy all apps except listed packages, or `mode:whitelist` to proxy only listed packages. Add one Android package name per line; an optional user ID can prefix a package (for example, `0:com.example.app`).
+- Process filtering uses numeric GIDs in `/data/adb/box/gid.list.cfg`. The `mode` in `package.list.cfg` also determines whether listed GIDs are excluded or included. Android's iptables does not match processes by PID.
+- Network-interface filters are in `/data/adb/box/ap.list.cfg`: `allow <prefix>` includes an interface and `ignore <prefix>` excludes it. The default allow-list includes `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+`, and `eth+`; add an `ignore` entry to exclude an interface.
+- Set `network_mode` in `settings.ini` to `tun` to route TCP and UDP through an auto-routed TUN interface. TUN mode is supported by `clash` and `sing-box`.
+> **Note:** When using Clash, app filters do not apply in fake-IP mode.
 
 ### Change BFM's network mode
-- By default, BFM uses TPROXY to transparently proxy TCP and UDP traffic. If your device does not support TPROXY, open `/data/adb/box/settings.ini` and set `network_mode` to `redirect`, which proxies TCP only.
-- You can set `network_mode` to `redirect`, `tproxy`, or `mixed`:
-- `redirect`: proxies TCP using redirect mode.
-- `tproxy`: proxies TCP and UDP using TPROXY.
-- `mixed`: proxies TCP using redirect and UDP using TUN.
+- The default is `tproxy`. Set `network_mode` in `settings.ini` to one of these modes:
+- `redirect`: redirect TCP; UDP is direct.
+- `tproxy`: TPROXY for TCP and UDP.
+- `mixed`: redirect TCP and route UDP through TUN.
+- `enhance`: redirect TCP and TPROXY UDP.
+- `tun`: route TCP and UDP through an auto-routed TUN interface.
+- Mode support depends on the selected core: `xray` and `v2fly` require `tproxy`; `hysteria` supports `redirect`, `tproxy`, and `enhance`. `clash` and `sing-box` support modes allowed by their configurations.
 - Save the configuration file, then restart the BFM service or reboot the device for the change to take effect.
 
 ### Bypass the transparent proxy on Wi-Fi or hotspots
 - By default, BFM transparently proxies localhost and hotspot traffic, including USB tethering.
-- To bypass the proxy for Wi-Fi connections, open `/data/adb/box/settings.ini` in a text editor, find `ignore_out_list`, and add `wlan+` to its value.
-- To proxy hotspot traffic, find `ap_list` in `settings.ini` and add `wlan+` to its value. MediaTek devices may use **ap+** or **wlan+**.
+- To bypass the proxy for Wi-Fi connections, add `ignore wlan+` to `/data/adb/box/ap.list.cfg`.
+- To proxy hotspot traffic, make sure the relevant interface prefix is included with an `allow` entry in `ap.list.cfg`. MediaTek devices may use **ap+** or **wlan+**.
 - If you are unsure which interface name to use, run `ifconfig` in a terminal to identify it.
 
 ### Schedule automatic Geo and subscription updates
-- Open the file **/data/adb/box/settings.ini** using a text editor.
-- Find the `run_crontab` parameter.
-- Change the value of `run_crontab` to true.
-- Set `interval_update` to your preferred schedule. The default value, **@daily**, runs updates once a day. You can choose another interval using cron syntax.
+- Edit `/data/adb/box/settings.ini` and set `run_crontab="true"`.
+- Set `update_geo="true"` and/or `update_subscription="true"` to enable the updates you want. Subscription updates are supported for `clash` and `sing-box`.
+- Set `interva_update` to your preferred cron schedule. The default is `0 0,6,12,18 * * *` (four times a day), not `@daily`.
+- Optional custom cron tasks can be added to `/data/adb/box/crontab.cfg`.
 - Save the changes to the configuration file.
 - To start the scheduled job and trigger updates, run:
 
@@ -93,8 +88,8 @@ su -c /data/adb/box/scripts/box.tool all
   su -c /data/adb/box/scripts/box.service cron
 ```
 
-- This command starts the scheduled job and updates Geo data and subscriptions according to the configured schedule.
-- Make sure you have permission to run the command. Once enabled and started, updates will run automatically on the configured schedule.
+- This command starts the scheduler. Geo and subscription updates run according to the configured schedule and enabled update options.
+- To run an update manually, use `su -c /data/adb/box/scripts/box.tool geox`, `subs`, or `geosub`.
 
 ## Start and Stop
 ### Manual mode
@@ -145,12 +140,14 @@ Run these commands whenever you need to update the subscription or Geo database.
 - If your device has a public IP address, you can add it to the internal network in `/data/adb/box/scripts/box.iptables` to prevent traffic loops.
 - BFM service logs are stored in `/data/adb/box/run`.
 - Editing these files requires appropriate permissions. Follow the instructions carefully and verify any configuration changes.
+- IPv6 support (`ipv6`) is disabled by default. Network-state service control is also disabled by default; its settings can enable service control based on Wi-Fi connection state and optional SSID matching.
+- Optional memory, CPU-set, and I/O cgroup limits are disabled by default (`cgroup_memcg`, `cgroup_cpuset`, and `cgroup_blkio`). Configure their related limit values in `settings.ini` before enabling them.
 
 Run the following commands to view additional usage instructions:
 
 ```shell
   su -c /data/adb/box/scripts/box.tool
-  # usage: {check|bond0|bond1|memcg|cpuset|blkio|geosub|geox|subs|upkernel|upyacd|upyq|upcurl|port|reload|all}
+  # usage: {check|memcg|cpuset|blkio|bond0|bond1|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|all}
   su -c /data/adb/box/scripts/box.service
   # usage: $0 {start|stop|restart|status|cron|kcron}
   su -c /data/adb/box/scripts/box.iptables

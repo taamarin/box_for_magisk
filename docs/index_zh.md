@@ -19,10 +19,10 @@
 • [sing-box](https://github.com/SagerNet/sing-box)  
 • [v2ray-core](https://github.com/v2fly/v2ray-core)  
 • [Xray-core](https://github.com/XTLS/Xray-core)  
-• [hysteria]()
+• [Hysteria](https://v2.hysteria.network/)
 
 使用的内核由 `${bin_name}` 指定，可设置为 `clash`、`xray`、`v2ray`、`sing-box` 或 `hysteria`。  
-每个内核运行于 `/data/adb/box/bin/${bin_name}` 目录，具体名称由 `/data/adb/box/settings.ini` 中的 `bin_name` 决定。
+每个内核运行于 `/data/adb/box/bin/${bin_name}` 目录。其配置文件位于 `/data/adb/box` 下对应的目录中，例如 `clash/config.yaml`、`sing-box/config.json` 或 `hysteria/config.yaml`。请仅在 BFR 停止时编辑内核配置，并确保监听端口与 `settings.ini` 中的 `tproxy_port`（`9898`）和 `redir_port`（`9797`）一致。
 
 请确保连接互联网后执行以下命令以更新内核文件：
 ```shell
@@ -48,9 +48,10 @@ su -c /data/adb/box/scripts/box.tool all
 • 请根据需要自定义各内核的配置文件。脚本会检查配置是否有效，并将检查结果保存在 `/data/adb/box/run/runs.log`。  
 • **提示：**`clash` 和 `sing-box` 均提供透明代理脚本。更多配置说明请参阅官方文档：[Clash](https://github.com/Dreamacro/clash/wiki/configuration)（master 分支已删除）和 [sing-box](https://sing-box.sagernet.org/configuration/outbound/)。
 
-### 应用过滤（黑名单/白名单）
+### 应用、进程和网络接口过滤
 • 默认情况下，BFR 会代理所有 Android 用户的所有应用流量。  
-• 若要让 BFR **代理除指定应用以外的所有应用**，请打开 `/data/adb/box/package.list.cfg`，将 `mode` 设为 `blacklist`（默认值），并添加要排除的应用，例如：  
+• 应用过滤配置位于 `/data/adb/box/package.list.cfg`，而非 `settings.ini`。设置 `mode:blacklist`（默认值）可代理除列表中应用以外的所有应用；设置 `mode:whitelist` 则只代理列表中的应用。每行填写一个 Android 包名，也可在包名前加用户 ID，例如 `0:com.example.app`。  
+• 若要让 BFR **代理除指定应用以外的所有应用**，请添加要排除的应用，例如：  
   ↳ **com.termux**  
   ↳ **org.telegram.messenger**  
 • 若只想 **代理指定应用**，请使用 `mode:whitelist`，并添加要代理的应用：  
@@ -58,29 +59,28 @@ su -c /data/adb/box/scripts/box.tool all
   ↳ **org.telegram.messenger**  
 > ⚠️ 使用 Clash 时，黑白名单在 fake-IP 模式下无效。
 
-### 为特定进程启用透明代理
+### 进程过滤
 • 默认情况下，BFR 会对所有进程进行透明代理。  
-• 若要排除某些进程，请在 `/data/adb/box/package.list.cfg` 中将 `mode` 设为 `blacklist`（默认值），并添加相应的 GID（每行一个）。  
-• 若只想代理某些进程，则将 `mode` 设为 `whitelist`，并添加相应的 GID。  
-> ⚠️ Android 的 iptables 不支持按 PID 匹配，因此 Box 通过 GID 间接匹配进程。在 Android 上，可使用 BusyBox 的 `setuidgid` 命令，以指定 UID 和任意 GID 启动进程。
+• 在 `/data/adb/box/gid.list.cfg` 中填写要过滤的数字 GID（每行一个）。`package.list.cfg` 中的 `mode` 也决定这些 GID 是被排除还是被包含。Android 的 iptables 不支持按 PID 匹配。
 
 ### 更改代理模式
-• 默认使用 TPROXY 模式透明代理 TCP 和 UDP。若设备不支持 TPROXY，请在 `/data/adb/box/settings.ini` 中将 `network_mode` 设为 `redirect`，此模式仅代理 TCP。  
-• `redirect`：使用 redirect 代理 TCP，UDP 直连。  
+• 默认模式为 `tproxy`。在 `/data/adb/box/settings.ini` 中设置 `network_mode` 可选择以下模式：  
+• `redirect`：重定向 TCP，UDP 直连。  
 • `tproxy`：使用 TPROXY 代理 TCP 和 UDP。  
-• `mixed`：使用 redirect 代理 TCP，通过 TUN 代理 UDP。  
-• `enhance`：使用 redirect 代理 TCP，使用 TPROXY 代理 UDP。  
-• `tun`：通过自动路由的 TUN 接口代理 TCP 和 UDP。
+• `mixed`：重定向 TCP，通过 TUN 转发 UDP。  
+• `enhance`：重定向 TCP，使用 TPROXY 代理 UDP。  
+• `tun`：通过自动路由的 TUN 接口代理 TCP 和 UDP。  
+• 各内核支持的模式不同：`xray` 和 `v2fly` 仅支持 `tproxy`；`hysteria` 支持 `redirect`、`tproxy` 和 `enhance`。`clash` 和 `sing-box` 支持其配置允许的模式。
 
-### 连接 Wi-Fi/热点时绕过透明代理
+### 配置网络接口过滤
 • 默认情况下，BFR 会透明代理 `localhost` 和热点流量（包括 USB 网络共享）。  
-• 若要在连接 Wi-Fi 时绕过代理，请在 `/data/adb/box/ap.list.cfg` 中添加 **ignore wlan+**。  
-• 若要代理热点流量，请添加 **allow wlan+**（此设置与 **ignore wlan+** 冲突）。MediaTek 设备的接口名称可能是 **ap+** 或 **wlan+**。  
+• 网络接口过滤配置位于 `/data/adb/box/ap.list.cfg`。`allow <prefix>` 表示包含接口，`ignore <prefix>` 表示排除接口。默认允许的前缀包括 `ap+`、`wlan+`、`rndis+`、`swlan+`、`ncm+` 和 `eth+`。  
+• 若要在连接 Wi-Fi 时绕过代理，请添加 `ignore wlan+`。若要代理热点流量，请确保热点接口前缀包含在 `allow` 列表中。MediaTek 设备的接口名称可能是 **ap+** 或 **wlan+**。  
 • 可使用 `ifconfig` 命令查看 AP 接口名称。
 
-### 启用计划任务自动更新 Geo 和订阅
-• 编辑 `/data/adb/box/settings.ini`，将 `run_crontab=true`、`update_geo="true"` 和 `update_subscription="true"`，并设置 `interva_update="@daily"`（默认值）或指定其他计划。  
-• Geo 数据和订阅将按计划自动更新。  
+### 定时更新 Geo 数据和订阅
+• 编辑 `/data/adb/box/settings.ini`，将 `run_crontab="true"`，并按需将 `update_geo="true"` 和/或 `update_subscription="true"`。`clash` 和 `sing-box` 支持订阅更新。  
+• 使用 cron 语法设置 `interva_update`。默认值为 `0 0,6,12,18 * * *`（每天四次），并非 `@daily`。  
 • 可在 `/data/adb/box/crontab.cfg` 中添加其他计划任务：
 ```shell
 su -c /data/adb/box/scripts/box.service cron
@@ -109,7 +109,7 @@ su -c /data/adb/box/scripts/box.tool geosub
 ```
 
 也可以分别更新：  
-### 更新订阅（仅支持 Clash）
+### 更新订阅（支持 Clash 和 sing-box）
 ```shell
 su -c /data/adb/box/scripts/box.tool subs
 ```
@@ -120,6 +120,7 @@ su -c /data/adb/box/scripts/box.tool geox
 ```
 
 ## 📘 补充说明
+• IPv6（`ipv6`）和基于网络状态的服务控制默认关闭。通过 cgroup 限制内存、CPU 和 I/O 的功能也默认关闭。  
 • 修改内核配置文件时，请确保其中与 TPROXY 相关的设置和 `/data/adb/box/settings.ini` 中的定义一致。  
 • 若设备拥有公网 IP，可将其加入 `/data/adb/box/scripts/box.iptables` 中的内部网络，以避免流量循环。  
 • BFR 日志保存在 **/data/adb/box/run** 目录中。
@@ -127,7 +128,7 @@ su -c /data/adb/box/scripts/box.tool geox
 运行以下命令可查看其他使用说明：
 ```shell
 su -c /data/adb/box/scripts/box.tool
-# usage: {check|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all}
+# usage: {check|memcg|cpuset|blkio|bond0|bond1|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|all}
 su -c /data/adb/box/scripts/box.service
 # usage: $0 {start|stop|restart|status|cron|kcron}
 su -c /data/adb/box/scripts/box.iptables
