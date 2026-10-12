@@ -1,25 +1,25 @@
 ## WARNING
-This project is not responsible for: damaged devices, corrupted SD cards, or burnt SoCs.
+This project is not responsible for damage to devices or SD cards, or for burned-out SoCs.
 
-**Please ensure that your configuration files do not cause traffic loops, as this can result in your phone continuously restarting.**
+**Make sure your configuration files do not create traffic loops, which could cause your phone to restart continuously.**
 
 If you have no idea how to configure this module, you may need applications such as **ClashForAndroid, ClashMetaForAndroid, v2rayNG, Surfboard, SagerNet, AnXray, NekoBox,** etc.
 
 ## Installation
-- Download the modules zip package from the [RELEASE](https://github.com/taamarin/box_for_magisk/releases) and install it through `Magisk/KernelSU`. During installation, you will be asked whether to download the complete package. You can choose either **complete download** or **separate download** later, then reboot your device.
-- This mod supports direct updates in `Magisk/KernelSU Manager` (updated mods will take effect without rebooting the device).
+- Download the module ZIP from [Releases](https://github.com/taamarin/box_for_magisk/releases) and install it through `Magisk/KernelSU`. During installation, you will be asked whether to download the complete package. You can either download it all at once or download the files separately later. Reboot your device after installation.
+- This module supports direct updates through `Magisk/KernelSU Manager`; updates take effect without rebooting the device.
 
 ### Kernel Updates
 This module includes the following kernels:
-- [clash](https://github.com/Dreamacro/clash)(Delete master branch)
-- [clash.meta](https://github.com/MetaCubeX/Clash.Meta)(Archive and change branches, the content is still there)
+- [clash](https://github.com/Dreamacro/clash) (the master branch has been deleted)
+- [clash.meta](https://github.com/MetaCubeX/Clash.Meta) (archived; branches have changed, but the content is still available)
 - [sing-box](https://github.com/SagerNet/sing-box)
 - [v2ray-core](https://github.com/v2fly/v2ray-core)
 - [Xray-core](https://github.com/XTLS/Xray-core)
 
-The corresponding configuration for the kernel is `${bin_name}`, which can be set to (`clash` | `xray` | `v2ray` | `sing-box`).
+Set `${bin_name}` to the name of the core you want to use: `clash`, `xray`, `v2ray`, or `sing-box`.
 
-Each core operates in the directory `/data/adb/box/bin/${bin_name}`, and the core name is determined by the `bin_name` in the `/data/adb/box/settings.ini` file.
+Each core runs from `/data/adb/box/bin/${bin_name}`. The core name is set by `bin_name` in `/data/adb/box/settings.ini`.
 
 Make sure you are connected to the internet and run the following command to update the kernel file:
 
@@ -28,14 +28,14 @@ Make sure you are connected to the internet and run the following command to upd
 su -c /data/adb/box/scripts/box.tool upkernel
 ```
 
-If you are using `clash/sing-box` as the selected kernel, you may also need to run the following command to open the control panel:
+If you selected `clash` or `sing-box`, you may also need to run the following command to install the control panel:
 
 ```shell
 # Update the admin panel for `clash/sing-box`.
 su -c /data/adb/box/scripts/box.tool upyacd
 ```
 
-Alternatively, you can do it all at once (which may consume unnecessary storage space).
+Alternatively, you can update everything at once, although this may use more storage than necessary.
 
 ```shell
 # Update all files, including various kernel types.
@@ -43,70 +43,66 @@ su -c /data/adb/box/scripts/box.tool all
 ```
 
 ## Configuration
-**The following core services are referred to as BFM:**
-- The following core services are collectively referred to as BFM.
-- You can enable or disable the module to start or stop the BFM services in real time through the Magisk/KernelSU Manager application without having to reboot the device. Starting the service may take a few seconds, and stopping the service will take effect immediately.
+**The module's core services are collectively referred to as BFM.**
+- You can start or stop BFM services in real time by enabling or disabling the module in Magisk/KernelSU Manager; no reboot is required. Starting the services may take a few seconds, while stopping them takes effect immediately.
 
 ### Core configuration
-- For the core configuration of `bin_name`, please refer to the **Kernel Updates** section for the configuration.
-- Each core configuration file needs to be customized by the user, and the script will check the validity of the configuration. The results of the check will be stored in the `/data/adb/box/run/runs.log` file.
-- Tip: Both `clash` and `sing-box` come with pre-configured scripts for transparent proxy. For further configuration, please refer to the official documentation. Documentation links: [Official Clash Documentation](https://github.com/Dreamacro/clash/wiki/configuration)(Delete master branch), [Official sing-box Documentation](https://sing-box.sagernet.org/configuration/outbound)
+- For information about selecting a core with `bin_name`, see **Kernel Updates**.
+- Customize each core's configuration file. The script checks whether the configuration is valid and saves the results to `/data/adb/box/run/runs.log`.
+- **Tip:** `clash` and `sing-box` include scripts for transparent proxying. For further configuration, see the official documentation: [Clash](https://github.com/Dreamacro/clash/wiki/configuration) (the master branch has been deleted) and [sing-box](https://sing-box.sagernet.org/configuration/outbound).
 
-### To apply filtering using a blacklist or whitelist, you can follow these general steps:
-- By default, BFM provides a proxy for all applications (APP) from all Android users.
-- If you want BFM to proxy all applications (APP), except for some specific applications, please open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (default), and add the applications to be excluded to the `packages_list`, for **example: packages_list=("com.termux" "org.telegram.messenger")**.
-- If you only want to proxy specific applications (APP), use the `whitelist` mode.
-- When the value of `proxy_mode` is set to `TUN`, transparent proxy will not function, and only the corresponding kernel will start supporting **TUN**. Currently, **only clash and sing-box are available**.
-> **Notes: If Clash is used, the blacklist and whitelist will not apply in fake-ip mode**
+### Filter apps with a blacklist or whitelist
+- By default, BFM proxies traffic from all apps belonging to all Android users.
+- To proxy all apps except specific ones, open `/data/adb/box/settings.ini`, set `proxy_mode` to `blacklist` (the default), and add the apps to exclude to `packages_list`. For example: **packages_list=("com.termux" "org.telegram.messenger")**.
+- To proxy only specific apps, use `whitelist` mode.
+- When `proxy_mode` is set to `TUN`, transparent proxying is disabled and only the selected core's TUN mode is used. Currently, **only clash and sing-box support this mode**.
+> **Note:** When using Clash, the blacklist and whitelist do not apply in fake-IP mode.
 
 ### Transparent Proxies for Specific Processes
-- BFM by default performs a transparent proxy for all processes.
-- If you want BFM to proxy for all processes except specific ones, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `blacklist` (the default value), then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in processes with the corresponding GID **not being proxied**.
+- By default, BFM transparently proxies traffic from all processes.
+- To proxy traffic from all processes except specific ones, open `/data/adb/box/settings.ini`, set `proxy_mode` to `blacklist` (the default), and add the relevant GIDs to the `gid_list` array, separated by spaces. Processes with those GIDs **will not be proxied**.
 
-- If you wish to perform transparent proxying only for specific processes, open the file `/data/adb/box/settings.ini`, change the value of `proxy_mode` to `whitelist`, then add GID elements to the `gid_list` array, with GID separated by spaces. This will result in only processes with the corresponding GID being **proxied**.
+- To proxy traffic only from specific processes, set `proxy_mode` to `whitelist` and add the relevant GIDs to the `gid_list` array, separated by spaces. Only processes with those GIDs will be **proxied**.
 
-> Tips: Since Android iptables does not support extension PID matching, process matching by Box is done via GID matching indirectly. On Android you can use busybox setuidgid command to start a specific process with a specific UID, any GID.
+> **Tip:** Android's iptables does not support PID matching extensions, so Box matches processes indirectly by GID. On Android, you can use the BusyBox `setuidgid` command to start a process with a specific UID and any GID.
 
-### Change the proxy mode in BFM, follow these steps:
-- BFM utilizes TPROXY to transparently proxy TCP+UDP traffic (default). If it is detected that the device does not support TPROXY, open the file **/data/adb/box/settings.ini** and change `network_mode="redirect"` to `redirect`, which only uses TCP proxying.
-- Open the file `/data/adb/box/settings.ini` and change the value of `network_mode` to **redirect, tproxy, or mixed**.
-- redirect: Use redirect mode for TCP proxying.
-- tproxy: Use tproxy mode for TCP + UDP proxying.
-- mixed: Use redirect mode for TCP and tun mode for UDP proxying
-- Make sure to save the changes to the configuration file and restart the BFM service or the device for the modifications to take effect.
+### Change BFM's network mode
+- By default, BFM uses TPROXY to transparently proxy TCP and UDP traffic. If your device does not support TPROXY, open `/data/adb/box/settings.ini` and set `network_mode` to `redirect`, which proxies TCP only.
+- You can set `network_mode` to `redirect`, `tproxy`, or `mixed`:
+- `redirect`: proxies TCP using redirect mode.
+- `tproxy`: proxies TCP and UDP using TPROXY.
+- `mixed`: proxies TCP using redirect and UDP using TUN.
+- Save the configuration file, then restart the BFM service or reboot the device for the change to take effect.
 
-### bypass transparent proxy when connecting to Wi-Fi or hotspot in BFM
-- BFM transparently proxies localhost and hotspot (including USB tethering) by default.
-- Open the file **/data/adb/box/settings.ini** using a text editor, Find the `ignore_out_list` parameter in the file, update the value of ignore_out_list by adding `wlan+` to it. This will bypass transparent proxy for Wi-Fi connections.
-- If you want to enable proxying for hotspots, follow these additional steps:
-  - Find the `ap_list` parameter in the settings.ini file.
-  - Update the value of `ap_list` by adding `wlan+`. This will enable proxying for hotspots
-- maybe **ap+ / wlan+** for Mediatek devices
-- If you are unsure about the name of the access point (AP), you can use the **ifconfig** command in the Terminal to determine the AP name.
+### Bypass the transparent proxy on Wi-Fi or hotspots
+- By default, BFM transparently proxies localhost and hotspot traffic, including USB tethering.
+- To bypass the proxy for Wi-Fi connections, open `/data/adb/box/settings.ini` in a text editor, find `ignore_out_list`, and add `wlan+` to its value.
+- To proxy hotspot traffic, find `ap_list` in `settings.ini` and add `wlan+` to its value. MediaTek devices may use **ap+** or **wlan+**.
+- If you are unsure which interface name to use, run `ifconfig` in a terminal to identify it.
 
-### To enable Cron Job for automatic updates of Geo and Subs according to a schedule.
+### Schedule automatic Geo and subscription updates
 - Open the file **/data/adb/box/settings.ini** using a text editor.
-- Locate the parameter `run_crontab` in the file.
+- Find the `run_crontab` parameter.
 - Change the value of `run_crontab` to true.
-- Set the `interval_update` parameter according to your desired schedule. The default value is **@daily**, which means the updates will occur once daily. You can customize it to your preferred interval using cron syntax.
+- Set `interval_update` to your preferred schedule. The default value, **@daily**, runs updates once a day. You can choose another interval using cron syntax.
 - Save the changes to the configuration file.
-- To execute the Cron Job and trigger the updates, follow these steps:
+- To start the scheduled job and trigger updates, run:
 
 ```shell
-  # run command
+  # Start the scheduled job
   su -c /data/adb/box/scripts/box.service cron
 ```
 
-- This command will execute the Cron Job and initiate the updates for Geo and Subs based on the configured schedule.
-- Ensure that you have the necessary permissions to execute the command. The updates will automatically occur according to the specified schedule once you have enabled the Cron Job and executed the command.
+- This command starts the scheduled job and updates Geo data and subscriptions according to the configured schedule.
+- Make sure you have permission to run the command. Once enabled and started, updates will run automatically on the configured schedule.
 
 ## Start and Stop
-### manual mode
-- If you want to have full control over BFM by running commands manually, you can create a new file named **/data/adb/box/manual**. In this case, the BFM service will not start automatically when your device is powered on, and you will not be able to control the start or stop of the service through the Magisk/KernelSU Manager application.
-- By creating the **/data/adb/box/manual** file, you take manual control over BFM and can execute commands as needed to manage its operations. Please note that modifying system files requires appropriate permissions, and any manual changes should be made with caution.
+### Manual mode
+- To manage BFM by running commands manually, create `/data/adb/box/manual`. In this mode, BFM will not start automatically when the device boots, and you cannot start or stop the service through Magisk/KernelSU Manager.
+- Changes to system files require appropriate permissions. Make manual changes with care.
 
 ### Start and stop the management service
-- The BFM service script is /data/adb/box/scripts/box.service
+- The BFM service script is `/data/adb/box/scripts/box.service`.
 
 ```shell
 # Start BFM
@@ -116,17 +112,17 @@ su -c /data/adb/box/scripts/box.tool all
   su -c /data/adb/box/scripts/box.iptables disable && su -c /data/adb/box/scripts/box.service stop
 ```
 
-- When executing these commands, the Terminal will print logs simultaneously and output them to the log file.
+- These commands print log messages in the terminal and write them to the log file.
 
 ## Geo database subscriptions and updates
-To update both the subscription and the Geo database simultaneously, you can use the following command:
+To update the subscription and Geo database at the same time, run:
 
 ```shell
-  # This command will update both the subscription and the Geo database at the same time.
+  # Update the subscription and Geo database
   su -c /data/adb/box/scripts/box.tool geosub
 ```
 
-Alternatively, if you prefer to update them separately, you can use the following commands:
+You can also update them separately:
 
 ### Update the subscription:
 
@@ -135,7 +131,7 @@ Alternatively, if you prefer to update them separately, you can use the followin
   su -c /data/adb/box/scripts/box.tool subs
 ```
 
-By running these commands, you will be able to update the subscription and the Geo database as needed.
+Run these commands whenever you need to update the subscription or Geo database.
 
 ### Update the Geo database:
 
@@ -144,13 +140,13 @@ By running these commands, you will be able to update the subscription and the G
   su -c /data/adb/box/scripts/box.tool geox
 ```
 
-## Here are some additional instructions:
-- When modifying any of the core configuration files, ensure that the tproxy-related configurations match the definitions in the **/data/adb/box/settings.ini** file.
-- If your device has a public IP address, you can add that IP address to the internal network in the **/data/adb/box/scripts/box.iptables** file to prevent loopback traffic.
-- The logs for the BFM service can be found in the directory **/data/adb/box/run**.
-- Please note that modifying these files requires appropriate permissions. Make sure to carefully follow the instructions and validate any changes made to the configuration files.
+## Additional instructions
+- When editing a core configuration file, make sure its TPROXY-related settings match those in `/data/adb/box/settings.ini`.
+- If your device has a public IP address, you can add it to the internal network in `/data/adb/box/scripts/box.iptables` to prevent traffic loops.
+- BFM service logs are stored in `/data/adb/box/run`.
+- Editing these files requires appropriate permissions. Follow the instructions carefully and verify any configuration changes.
 
-You can run the following command to get other related operating instructions:
+Run the following commands to view additional usage instructions:
 
 ```shell
   su -c /data/adb/box/scripts/box.tool
@@ -161,12 +157,12 @@ You can run the following command to get other related operating instructions:
   # usage: $0 {enable|disable|renew}
 ```
 
-## uninstall
-- An install that removes this module from Magisk/KernelSU Manager, will remove the file **/data/adb/service.d/box_service.sh** and the BFM data directory at **/data/adb/box**.
-- Remove the BFM data directory by running the following command:
+## Uninstall
+- Uninstalling this module through Magisk/KernelSU Manager removes `/data/adb/service.d/box_service.sh` and the BFM data directory at `/data/adb/box`.
+- To remove the BFM data directory manually, run:
 
 ```shell
-  # This command will delete the BFM data directory located at /data/adb/box.
+  # Remove the BFM data directory
   su -c rm -rf /data/adb/box
   su -c rm -rf /data/adb/service.d/box_service.sh
   su -c rm -rf /data/adb/modules/box_for_root
