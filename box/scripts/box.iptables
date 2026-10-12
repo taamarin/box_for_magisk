@@ -16,15 +16,13 @@ quic="enable"
 clash_dns_forward="enable"
 fake_ip_range=""
 
-# ex: 7.1.1
-buildVersion=$(getprop ro.build.version.release)
-minBuildVersion="11"
 IPV="iptables" # Default
 IP6V="ip6tables" # Default
-# ex: 7.1.1 -> 7
-buildVersionMajor=${buildVersion%%.*}
-if [ "$buildVersionMajor" -ge "$minBuildVersion" ]; then
+# Probe lock-wait support instead of assuming it from the Android release.
+if iptables -w 1 -t filter -S >/dev/null 2>&1; then
   IPV="iptables -w 100"
+fi
+if ip6tables -w 1 -t filter -S >/dev/null 2>&1; then
   IP6V="ip6tables -w 100"
 fi
 
@@ -586,13 +584,9 @@ stop_tproxy() {
   if [ "${iptables}" = "$IPV" ]; then
     ip rule del fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip route del local default dev lo table "${table}"
-    ip route flush table "${table}"
-    ip rule del pref "${pref}"
   else
     ip -6 rule del fwmark "${fwmark}" table "${table}" pref "${pref}"
     ip -6 route del local default dev lo table "${table}"
-    ip -6 route flush table "${table}"
-    ip -6 rule del pref "${pref}"
   fi
 
   ${iptables} -t mangle -D PREROUTING -j BOX_EXTERNAL
