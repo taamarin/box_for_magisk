@@ -14,7 +14,7 @@
 
 ### 内核更新
 此模块包含以下内核：  
-• [clash](https://github.com/Dreamacro/clash)(仓库已删除)  
+• [clash](https://github.com/Dreamacro/clash)（仓库已删除）  
 • [clash.meta](https://github.com/MetaCubeX/mihomo)  
 • [sing-box](https://github.com/SagerNet/sing-box)  
 • [v2ray-core](https://github.com/v2fly/v2ray-core)  

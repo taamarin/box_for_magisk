@@ -159,7 +159,7 @@ Run the following commands to view additional usage instructions:
 
 ## Uninstall
 - Uninstalling this module through Magisk/KernelSU Manager removes `/data/adb/service.d/box_service.sh` and the BFM data directory at `/data/adb/box`.
-- To remove the BFM data directory manually, run:
+- To remove the remaining BFM files manually, run:
 
 ```shell
   # Remove the BFM data directory

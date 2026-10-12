@@ -33,9 +33,9 @@ su -c /data/adb/box/scripts/box.tool upkernel
 ```shell
 # Обновить панель управления для `clash/sing-box`.
 su -c /data/adb/box/scripts/box.tool upyacd
+```
 
 Кроме того, можно обновить все файлы сразу, хотя это может занять больше места, чем необходимо:
-```
 
 ```shell
 # Обновить все файлы, включая ядра разных типов.
