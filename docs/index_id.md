@@ -2,27 +2,28 @@
 
 ## ⚠️ Peringatan
 
-Proyek ini tidak bertanggung jawab atas: perangkat yang rusak, kartu SD yang rusak, atau SoC yang terbakar.
+Proyek ini tidak bertanggung jawab atas kerusakan perangkat, kartu SD, maupun SoC.
 
-**Harap pastikan file konfigurasi Anda tidak menyebabkan loop lalu lintas, jika tidak maka dapat menyebabkan ponsel Anda restart tanpa batas.**
+**Pastikan file konfigurasi tidak menyebabkan loop lalu lintas, karena hal ini dapat membuat ponsel terus-menerus melakukan restart.**
 
 Jika Anda benar-benar tidak tahu cara mengonfigurasi modul ini, Anda mungkin memerlukan aplikasi seperti **ClashForAndroid, ClashMetaForAndroid, v2rayNG, Surfboard, SagerNet, AnXray, NekoBox, SFA**, dll.
 
 ## 📦 Instalasi
-• Unduh paket zip modul dari [RELEASE](https://github.com/taamarin/box_for_magisk/releases) dan instal melalui `Magisk/APatch/KernelSU`. Saat menginstal, Anda akan ditanya apakah akan mengunduh paket lengkap, Anda dapat memilih **unduhan lengkap** atau **unduhan terpisah** nanti, lalu mulai ulang perangkat.  
-• Module ini mendukung pembaruan Module langsung berikutnya di `Magisk/APatch/KernelSU Manager` (Module yang diperbarui akan berlaku tanpa me-reboot perangkat).  
+• Unduh paket ZIP modul dari [Releases](https://github.com/taamarin/box_for_magisk/releases), lalu instal melalui `Magisk/APatch/KernelSU`. Saat instalasi, Anda akan ditanya apakah ingin mengunduh paket lengkap. Anda dapat mengunduh semuanya sekaligus atau mengunduh file secara terpisah nanti. Setelah instalasi, mulai ulang perangkat.  
+• Modul ini mendukung pembaruan langsung melalui `Magisk/APatch/KernelSU Manager`, dan pembaruan akan berlaku tanpa perlu memulai ulang perangkat.  
 
 ### Pembaruan Kernel
 Modul ini mencakup kernel berikut:  
-• [clash](https://github.com/Dreamacro/clash)(repo dihapus)   
+• [clash](https://github.com/Dreamacro/clash) (repositori telah dihapus)   
 • [clash.meta](https://github.com/MetaCubeX/mihomo)   
 • [sing-box](https://github.com/SagerNet/sing-box)  
 • [v2ray-core](https://github.com/v2fly/v2ray-core)  
 • [Xray-core](https://github.com/XTLS/Xray-core)  
-• [hysteria]()  
+• [hysteria](https://v2.hysteria.network/)  
 
-Konfigurasi yang sesuai dengan kernel adalah `${bin_name}`, yang dapat diatur ke ( `clash` | `xray` | `v2ray` | `sing-box` | `hysteria`).  
-Setiap core bekerja di direktori `/data/adb/box/bin/${bin_name}`, nama core ditentukan oleh `bin_name` di file `/data/adb/box/settings.ini`.  
+Nama core yang digunakan ditentukan oleh `bin_name` dalam `settings.ini`. Nilai yang tersedia: `clash`, `sing-box`, `xray`, `v2fly`, dan `hysteria` (default: `clash`). Untuk core Clash, `xclash_option` memilih `mihomo` (default) atau `premium`.
+
+Setiap core dijalankan dari `/data/adb/box/bin/${bin_name}`. File konfigurasi berada di direktori yang sesuai dalam `/data/adb/box`, misalnya `clash/config.yaml`, `sing-box/config.json`, atau `hysteria/config.yaml`. Edit konfigurasi hanya saat BFR berhenti, dan sesuaikan port listener dengan `tproxy_port` (`9898`) serta `redir_port` (`9797`) di `settings.ini`.
 
 Pastikan Anda terhubung ke internet dan jalankan perintah berikut untuk memperbarui file kernel:  
 ```shell
@@ -30,62 +31,59 @@ Pastikan Anda terhubung ke internet dan jalankan perintah berikut untuk memperba
 su -c /data/adb/box/scripts/box.tool upkernel
 ```
 
-Jika Anda menggunakan `clash/sing-box` sebagai kernel yang dipilih, Anda mungkin juga perlu menjalankan perintah berikut untuk dapat menggunakan panel kontro(dashboard):  
+Jika Anda memilih `clash` atau `sing-box`, Anda mungkin juga perlu menjalankan perintah berikut untuk memasang panel kontrol (dashboard):  
 ```shell
 # Perbarui panel admin clash/sing-box
 su -c /data/adb/box/scripts/box.tool upxui
 ```
 
-Alternatifnya, Anda dapat melakukannya sekaligus (yang mungkin menghabiskan ruang penyimpanan secara tidak perlu):  
+Sebagai alternatif, Anda dapat memperbarui semuanya sekaligus, meskipun cara ini mungkin menggunakan ruang penyimpanan lebih banyak dari yang diperlukan:  
 ```shell
 # Perbarui semua file (termasuk berbagai jenis kernel dan GeoX)
 su -c /data/adb/box/scripts/box.tool all
 ```
 
 ## ⚙️ Konfigurasi
-**Layanan inti berikut disebut sebagai BFR**
-• Layanan inti berikut secara kolektif disebut sebagai BFR  
-• Anda dapat mengaktifkan atau menonaktifkan modul untuk memulai atau menghentikan layanan BFR secara real time melalui aplikasi Magisk/KernelSU Manager tanpa harus me-reboot perangkat. Memulai layanan mungkin memerlukan waktu beberapa detik, penghentian layanan akan segera berlaku. 
+**Layanan inti modul ini secara kolektif disebut BFR.**  
+• Anda dapat memulai atau menghentikan layanan BFR secara langsung dengan mengaktifkan atau menonaktifkan modul melalui aplikasi Magisk/KernelSU Manager, tanpa perlu memulai ulang perangkat. Layanan mungkin memerlukan beberapa detik untuk dimulai, sedangkan penghentian berlaku seketika.
 
-### konfigurasi inti
-• Untuk konfigurasi inti `bin_name`, silakan lihat bagian **Pembaruan Kernel** untuk konfigurasi.   
-• Setiap file konfigurasi inti perlu dikustomisasi oleh pengguna, dan skrip akan memeriksa validitas konfigurasi, dan hasil pemeriksaan akan disimpan di file `/data/adb/box/run/runs.log`.   
-• Tip: Baik `clash` dan `sing-box` datang dengan pra-konfigurasi dengan skrip proxy transparan. Untuk konfigurasi lebih lanjut, silakan merujuk ke dokumentasi resmi. Alamat: [dokumen resmi Clash](https://github.com/Dreamacro/clash/wiki/configuration) delete, [dokumen resmi sing-box](https://sing-box.sagernet.org/configuration/outbound/).  
+### Konfigurasi core
+• Untuk informasi tentang pemilihan core melalui `bin_name`, lihat bagian **Pembaruan Kernel**.   
+• Sesuaikan setiap file konfigurasi core sesuai kebutuhan. Skrip akan memeriksa validitas konfigurasi, dan hasilnya disimpan di `/data/adb/box/run/runs.log`.   
+• **Tips:** `clash` dan `sing-box` menyertakan skrip untuk proxy transparan. Untuk konfigurasi lebih lanjut, lihat dokumentasi resmi: [Clash](https://github.com/Dreamacro/clash/wiki/configuration) (branch master telah dihapus) dan [sing-box](https://sing-box.sagernet.org/configuration/outbound/).  
 
-### Menerapkan pemfilteran (blacklist/whitelist)
-• BFR menyediakan proxy untuk semua aplikasi (aplikasi) dari semua pengguna Android secara default.   
-• Jika Anda ingin BFR **mem-proxy semua aplikasi (aplikasi), kecuali beberapa aplikasi**, silakan buka file `/data/adb/box/package.list.cfg`, ubah nilai `mode` menjadi `blacklist` (default), tambahkan aplikasi yang akan dikecualika , misalnya:   
+### Memfilter aplikasi (daftar blokir/daftar izin)
+• Secara default, BFR mem-proxy lalu lintas dari semua aplikasi milik semua pengguna Android.   
+• Pengaturan filter aplikasi terdapat di `/data/adb/box/package.list.cfg`. Gunakan `mode:blacklist` (default) untuk mem-proxy semua aplikasi kecuali yang tercantum, atau `mode:whitelist` untuk hanya mem-proxy aplikasi yang tercantum. Tambahkan satu nama paket Android per baris; ID pengguna dapat ditambahkan sebagai awalan, misalnya `0:com.example.app`.   
   ↳ **com.termux**  
   ↳ **org.telegram.messenger**  
-• Jika Anda hanya ingin **mem-proxy aplikasi (aplikasi) tertentu**, gunakan `mode:whitelist`, dan tambahkan (aplikasi) yang hanya ingin di proxy, misalnya:   
+• Jika hanya ingin **mem-proxy aplikasi tertentu**, gunakan `mode:whitelist`, lalu tambahkan aplikasi yang ingin di-proxy, misalnya:   
   ↳ **com.termux**  
   ↳ **org.telegram.messenger**    
-> ⚠️ Jika CLASH digunakan, blacklist/whitelist tidak akan berlaku dalam mode fake-ip. 
+> ⚠️ Jika filter paket atau GID, atau aturan antarmuka `ignore`, digunakan saat Clash memakai mode fake-IP, BFR akan beralih ke redir-host saat startup untuk mode jaringan yang didukung.
 
 ### Proxy Transparan untuk Proses Tertentu
-• BFR secara default melakukan proxy transparan untuk semua proses.   
-• Jika Anda ingin BFR melakukan proxy untuk semua proses kecuali beberapa proses tertentu, buka berkas `/data/adb/box/package.list.cfg`, ubah nilai `mode` menjadi `blacklist` (nilai default), lalu tambahkan elemen GID, dengan GID dipisahkan oleh enter(↳). Ini akan mengakibatkan proses dengan GID yang sesuai **tidak diproksikan**.   
-• Jika Anda ingin hanya melakukan proxy transparan untuk proses tertentu, buka berkas `/data/adb/box/package.list.cfg`, ubah nilai `mode` menjadi `whitelist`, lalu tambahkan elemen GID, dengan GID dipisahkan oleh enter(↳). Ini akan mengakibatkan proses dengan GID yang sesuai **diproksikan**.   
-> ⚠️ Karena iptables Android tidak mendukung pencocokan ekstensi PID, pencocokan proses oleh Box dilakukan melalui pencocokan GID secara tidak langsung. Di Android dapat menggunakan perintah setuidgid busybox untuk memulai proses tertentu dengan UID tertentu, GID apa pun.
+• Secara default, BFR mem-proxy lalu lintas dari semua proses secara transparan.   
+• Filter proses menggunakan GID numerik di `/data/adb/box/gid.list.cfg`. Nilai `mode` di `package.list.cfg` juga menentukan apakah GID yang tercantum dikecualikan atau disertakan. Iptables Android tidak mencocokkan proses berdasarkan PID.
 
-### mengubah mode proxy
-• BFR menggunakan TPROXY untuk mem-proxy TCP+UDP secara transparan (default). Jika terdeteksi bahwa perangkat tidak mendukung TPROXY, buka `/data/adb/box/settings.ini` dan ubah `network_mode="tproxy"` menjadi `redirect` yang hanya menggunakan proxy TCP.   
-• redirect：redirect(TCP) + Direct(UDP)  
-• tproxy：tproxy(TCP + UDP)  
-• mixed：redirect(TCP) + tun(UDP).   
-• enhance: redirect(TCP) + tproxy(UDP)    
-• tun: TCP + UDP (auto-route)   
+### Mengubah mode jaringan
+• Secara default, BFR menggunakan TPROXY untuk mem-proxy lalu lintas TCP dan UDP secara transparan. Jika perangkat tidak mendukung TPROXY, buka `/data/adb/box/settings.ini` dan ubah `network_mode` menjadi `redirect`, yang hanya mem-proxy TCP.   
+• `redirect`: TCP menggunakan redirect; UDP tersambung langsung.  
+• `tproxy`: TCP dan UDP menggunakan TPROXY.  
+• `mixed`: TCP menggunakan redirect dan UDP melalui TUN.  
+• `enhance`: TCP menggunakan redirect dan UDP menggunakan TPROXY.    
+• `tun`: TCP dan UDP melalui antarmuka TUN dengan rute otomatis.  
+• Dukungan mode bergantung pada core: `xray` dan `v2fly` hanya menggunakan `tproxy`; `hysteria` mendukung `redirect`, `tproxy`, dan `enhance`. `clash` dan `sing-box` mendukung mode sesuai konfigurasi masing-masing.   
 
-### Lewati proxy transparan saat menghubungkan ke Wi-Fi atau hotspot
-• BFR secara transparan memproksi `localhost` dan `hotspot` (termasuk tethering USB) secara default.  
-• Buka file `/data/adb/box/ap.list.cfg`, tambahkan **ignore wlan+**, sehingga proxy transparan akan mem-bypass `wlan` dan `hotspot` **tidak akan terhubung ke proxy**.  
-• Buka file `/data/adb/box/ap.list.cfg`, tambahkan **allow wlan+**(konflik dengan **ignore wlan+**). BFR akan **mem-proxy hotspot** (mungkin **ap+ / wlan+** untuk perangkat **Mediatek**).  
-• Gunakan perintah `ifconfig` di Terminal untuk mengetahui nama AP.   
+### Melewati proxy transparan saat menggunakan Wi-Fi atau hotspot
+• Filter antarmuka jaringan terdapat di `/data/adb/box/ap.list.cfg`. Format `allow <prefix>` menyertakan antarmuka, sedangkan `ignore <prefix>` mengecualikannya. Awalnya, daftar `allow` mencakup `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+`, dan `eth+`.  
+• Untuk melewati proxy pada Wi-Fi, tambahkan `ignore wlan+` ke file tersebut. Agar lalu lintas hotspot tetap di-proxy, pastikan awalan antarmuka hotspot tercantum pada `allow`. Pada perangkat **MediaTek**, nama antarmukanya mungkin **ap+** atau **wlan+**.  
+• Jalankan perintah `ifconfig` di terminal untuk mengetahui nama antarmuka AP.   
 
-### Aktifkan Cron Job untuk memperbarui Geo dan Subs sesuai jadwal secara otomatis
-• Buka file `/data/adb/box/settings.ini`, ubah nilai `run_crontab=true`, `update_geo="true"`, `update_subscription="true"` dan atur `interva_update="@daily"` (default), sesuaikan dengan yang anda inginkan.   
-• Maka secara otomatis Geox dan Subs akan diperbarui sesuai jadwal interva_update.  
-• Anda bisa menambahkan **scheduled tasks** lainnya di `/data/adb/box/crontab.cfg`  
+### Menjadwalkan pembaruan Geo dan langganan
+• Buka `/data/adb/box/settings.ini` dan ubah `run_crontab="true"`. Aktifkan pembaruan yang diperlukan melalui `update_geo="true"` dan/atau `update_subscription="true"`. Perintah `subs` mendokumentasikan pembaruan langganan untuk `clash` saja.
+• Atur `interva_update` menggunakan sintaks cron. Nilai default-nya adalah `0 0,6,12,18 * * *` (empat kali sehari), bukan `@daily`.  
+• Anda dapat menambahkan tugas terjadwal lainnya di `/data/adb/box/crontab.cfg`.  
 ```shell
   # start
   su -c /data/adb/box/scripts/box.service cron
@@ -95,11 +93,11 @@ su -c /data/adb/box/scripts/box.tool all
 
 ## ▶️ Memulai & Menghentikan
 ### Masuk ke mode manual
-• Jika Anda ingin memiliki kontrol penuh atas BFR dengan menjalankan perintah, buat saja file baru bernama `/data/adb/box/manual`. Dalam hal ini, layanan BFR **tidak akan dimulai secara otomatis saat perangkat Anda dihidupkan)**, Anda juga tidak dapat mengatur mulai atau berhentinya layanan melalui aplikasi Magisk/KernelSU Manager.   
+• Untuk mengelola BFR secara manual melalui perintah, buat file `/data/adb/box/manual`. Dalam mode ini, layanan BFR **tidak akan dimulai otomatis saat perangkat dinyalakan**, dan Anda tidak dapat memulai atau menghentikan layanan melalui aplikasi Magisk/KernelSU Manager.   
 
 ### Memulai dan menghentikan layanan manajemen
-• Skrip layanan BFR adalah /data/adb/box/scripts/box.service    
-• Skrip Iptables BFR adalah /data/adb/box/scripts/box.iptables    
+• Skrip layanan BFR berada di `/data/adb/box/scripts/box.service`.    
+• Skrip iptables BFR berada di `/data/adb/box/scripts/box.iptables`.    
 
 ```shell
 # Mulai BFR
@@ -108,17 +106,17 @@ su -c /data/adb/box/scripts/box.tool all
 # Hentikan BFR
   su -c /data/adb/box/scripts/box.iptables disable && su -c /data/adb/box/scripts/box.service stop
 ```
-• Terminal akan mencetak log pada saat yang sama dan mengeluarkannya ke file log.   
+• Perintah tersebut akan menampilkan log di terminal sekaligus menyimpannya ke file log.   
 
 ## Langganan dan pembaruan basis data Geo
-Anda dapat memperbarui langganan dan basis data Geo secara bersamaan menggunakan perintah berikut:
+Untuk memperbarui langganan dan basis data Geo secara bersamaan, jalankan:
 ```shell
   su -c /data/adb/box/scripts/box.tool geosub
 ```
 
-Atau Anda dapat memperbaruinya satu per satu.
-### perbarui langganan
-• hanya mendukung untuk Clash   
+Anda juga dapat memperbaruinya secara terpisah.
+### Perbarui langganan
+• Perintah `subs` hanya mendukung Clash.
 ```shell
   su -c /data/adb/box/scripts/box.tool subs
 ```
@@ -128,25 +126,27 @@ Atau Anda dapat memperbaruinya satu per satu.
   su -c /data/adb/box/scripts/box.tool geox
 ```
 
-## 📘 Instruksi Tambahan
-• Saat memodifikasi salah satu file konfigurasi inti, pastikan konfigurasi terkait cocok dengan definisi di file `/data/adb/box/settings.ini`.    
-• Jika perangkat memiliki alamat IP publik, tambahkan IP tersebut ke jaringan internal di file `/data/adb/box/scripts/box.iptables` untuk mencegah pengulangan lalu lintas.   
-• Log untuk layanan BFR dapat ditemukan di direktori **/data/adb/box/run**.   
+## 📘 Petunjuk tambahan
+• Tugas cron tambahan dapat ditambahkan ke `/data/adb/box/crontab.cfg`.  
+• Dukungan IPv6 (`ipv6`) dan kontrol layanan berdasarkan status jaringan dinonaktifkan secara default. Pembatasan memori, CPU, dan I/O melalui cgroup juga dinonaktifkan secara default.    
+• Saat mengubah file konfigurasi core, pastikan pengaturan terkait TPROXY sesuai dengan definisi dalam `/data/adb/box/settings.ini`.    
+• Jika perangkat memiliki alamat IP publik, Anda dapat menambahkan IP tersebut ke jaringan internal dalam `/data/adb/box/scripts/box.iptables` untuk mencegah loop lalu lintas.   
+• Log layanan BFR tersimpan di direktori **/data/adb/box/run**.   
 
-Anda dapat menjalankan perintah berikut untuk mendapatkan instruksi operasi terkait lainnya:
+Jalankan perintah berikut untuk melihat petunjuk penggunaan lainnya:
 
 ```shell
   su -c /data/adb/box/scripts/box.tool
-  # usage: {check|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|all}
+  # usage: {check|memcg|cpuset|blkio|bond0|bond1|geosub|geox|subs|upkernel|upxui|upyq|upcurl|reload|webroot|all}
   su -c /data/adb/box/scripts/box.service
   # usage: $0 {start|stop|restart|status|cron|kcron}
   su -c /data/adb/box/scripts/box.iptables
   # usage: $0 {enable|disable|renew}
 ```
 
-## 🗑️ Uninstall
-• Instalasi yang menghapus modul ini dari Magisk/KernelSU Manager, akan menghapus file `/data/adb/service.d/box_service.sh` dan direktori data BFR di `/data/adb/box.`    
-• Anda dapat menghapus data BFR dengan perintah berikut:    
+## 🗑️ Menghapus instalasi
+• Menghapus modul ini melalui Magisk/KernelSU Manager juga akan menghapus file `/data/adb/service.d/box_service.sh` dan direktori data BFR di `/data/adb/box`.    
+• Untuk menghapus data BFR secara manual, jalankan perintah berikut:    
 
 ```shell
   su -c rm -rf /data/adb/box
