@@ -61,14 +61,14 @@ Supported modes depend on the selected core. `xray` and `v2fly` require `tproxy`
 - `/data/adb/box/gid.list.cfg` contains numeric group IDs (GIDs) for process filtering. The mode in `package.list.cfg` also determines whether listed GIDs are excluded or included.
 - `/data/adb/box/ap.list.cfg` controls network interfaces. `allow <prefix>` includes an interface and `ignore <prefix>` excludes one. The default allow-list includes `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+`, and `eth+`.
 
-Clash app filters do not apply in fake-IP mode.
+When package or GID filters, or an `ignore` interface rule, are configured while Clash uses fake-IP mode, BFR switches to redir-host at startup for supported network modes.
 
 ### Optional settings
 IPv6 support, network-state service control, and cgroup resource limits are disabled by default. To enable them, edit `settings.ini` while BFR is stopped:
 - Network-state service control: `enable_network_service_control`, `use_module_on_wifi_disconnect`, `use_module_on_wifi`, and the SSID matching options.
 - Resource limits: `cgroup_memcg` / `memcg_limit`, `cgroup_cpuset` / `allow_cpu`, and `cgroup_blkio` / `weight`.
 - IPv6 support: `ipv6`.
-- Scheduled Geo and subscription updates: set `run_crontab` and the relevant update options to `true`, then set the `interva_update` schedule. Its default is `0 0,6,12,18 * * *` (four times daily). Subscription updates are supported for `clash` and `sing-box`.
+- Scheduled Geo and subscription updates: set `run_crontab` and the relevant update options to `true`, then set the `interva_update` schedule. Its default is `0 0,6,12,18 * * *` (four times daily). The `subs` command documents subscription updates for `clash` only.
 
 ## Manage Service Start/Stop
 By default, BFR starts after boot. Enable or disable the module in the manager to start or stop its service. You can also use the installed `/dev/sbfr` command:
@@ -93,7 +93,7 @@ Run `box.tool help` to see all available commands:
 su -c /data/adb/box/scripts/box.tool help
 ```
 
-Commands include `check`, `geosub`, `geox`, `subs`, `upkernel`, `upxui`, `upyq`, `upcurl`, `reload`, `webroot`, `memcg`, `cpuset`, `blkio`, `bond0`, `bond1`, and `all`. Subscription updates are supported for `clash` and `sing-box`. Service commands are `start`, `stop`, `restart`, `status`, `cron`, and `kcron`; firewall commands are `enable`, `disable`, and `renew`.
+Commands include `check`, `geosub`, `geox`, `subs`, `upkernel`, `upxui`, `upyq`, `upcurl`, `reload`, `webroot`, `memcg`, `cpuset`, `blkio`, `bond0`, `bond1`, and `all`. The `subs` command documents subscription updates for `clash` only. Service commands are `start`, `stop`, `restart`, `status`, `cron`, and `kcron`; firewall commands are `enable`, `disable`, and `renew`.
 
 Logs are stored in `/data/adb/box/run`. For more detailed configuration guidance, see the [English guide](docs/index_en.md), [Indonesian guide](docs/index_id.md), and [Chinese guide](docs/index_zh.md).
 

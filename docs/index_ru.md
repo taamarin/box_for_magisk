@@ -18,7 +18,7 @@
 - [Xray-core](https://github.com/XTLS/Xray-core)
 - [Hysteria](https://v2.hysteria.network/)
 
-Задайте `bin_name` в `settings.ini`. Допустимые значения: `clash`, `sing-box`, `xray`, `v2fly` и `hysteria`.
+Задайте `bin_name` в `settings.ini`. Допустимые значения: `clash`, `sing-box`, `xray`, `v2fly` и `hysteria` (по умолчанию — `clash`). Для Clash параметр `xclash_option` выбирает `mihomo` (по умолчанию) или `premium`.
 
 Каждое ядро запускается из каталога `/data/adb/box/bin/${bin_name}`. Его конфигурация находится в одноименном каталоге `/data/adb/box`, например `clash/config.yaml`, `sing-box/config.json` или `hysteria/config.yaml`. Редактируйте конфигурацию только при остановленном BFM. Порты прослушивания должны соответствовать параметрам `tproxy_port` (`9898`) и `redir_port` (`9797`) в `settings.ini`.
 
@@ -57,7 +57,7 @@ su -c /data/adb/box/scripts/box.tool all
 - Для фильтрации процессов укажите числовые GID в `/data/adb/box/gid.list.cfg`. Значение `mode` в `package.list.cfg` определяет, исключать или включать перечисленные GID. iptables в Android не поддерживает сопоставление процессов по PID.
 - Фильтры сетевых интерфейсов задаются в `/data/adb/box/ap.list.cfg`: `allow <prefix>` включает интерфейс, а `ignore <prefix>` исключает его. По умолчанию разрешены префиксы `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+` и `eth+`.
 - Чтобы направить TCP- и UDP-трафик через автоматически маршрутизируемый интерфейс TUN, задайте `network_mode="tun"` в `settings.ini`. Этот режим поддерживают `clash` и `sing-box`.
-> **Примечание:** В Clash фильтры приложений не применяются в режиме fake-IP.
+> **Примечание:** Если для Clash в режиме fake-IP заданы фильтры пакетов или GID либо правило `ignore` для интерфейса, при запуске BFM переключается на redir-host (для поддерживаемых режимов сети).
 
 ### Изменение режима сети BFM
 - По умолчанию используется `tproxy`. Параметру `network_mode` в `settings.ini` можно присвоить одно из значений:
@@ -77,7 +77,7 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Автоматическое обновление Geo и подписок по расписанию
 - В файле `/data/adb/box/settings.ini` установите `run_crontab="true"`.
-- Установите `update_geo="true"` и/или `update_subscription="true"`, чтобы включить нужные обновления. Подписки поддерживаются для `clash` и `sing-box`.
+- Установите `update_geo="true"` и/или `update_subscription="true"`, чтобы включить нужные обновления. В справке команда `subs` указана как поддерживающая обновление подписок только для `clash`.
 - Задайте расписание cron в параметре `interva_update`. Значение по умолчанию — `0 0,6,12,18 * * *` (четыре раза в день), а не `@daily`.
 - Дополнительные задания cron можно добавить в `/data/adb/box/crontab.cfg`.
 - Сохраните изменения в файле конфигурации.

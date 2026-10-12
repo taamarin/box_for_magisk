@@ -21,8 +21,8 @@ Modul ini mencakup kernel berikut:
 • [Xray-core](https://github.com/XTLS/Xray-core)  
 • [hysteria](https://v2.hysteria.network/)  
 
-Nama core yang digunakan ditentukan oleh `${bin_name}`, yang dapat diatur ke `clash`, `xray`, `v2ray`, `sing-box`, atau `hysteria`.  
-Setiap core dijalankan dari direktori `/data/adb/box/bin/${bin_name}`. Nama core ditentukan oleh nilai `bin_name` dalam file `/data/adb/box/settings.ini`.  
+Nama core yang digunakan ditentukan oleh `bin_name` dalam `settings.ini`. Nilai yang tersedia: `clash`, `sing-box`, `xray`, `v2fly`, dan `hysteria` (default: `clash`). Untuk core Clash, `xclash_option` memilih `mihomo` (default) atau `premium`.  
+Setiap core dijalankan dari `/data/adb/box/bin/${bin_name}`. File konfigurasi berada di direktori yang sesuai dalam `/data/adb/box`, misalnya `clash/config.yaml`, `sing-box/config.json`, atau `hysteria/config.yaml`. Edit konfigurasi hanya saat BFR berhenti, dan sesuaikan port listener dengan `tproxy_port` (`9898`) serta `redir_port` (`9797`) di `settings.ini`.  
 
 Pastikan Anda terhubung ke internet dan jalankan perintah berikut untuk memperbarui file kernel:  
 ```shell
@@ -59,7 +59,7 @@ su -c /data/adb/box/scripts/box.tool all
 • Jika hanya ingin **mem-proxy aplikasi tertentu**, gunakan `mode:whitelist`, lalu tambahkan aplikasi yang ingin di-proxy, misalnya:   
   ↳ **com.termux**  
   ↳ **org.telegram.messenger**    
-> ⚠️ Jika menggunakan Clash, daftar blokir dan daftar izin tidak berlaku dalam mode fake-IP.
+> ⚠️ Jika filter paket atau GID, atau aturan antarmuka `ignore`, digunakan saat Clash memakai mode fake-IP, BFR akan beralih ke redir-host saat startup untuk mode jaringan yang didukung.
 
 ### Proxy Transparan untuk Proses Tertentu
 • Secara default, BFR mem-proxy lalu lintas dari semua proses secara transparan.   
@@ -80,7 +80,7 @@ su -c /data/adb/box/scripts/box.tool all
 • Jalankan perintah `ifconfig` di terminal untuk mengetahui nama antarmuka AP.   
 
 ### Menjadwalkan pembaruan Geo dan langganan
-• Buka `/data/adb/box/settings.ini` dan ubah `run_crontab="true"`. Aktifkan pembaruan yang diperlukan melalui `update_geo="true"` dan/atau `update_subscription="true"`. Pembaruan langganan mendukung `clash` dan `sing-box`.   
+• Buka `/data/adb/box/settings.ini` dan ubah `run_crontab="true"`. Aktifkan pembaruan yang diperlukan melalui `update_geo="true"` dan/atau `update_subscription="true"`. Perintah `subs` mendokumentasikan pembaruan langganan untuk `clash` saja.   
 • Atur `interva_update` menggunakan sintaks cron. Nilai default-nya adalah `0 0,6,12,18 * * *` (empat kali sehari), bukan `@daily`.  
 • Anda dapat menambahkan tugas terjadwal lainnya di `/data/adb/box/crontab.cfg`.  
 ```shell
@@ -115,7 +115,7 @@ Untuk memperbarui langganan dan basis data Geo secara bersamaan, jalankan:
 
 Anda juga dapat memperbaruinya secara terpisah.
 ### Perbarui langganan
-• Fitur ini hanya mendukung Clash.   
+• Perintah `subs` hanya mendukung Clash.   
 ```shell
   su -c /data/adb/box/scripts/box.tool subs
 ```

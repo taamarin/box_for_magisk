@@ -17,7 +17,7 @@ This module includes the following kernels:
 - [v2ray-core](https://github.com/v2fly/v2ray-core)
 - [Xray-core](https://github.com/XTLS/Xray-core)
 
-Set `bin_name` in `settings.ini` to the core you want to use: `clash`, `sing-box`, `xray`, `v2fly`, or `hysteria`.
+Set `bin_name` in `settings.ini` to the core you want to use: `clash`, `sing-box`, `xray`, `v2fly`, or `hysteria` (the default is `clash`). For Clash, `xclash_option` selects `mihomo` (the default) or `premium`.
 
 Each core runs from `/data/adb/box/bin/${bin_name}`. Its configuration is in the matching directory under `/data/adb/box`: for example, `clash/config.yaml`, `sing-box/config.json`, or `hysteria/config.yaml`. Edit core configurations only while BFM is stopped, and keep their listener ports consistent with `tproxy_port` (`9898`) and `redir_port` (`9797`) in `settings.ini`.
 
@@ -57,7 +57,7 @@ su -c /data/adb/box/scripts/box.tool all
 - Process filtering uses numeric GIDs in `/data/adb/box/gid.list.cfg`. The `mode` in `package.list.cfg` also determines whether listed GIDs are excluded or included. Android's iptables does not match processes by PID.
 - Network-interface filters are in `/data/adb/box/ap.list.cfg`: `allow <prefix>` includes an interface and `ignore <prefix>` excludes it. The default allow-list includes `ap+`, `wlan+`, `rndis+`, `swlan+`, `ncm+`, and `eth+`; add an `ignore` entry to exclude an interface.
 - Set `network_mode` in `settings.ini` to `tun` to route TCP and UDP through an auto-routed TUN interface. TUN mode is supported by `clash` and `sing-box`.
-> **Note:** When using Clash, app filters do not apply in fake-IP mode.
+> **Note:** If package or GID filters, or an `ignore` interface rule, are configured while Clash uses fake-IP mode, BFM switches to redir-host at startup for supported network modes.
 
 ### Change BFM's network mode
 - The default is `tproxy`. Set `network_mode` in `settings.ini` to one of these modes:
@@ -77,7 +77,7 @@ su -c /data/adb/box/scripts/box.tool all
 
 ### Schedule automatic Geo and subscription updates
 - Edit `/data/adb/box/settings.ini` and set `run_crontab="true"`.
-- Set `update_geo="true"` and/or `update_subscription="true"` to enable the updates you want. Subscription updates are supported for `clash` and `sing-box`.
+- Set `update_geo="true"` and/or `update_subscription="true"` to enable the updates you want. The `subs` command documents subscription updates for `clash` only.
 - Set `interva_update` to your preferred cron schedule. The default is `0 0,6,12,18 * * *` (four times a day), not `@daily`.
 - Optional custom cron tasks can be added to `/data/adb/box/crontab.cfg`.
 - Save the changes to the configuration file.
